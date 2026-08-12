@@ -20,10 +20,13 @@ FastAPI dependencies provide the replaceable boundaries:
 - `DATABASE_URL` selects PostgreSQL in dev/prod or SQLite in tests.
 - `STORAGE_ROOT` selects local filesystem storage.
 - JWT settings select signing key and token lifetime.
+- `FRONTEND_ORIGINS` configures CORS allowed origins and defaults to `http://localhost:5173,http://localhost:3000` for local Vite/React development.
 
 No Supabase dependency is added.
 
 Multi-row workflows commit atomically with one SQLAlchemy transaction per request. Apply, withdraw, recruiter approval, job status updates, set-default resume, and resume metadata creation must not leave partial database state.
+
+FastAPI must install `CORSMiddleware` using `FRONTEND_ORIGINS`, allow credentials, allow standard HTTP methods, and allow `Authorization` plus upload headers so browser calls from the later frontend work when the API runs on `localhost:8000`.
 
 ## Data Model
 
@@ -133,12 +136,14 @@ Pytest uses SQLite and temporary local storage for the regular suite. Required t
 - Auth/register/profile creation.
 - Candidate cannot access others' private data.
 - Resume upload validation and first-default behavior.
+- Resume upload rollback deletes the saved file when metadata commit fails and does not create metadata when file write fails.
 - Apply flow snapshots resume and creates pending stage.
 - Duplicate apply rejected.
 - Candidate withdraw updates `current_status`.
 - Recruiter can add stages for own company applications.
 - Admin approval provisions company, membership, and recruiter role.
 - Published job requires verified company and future deadline.
+- Signed CV download revalidates access and rejects revoked or unauthorized requester access before streaming.
 
 PostgreSQL integration tests are marked `postgres`. Local runs may skip them when `TEST_DATABASE_URL` is not set, but CI must set `TEST_DATABASE_URL` and run the `test-postgres` command. They run Alembic migrations against PostgreSQL and verify signup, resume default uniqueness, recruiter approval provisioning, publishing constraints, and application duplicate constraints.
 

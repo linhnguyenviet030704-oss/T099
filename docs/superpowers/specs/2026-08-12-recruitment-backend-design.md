@@ -2,11 +2,11 @@
 
 ## Goal
 
-Build the first backend API for the recruitment portal so the existing frontend can integrate later. The backend provides local email/password JWT auth, role-based recruitment workflows, resume storage, PostgreSQL schema migrations, SQLite-backed tests, and seed data.
+Build the first backend API for the recruitment portal so the existing frontend can integrate later. The backend provides local email/password JWT auth, role-based recruitment workflows, resume storage, PostgreSQL schema migrations, SQLite-backed tests, a small PostgreSQL integration test path, and seed data.
 
 ## Approved Approach
 
-Use a sync SQLAlchemy 2.x FastAPI monolith. This is the smallest shape that covers the behavior, is easy to test, and avoids speculative layers. PostgreSQL is the default runtime database through `DATABASE_URL`; pytest overrides the database with SQLite.
+Use a sync SQLAlchemy 2.x FastAPI monolith. This is the smallest shape that covers the behavior, is easy to test, and avoids speculative layers. PostgreSQL is the default runtime database through `DATABASE_URL`; most pytest tests override the database with SQLite, and a marked integration path runs migrations plus core workflows against PostgreSQL.
 
 Skipped alternatives:
 - Async SQLAlchemy: more setup without a current need.
@@ -37,7 +37,17 @@ Tables match the requested fields:
 - `application_stages`
 - `recruiter_registration_forms`
 
-Enums are stored as strings. Database constraints cover `saved_jobs(user_id, job_post_id)` and duplicate applications with `applications(job_post_id, applicant_user_id)`. Application code enforces workflow-specific rules such as one pending recruiter request per user and default-resume updates.
+Enums are stored as strings. Database constraints and indexes cover:
+- unique normalized profile email;
+- unique company slug;
+- unique lower-case company name for case-insensitive find-or-create;
+- unique company membership per `(company_id, user_id)`;
+- unique saved jobs per `(user_id, job_post_id)`;
+- unique applications per `(job_post_id, applicant_user_id)`;
+- one default active resume per user with a partial unique index where `is_default = true` and `deleted_at IS NULL`;
+- one pending recruiter request per user with a partial unique index where `status = 'pending'`.
+
+Application code still handles user-friendly workflow errors before commit, but the database is the final guard for uniqueness and race-prone defaults.
 
 Passwords are stored in a small `auth_accounts` table keyed to `profiles.id`. Keeping auth separate from `profiles` avoids adding password columns to the requested profile shape while staying simple.
 
@@ -48,7 +58,7 @@ Auth:
 - `POST /api/auth/signin` returns a bearer JWT.
 - `GET /api/auth/me` returns the current profile.
 - `POST /api/auth/signout` is a no-op for frontend compatibility.
-- Refresh is skipped for now; short local JWTs are enough until the frontend needs silent refresh.
+- Refresh is skipped for now. The frontend must handle token expiry by redirecting to sign-in.
 
 Profiles:
 - Users can read and update their own profile.
@@ -62,6 +72,7 @@ Resumes:
 - First active upload becomes default.
 - Users can list, rename, set default, get a 180-second backend download token, and soft-delete unused active resumes.
 - Soft-delete is rejected if the resume is used by any application.
+- Resume download access is limited to the candidate owner, admins, or active owner/recruiter members of the company for a job application that contains that resume snapshot.
 
 Jobs and saved jobs:
 - Public users can list and view published jobs with company data.
@@ -93,9 +104,9 @@ Recruiter workspace:
 - `published_at` and `closed_at` are set automatically.
 - Manual `pending` stages are rejected.
 - Same-stage transitions are rejected.
-- Terminal applications cannot move further except by admin when explicitly allowed by the route flag.
+- Terminal applications cannot move further. No route flag bypass is added.
 
-Health:
+Health endpoints are intentionally outside `/api` so container and platform checks stay stable:
 - `GET /health`
 - `GET /health/db`
 
@@ -109,9 +120,11 @@ Errors use:
 
 Route helpers raise `HTTPException` with that body. Validation errors stay as FastAPI's default 422 response.
 
+Implementation must add a FastAPI exception handler for `HTTPException` so route helpers that set `detail={"detail": "...", "code": "..."}` return that object directly instead of nesting it. Non-dict HTTP details are normalized to `{"detail": str(detail), "code": "HTTP_ERROR"}`.
+
 ## Tests
 
-Pytest uses SQLite and temporary local storage. Required tests cover:
+Pytest uses SQLite and temporary local storage for the regular suite. Required tests cover:
 - Auth/register/profile creation.
 - Candidate cannot access others' private data.
 - Resume upload validation and first-default behavior.
@@ -121,6 +134,8 @@ Pytest uses SQLite and temporary local storage. Required tests cover:
 - Recruiter can add stages for own company applications.
 - Admin approval provisions company, membership, and recruiter role.
 - Published job requires verified company and future deadline.
+
+PostgreSQL integration tests are marked `postgres` and run only when `TEST_DATABASE_URL` is set. They run Alembic migrations against PostgreSQL and verify signup, resume default uniqueness, recruiter approval provisioning, publishing constraints, and application duplicate constraints.
 
 ## Dev Commands
 
@@ -148,6 +163,13 @@ Run tests:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests -v
+```
+
+Run PostgreSQL integration tests:
+
+```powershell
+$env:TEST_DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/recruitment_test"
+.\.venv\Scripts\python.exe -m pytest tests -m postgres -v
 ```
 
 ## Out Of Scope

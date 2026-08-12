@@ -23,6 +23,8 @@ FastAPI dependencies provide the replaceable boundaries:
 
 No Supabase dependency is added.
 
+Multi-row workflows commit atomically with one SQLAlchemy transaction per request. Apply, withdraw, recruiter approval, job status updates, set-default resume, and resume metadata creation must not leave partial database state.
+
 ## Data Model
 
 Tables match the requested fields:
@@ -74,6 +76,8 @@ Resumes:
 - Users can list, rename, set default, get a 180-second backend download token, and soft-delete unused active resumes.
 - Soft-delete is rejected if the resume is used by any application.
 - Resume download access is limited to the candidate owner, admins, or active owner/recruiter members of the company for a job application that contains that resume snapshot.
+- Upload rollback behavior is explicit: if the file write fails, no resume row is committed; if the file save succeeds but the database commit fails, the saved file is deleted.
+- Signed download tokens contain `storage_path`, `requester_id`, and expiry. The download endpoint revalidates access before streaming; issuing the token is not the only authorization check.
 
 Jobs and saved jobs:
 - Public users can list and view published jobs with company data.
@@ -176,10 +180,10 @@ $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/re
 One explicit command must exist for CI and local use:
 
 ```powershell
-make test-postgres
+.\.venv\Scripts\python.exe -m pytest tests -m postgres -v
 ```
 
-GitHub Actions must include a PostgreSQL service job that sets `TEST_DATABASE_URL` and runs `make test-postgres`.
+GitHub Actions must include a PostgreSQL service job that sets `TEST_DATABASE_URL` and runs the same Python pytest command.
 
 ## Out Of Scope
 

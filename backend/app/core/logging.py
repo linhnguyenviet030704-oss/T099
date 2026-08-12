@@ -8,18 +8,24 @@ from typing import Any
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
 
 
+class _RequestIdFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        if not hasattr(record, "request_id"):
+            record.request_id = request_id_ctx.get() or "-"
+        return super().format(record)
+
+
 def configure_logging(level: str = "INFO") -> None:
-    logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s [%(name)s] request_id=%(request_id)s %(message)s",
+    root = logging.getLogger()
+    root.handlers.clear()
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        _RequestIdFormatter(
+            "%(asctime)s %(levelname)s [%(name)s] request_id=%(request_id)s %(message)s"
+        )
     )
-    logging.getLogger().addFilter(_RequestIdFilter())
-
-
-class _RequestIdFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        record.request_id = request_id_ctx.get() or "-"
-        return True
+    root.addHandler(handler)
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
 
 
 def new_request_id() -> str:

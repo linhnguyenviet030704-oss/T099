@@ -1,0 +1,38 @@
+---
+description: FastAPI + Supabase layered architecture for backend/
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend architecture
+
+Stack: FastAPI in `backend/app/`, Supabase for Postgres/Auth/Storage, migrations in `supabase/migrations/`.
+
+## Layers (required)
+
+```text
+api/ → schemas/ → services/ → repositories/ → Supabase
+dependencies/ → auth, DI
+core/ → config, security, logging
+```
+
+- Routes: validate input, resolve current user, call service, return response model.
+- No business logic in routes. No Supabase queries in routes.
+- Repositories: persistence only — no `HTTPException`, no business rules.
+- Import `settings` from `core.config` — never scatter `os.getenv()`.
+
+## AuthZ
+
+- Authenticate via Supabase JWT (`Authorization: Bearer`).
+- Never trust client-sent `user_id` / `role` / `email` when JWT can provide them.
+- Check ownership/roles in the service. Service-role bypasses RLS — backend must enforce authz.
+
+## API
+
+- REST under `/api/v1/...` (`GET/POST/PATCH/DELETE` resources).
+- Every public endpoint has a Pydantic response model (no raw DB dumps).
+- Errors: clear 4xx/5xx, no stack traces, SQL, keys, or secrets in responses.
+
+## When implementing a feature
+
+Requirement → migration (table/index/FK/RLS) → schema → repository → service → route → authz → tests.

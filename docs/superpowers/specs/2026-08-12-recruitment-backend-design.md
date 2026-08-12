@@ -1,5 +1,7 @@
 # Recruitment Backend Design
 
+> **Superseded (2026-08-12):** This document described a sync SQLAlchemy + local JWT backend **without Supabase**. The project now follows FastAPI + Supabase Auth/Postgres (`backend/app/` + `supabase/migrations/`). Keep this file only as historical context for the domain model / API surface ideas.
+
 ## Goal
 
 Build the first backend API for the recruitment portal so the existing frontend can integrate later. The backend provides local email/password JWT auth, role-based recruitment workflows, resume storage, PostgreSQL schema migrations, SQLite-backed tests, a small PostgreSQL integration test path, and seed data.

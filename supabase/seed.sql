@@ -1,0 +1,2 @@
+-- Local seed data. Auth users are created via Supabase Auth / dashboard / tests.
+-- Keep empty until invite/seed workflows exist.

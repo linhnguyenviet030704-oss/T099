@@ -1,0 +1,6 @@
+{
+  "name": "Recruitment Portal",
+  "description": "Cổng tuyển dụng toàn diện dành cho ứng viên, nhà tuyển dụng và quản trị viên, kết nối trực tiếp Supabase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

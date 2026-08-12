@@ -14,7 +14,7 @@ Skipped alternatives:
 
 ## Architecture
 
-The API lives under `/api` and is split into focused routers for auth, profiles, resumes, jobs, applications, recruiter requests, recruiter workspace, admin, and health. Shared helpers cover database sessions, settings, password hashing, JWT handling, current-user dependencies, role checks, storage paths, and API errors.
+The API lives under `/api` and is split into focused routers for auth, profiles, resumes, jobs, applications, recruiter requests, recruiter workspace, and admin. Shared helpers cover database sessions, settings, password hashing, JWT handling, current-user dependencies, role checks, storage paths, and API errors.
 
 FastAPI dependencies provide the replaceable boundaries:
 - `DATABASE_URL` selects PostgreSQL in dev/prod or SQLite in tests.
@@ -67,6 +67,7 @@ Profiles:
 
 Resumes:
 - Candidates upload PDF, DOC, or DOCX files up to 10 MB.
+- Upload validation checks extension, uploaded content type, safe filename normalization, and final path containment under `STORAGE_ROOT`. No deep document parsing is added.
 - Files are saved at `storage/resumes/{user_id}/resumes/{resume_id}/{safe_filename}`.
 - `storage_path` is `{user_id}/resumes/{resume_id}/{safe_filename}`.
 - First active upload becomes default.
@@ -87,7 +88,7 @@ Applications:
 - Resume metadata is copied into application snapshot fields.
 - Applying creates an initial system `pending` stage.
 - Candidates can list their applications with job, company, and stages.
-- Candidates can withdraw unless already accepted, rejected, or withdrawn; withdrawal inserts a system `withdrawn` stage and updates `current_status`.
+- Candidates can withdraw unless already accepted, rejected, or withdrawn; withdrawal inserts a `withdrawn` stage with `changed_by_user_id` set to the candidate and `is_system_generated = false`, then updates `current_status`.
 
 Recruiter requests:
 - Candidates can submit or update one pending recruiter registration form.
@@ -135,7 +136,7 @@ Pytest uses SQLite and temporary local storage for the regular suite. Required t
 - Admin approval provisions company, membership, and recruiter role.
 - Published job requires verified company and future deadline.
 
-PostgreSQL integration tests are marked `postgres` and run only when `TEST_DATABASE_URL` is set. They run Alembic migrations against PostgreSQL and verify signup, resume default uniqueness, recruiter approval provisioning, publishing constraints, and application duplicate constraints.
+PostgreSQL integration tests are marked `postgres`. Local runs may skip them when `TEST_DATABASE_URL` is not set, but CI must set `TEST_DATABASE_URL` and run the `test-postgres` command. They run Alembic migrations against PostgreSQL and verify signup, resume default uniqueness, recruiter approval provisioning, publishing constraints, and application duplicate constraints.
 
 ## Dev Commands
 
@@ -171,6 +172,14 @@ Run PostgreSQL integration tests:
 $env:TEST_DATABASE_URL="postgresql+psycopg://postgres:postgres@localhost:5432/recruitment_test"
 .\.venv\Scripts\python.exe -m pytest tests -m postgres -v
 ```
+
+One explicit command must exist for CI and local use:
+
+```powershell
+make test-postgres
+```
+
+GitHub Actions must include a PostgreSQL service job that sets `TEST_DATABASE_URL` and runs `make test-postgres`.
 
 ## Out Of Scope
 

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase, handleSupabaseError } from '../lib/supabase';
 import { useAuth } from '../auth/AuthProvider';
+import { apiJson } from '../lib/api';
 import { JobPost, Resume, Application } from '../types';
 import { formatCurrency, formatDate, ENUM_LABELS } from '../lib/format';
 
@@ -34,7 +35,7 @@ const getMarketSalaryInsight = (job: JobPost) => {
 
 export const JobDetailPage: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   const [job, setJob] = useState<JobPost | null>(null);
   const [similarJobs, setSimilarJobs] = useState<JobPost[]>([]);
@@ -212,6 +213,14 @@ export const JobDetailPage: React.FC = () => {
         .single();
 
       if (error) throw error;
+
+      if (session?.access_token) {
+        void apiJson(`/resumes/${selectedResumeId}/ingest`, session.access_token, {
+          method: 'POST',
+        }).catch(() => {
+          // ponytail: apply already succeeded; retrieve will ingest lazily
+        });
+      }
 
       setSuccess(true);
       setExistingApp(data as Application);

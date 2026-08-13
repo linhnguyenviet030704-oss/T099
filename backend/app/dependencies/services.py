@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from agent.graph import build_matching_graph
 from backend.app.dependencies.supabase import get_supabase_client
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.admin_service import AdminService
-from backend.app.services.chat_service import ChatService
+from backend.app.services.chat_service import ChatService, chat_response_from_graph
+from backend.app.services.matching.retrieve import retrieve_for_job
+from backend.app.services.matching.store import SupabaseResumeStore
 from backend.app.services.profile_service import ProfileService
 from backend.app.services.recommend import (
     assert_recruiter_job_access,
@@ -28,6 +31,8 @@ def get_profile_service(
 
 
 def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatService:
+    store = SupabaseResumeStore(client)
+
     async def fetch_jobs() -> list:
         return await list_published_jobs(client)
 
@@ -37,7 +42,16 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
     async def assert_access(actor_id, job_id):
         await assert_recruiter_job_access(client, actor_id, job_id)
 
-    return ChatService(fetch_jobs, fetch_candidates, assert_access)
+    async def retrieve(job_id):
+        return await retrieve_for_job(client, job_id, store=store)
+
+    graph = build_matching_graph(retrieve=retrieve)
+
+    async def match_candidates(job_id):
+        result = await graph.ainvoke({"job_id": str(job_id)})
+        return chat_response_from_graph(result)
+
+    return ChatService(fetch_jobs, fetch_candidates, assert_access, match_candidates)
 
 
 def get_admin_service(

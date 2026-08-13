@@ -14,6 +14,12 @@ langchain>=0.3.0
 langchain-openai>=0.3.0
 langgraph>=0.2.0
 
+# File upload / CV parse
+pypdf>=5.0.0
+
+# Embeddings (384-d MiniLM). Tests inject encode= and must not call this.
+fastembed>=0.4.0
+
 # Dev tools
 ruff>=0.8.0
 pytest>=8.0.0

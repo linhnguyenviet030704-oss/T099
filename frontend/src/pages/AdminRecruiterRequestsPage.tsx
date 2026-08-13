@@ -16,12 +16,13 @@ import {
   Database
 } from 'lucide-react';
 import { supabase, handleSupabaseError } from '../lib/supabase';
+import { apiJson } from '../lib/api';
 import { useAuth } from '../auth/AuthProvider';
 import { RecruiterRegistrationForm, Profile } from '../types';
 import { formatDate, ENUM_LABELS } from '../lib/format';
 
 export const AdminRecruiterRequestsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { session } = useAuth();
 
   const [forms, setForms] = useState<RecruiterRegistrationForm[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
@@ -98,7 +99,7 @@ export const AdminRecruiterRequestsPage: React.FC = () => {
 
   // Approve / Reject registration form filings
   const handleReviewForm = async (formId: string, decision: 'approved' | 'rejected') => {
-    if (!supabase || !user) return;
+    if (!session?.access_token) return;
     setSuccessMsg(null);
 
     const note = adminNotes[formId] || '';
@@ -110,26 +111,19 @@ export const AdminRecruiterRequestsPage: React.FC = () => {
     try {
       setSavingId(formId);
 
-      const payload = {
-        status: decision,
-        admin_note: note.trim() || null,
-        reviewed_by_user_id: user.id,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase
-        .from('recruiter_registration_forms')
-        .update(payload)
-        .eq('id', formId);
-
-      if (error) throw error;
+      await apiJson(`/admin/recruiter-forms/${formId}/review`, session.access_token, {
+        method: 'POST',
+        body: JSON.stringify({
+          decision,
+          admin_note: note.trim() || null,
+        }),
+      });
 
       setSuccessMsg(`Đã ${decision === 'approved' ? 'Phê duyệt' : 'Từ chối'} hồ sơ và cập nhật hệ quản trị thành công!`);
       await fetchAdminOnboardWorkspace();
     } catch (err: any) {
       console.error('Review application filing error:', err);
-      alert(handleSupabaseError(err));
+      alert(err.message || handleSupabaseError(err));
     } finally {
       setSavingId(null);
     }

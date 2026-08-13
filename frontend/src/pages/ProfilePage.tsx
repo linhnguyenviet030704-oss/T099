@@ -23,6 +23,7 @@ import {
   Layers
 } from 'lucide-react';
 import { supabase, handleSupabaseError } from '../lib/supabase';
+import { apiJson } from '../lib/api';
 import { useAuth } from '../auth/AuthProvider';
 import { useCurrentProfile } from '../profile/ProfileProvider';
 import { Profile, UserProfileLine } from '../types';
@@ -311,20 +312,18 @@ export const ProfilePage: React.FC = () => {
     setCvMode(true);
   };
 
-  // Change user role (Admin action only)
-  const handleUpdateUserRole = async (targetUserId: string, newRole: any) => {
-    if (!supabase || !isAdmin) return;
+  // Change user role (Admin action only — FastAPI + service_role)
+  const handleUpdateUserRole = async (targetUserId: string, newRole: Profile['role']) => {
+    if (!session?.access_token || !isAdmin) return;
     setAdminMessage(null);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole, updated_at: new Date().toISOString() })
-        .eq('id', targetUserId);
-
-      if (error) throw error;
+      await apiJson(`/admin/profiles/${targetUserId}`, session.access_token, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: newRole }),
+      });
       
-      setAdminMessage(`Cập nhật vai trò người dùng thành [${ENUM_LABELS.profile_role[newRole as keyof typeof ENUM_LABELS.profile_role]}] thành công!`);
+      setAdminMessage(`Cập nhật vai trò người dùng thành [${ENUM_LABELS.profile_role[newRole]}] thành công!`);
       fetchAdminProfiles();
       
       // If updating ourself, reload profile too
@@ -333,7 +332,7 @@ export const ProfilePage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Admin role update error:', err);
-      setAdminMessage(handleSupabaseError(err));
+      setAdminMessage(err.message || handleSupabaseError(err));
     }
   };
 
@@ -501,7 +500,7 @@ export const ProfilePage: React.FC = () => {
                       className="w-full px-3.5 py-2 bg-slate-950/70 border border-slate-800/60 rounded-xl text-slate-400 text-xs cursor-not-allowed uppercase font-mono tracking-widest font-semibold"
                     />
                     <p className="text-[9px] text-amber-500/80 font-mono mt-1">
-                      ⚠️ Việc đổi vai trò trực tiếp từ client bị khóa bởi phân quyền RLS ở database.
+                      Việc đổi vai trò đi qua API admin (service_role), không phải client RLS.
                     </p>
                   </div>
 

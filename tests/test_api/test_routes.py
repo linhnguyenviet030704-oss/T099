@@ -7,12 +7,19 @@ async def test_health(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
+    assert "env" not in data
+
+
+@pytest.mark.asyncio
+async def test_chat_requires_auth(client):
+    response = await client.post("/api/v1/chat", json={"message": "hello"})
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_chat_empty_message(client):
     response = await client.post("/api/v1/chat", json={"message": ""})
-    assert response.status_code == 422
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio

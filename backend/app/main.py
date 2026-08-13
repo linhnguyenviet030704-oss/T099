@@ -23,11 +23,15 @@ async def lifespan(_app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    is_prod = settings.app_env == "production"
     app = FastAPI(
         title=settings.app_name,
         description="Recruitment API (FastAPI + Supabase)",
         version="1.0.0",
         lifespan=lifespan,
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
     )
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
@@ -64,7 +68,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def root_health() -> dict[str, str]:
-        return {"status": "ok", "env": settings.app_env}
+        return {"status": "ok"}
 
     return app
 

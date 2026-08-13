@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -58,6 +58,62 @@ class ProfileRepository:
 
         row = await asyncio.to_thread(_query)
         return _to_profile(row) if row else None
+
+    async def set_role(self, profile_id: UUID, role: ProfileRole) -> Profile | None:
+        def _query() -> dict[str, Any] | None:
+            result = (
+                self._client.table("profiles")
+                .update({"role": role})
+                .eq("id", str(profile_id))
+                .select("*")
+                .maybe_single()
+                .execute()
+            )
+            return result.data
+
+        row = await asyncio.to_thread(_query)
+        return _to_profile(row) if row else None
+
+    async def get_recruiter_form(self, form_id: UUID) -> dict[str, Any] | None:
+        def _query() -> dict[str, Any] | None:
+            result = (
+                self._client.table("recruiter_registration_forms")
+                .select("*")
+                .eq("id", str(form_id))
+                .maybe_single()
+                .execute()
+            )
+            return result.data
+
+        return await asyncio.to_thread(_query)
+
+    async def update_recruiter_form(
+        self,
+        form_id: UUID,
+        *,
+        status: str,
+        admin_note: str | None,
+        reviewed_by_user_id: UUID,
+    ) -> dict[str, Any] | None:
+        def _query() -> dict[str, Any] | None:
+            result = (
+                self._client.table("recruiter_registration_forms")
+                .update(
+                    {
+                        "status": status,
+                        "admin_note": admin_note,
+                        "reviewed_by_user_id": str(reviewed_by_user_id),
+                        "reviewed_at": datetime.now(UTC).isoformat(),
+                    }
+                )
+                .eq("id", str(form_id))
+                .select("*")
+                .maybe_single()
+                .execute()
+            )
+            return result.data
+
+        return await asyncio.to_thread(_query)
 
 
 def _to_profile(row: dict[str, Any]) -> Profile:

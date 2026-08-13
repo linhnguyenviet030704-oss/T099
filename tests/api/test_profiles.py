@@ -90,7 +90,9 @@ async def api_client():
 async def test_health(api_client: AsyncClient):
     response = await api_client.get("/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    body = response.json()
+    assert body["status"] == "ok"
+    assert "env" not in body
 
 
 @pytest.mark.asyncio
@@ -167,6 +169,38 @@ async def test_patch_my_profile_does_not_accept_role(api_client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_chat_requires_auth(api_client: AsyncClient):
+    response = await api_client.post("/api/v1/chat", json={"message": "hello"})
+    assert response.status_code == 401
+    assert response.json()["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
 async def test_chat_empty_message(api_client: AsyncClient):
-    response = await api_client.post("/api/v1/chat", json={"message": ""})
+    response = await api_client.post(
+        "/api/v1/chat",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+        json={"message": ""},
+    )
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_admin_set_role_forbidden_for_candidate(api_client: AsyncClient):
+    user_id = uuid4()
+    profile = Profile(
+        id=user_id,
+        email="user@example.com",
+        full_name="Ada",
+        phone=None,
+        avatar_url=None,
+        role="candidate",
+    )
+    app.dependency_overrides[get_profile_service] = lambda: _FakeProfileService(profile)
+    response = await api_client.patch(
+        f"/api/v1/admin/profiles/{uuid4()}",
+        headers={"Authorization": f"Bearer {_make_token(sub=str(user_id))}"},
+        json={"role": "recruiter"},
+    )
+    assert response.status_code == 403
+    assert response.json()["code"] == "FORBIDDEN"

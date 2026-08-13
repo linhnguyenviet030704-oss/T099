@@ -138,7 +138,9 @@ API hiện có:
 | `GET` | `/api/v1/health` | No |
 | `GET` | `/api/v1/profiles/me` | Bearer JWT |
 | `PATCH` | `/api/v1/profiles/me` | Bearer JWT |
-| `POST` | `/api/v1/chat` | No (LLM; cần `OPENAI_API_KEY` nếu gọi thật) |
+| `POST` | `/api/v1/chat` | Bearer JWT (rate limited) |
+| `PATCH` | `/api/v1/admin/profiles/{id}` | Bearer JWT (admin) |
+| `POST` | `/api/v1/admin/recruiter-forms/{id}/review` | Bearer JWT (admin) |
 
 ### 5. Frontend
 

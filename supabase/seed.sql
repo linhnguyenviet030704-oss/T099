@@ -70,6 +70,7 @@ declare
   job_ids uuid[] := '{}';
   applicant_ids uuid[] := '{}';
   form_user_ids uuid[] := '{}';
+  recruiter_pool uuid[] := '{}';
   full_name text;
   email text;
   title text;
@@ -167,8 +168,10 @@ begin
     where id in (select unnest(user_ids[4:8]));
   alter table public.profiles enable trigger profiles_protect_role;
 
+  recruiter_pool := array[recruiter_id] || user_ids[4:8];
+
   ---------------------------------------------------------------------------
-  -- 20 companies + 200 published jobs
+  -- 20 companies + 200 published jobs (authorship spread across recruiters)
   ---------------------------------------------------------------------------
   for i in 1..array_length(company_names, 1) loop
     cid := ('a0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
@@ -188,6 +191,11 @@ begin
     );
     insert into public.company_members (company_id, user_id, role, is_active)
     values (cid, recruiter_id, 'owner', true);
+    for j in 2..array_length(recruiter_pool, 1) loop
+      insert into public.company_members (company_id, user_id, role, is_active)
+      values (cid, recruiter_pool[j], 'recruiter', true)
+      on conflict (company_id, user_id) do nothing;
+    end loop;
     company_ids := array_append(company_ids, cid);
   end loop;
 
@@ -203,7 +211,9 @@ begin
       location, employment_type, salary_min, salary_max, currency, status,
       published_at, deadline_at
     ) values (
-      jid, cid, recruiter_id, title,
+      jid, cid,
+      recruiter_pool[1 + ((i - 1) % array_length(recruiter_pool, 1))],
+      title,
       'Mô tả công việc mock cho vị trí ' || title || ' tại công ty đối tác.',
       E'- 1+ năm kinh nghiệm liên quan\n- Làm việc nhóm tốt\n- Tiếng Anh đọc hiểu tài liệu',
       E'- Bảo hiểm\n- Laptop\n- Thưởng dự án',

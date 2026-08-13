@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, BrowserRouter } from 'react-router-dom';
+import { Navigate, Routes, Route, BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import { ProfileProvider } from './profile/ProfileProvider';
 import { AppShell } from './components/AppShell';
@@ -15,6 +15,8 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import RecruiterRequestPage from './pages/RecruiterRequestPage';
 import RecruiterJobsPage from './pages/RecruiterJobsPage';
 import AdminRecruiterRequestsPage from './pages/AdminRecruiterRequestsPage';
+import MatchPage from './pages/MatchPage';
+import MatchCandidatesPage from './pages/MatchCandidatesPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 import ProtectedRoute from './components/ProtectedRoute';
@@ -58,6 +60,25 @@ export default function App() {
                     <MyApplicationsPage />
                   </ProtectedRoute>
                 } 
+              />
+              <Route path="/match" element={<Navigate to="/match_job" replace />} />
+              <Route
+                path="/match_job"
+                element={
+                  <ProtectedRoute>
+                    <MatchPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/match_candidates"
+                element={
+                  <ProtectedRoute>
+                    <RoleRoute allowedRoles={['recruiter', 'admin']}>
+                      <MatchCandidatesPage />
+                    </RoleRoute>
+                  </ProtectedRoute>
+                }
               />
               <Route 
                 path="/recruiter/request" 

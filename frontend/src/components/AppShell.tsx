@@ -7,6 +7,8 @@ import {
   Send, 
   Building2, 
   Sliders, 
+  Sparkles,
+  Users2,
   LogOut, 
   LogIn, 
   UserPlus, 
@@ -47,15 +49,17 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
       return items;
     }
 
-    // Authenticated links
+    items.push({ path: '/match_job', label: 'Gợi ý việc', icon: Sparkles });
     items.push({ path: '/profile', label: 'Hồ sơ', icon: User });
     items.push({ path: '/profile/resumes', label: 'Tủ hồ sơ/CV', icon: FileText });
     items.push({ path: '/my-applications', label: 'Đơn ứng tuyển', icon: Send });
 
     if (isAdmin) {
+      items.push({ path: '/match_candidates', label: 'Gợi ý ứng viên', icon: Users2 });
       items.push({ path: '/recruiter/jobs', label: 'Bàn Tuyển dụng', icon: Building2 });
       items.push({ path: '/admin/recruiter-requests', label: 'Menu Admin', icon: Sliders });
     } else if (isRecruiter) {
+      items.push({ path: '/match_candidates', label: 'Gợi ý ứng viên', icon: Users2 });
       items.push({ path: '/recruiter/jobs', label: 'Bàn Tuyển dụng', icon: Building2 });
     } else {
       // Candidate only gets onboarding request link

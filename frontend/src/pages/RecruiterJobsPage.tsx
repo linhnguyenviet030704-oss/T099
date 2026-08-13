@@ -79,48 +79,70 @@ export const RecruiterJobsPage: React.FC = () => {
       setLoadingWorkspace(true);
       setErrorWord(null);
 
-      // 1. Fetch own company memberships that are active and designated owner/recruiter
-      const { data: memberData, error: mErr } = await supabase
-        .from('company_members')
-        .select('*, companies(*)')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .in('role', ['owner', 'recruiter']);
+      const isAdmin = profile?.role === 'admin';
+      let items: CompanyMember[] = [];
 
-      if (mErr) throw mErr;
+      if (isAdmin) {
+        const { data: companiesData, error: cErr } = await supabase
+          .from('companies')
+          .select('*')
+          .order('name', { ascending: true });
+        if (cErr) throw cErr;
 
-      const items = (memberData || []).map((m: any) => ({
-        ...m,
-        company: m.companies,
-      })) as CompanyMember[];
+        items = (companiesData || []).map((c: any) => ({
+          id: `admin-${c.id}`,
+          company_id: c.id,
+          user_id: user.id,
+          role: 'owner',
+          is_active: true,
+          invited_by_user_id: null,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+          company: c as Company,
+        }));
+      } else {
+        const { data: memberData, error: mErr } = await supabase
+          .from('company_members')
+          .select('*, companies(*)')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .in('role', ['owner', 'recruiter']);
+        if (mErr) throw mErr;
+
+        items = (memberData || []).map((m: any) => ({
+          ...m,
+          company: m.companies,
+        })) as CompanyMember[];
+      }
 
       setMemberships(items);
 
       if (items.length > 0) {
-        // Resolve company matching selected selector or default first
         let companyId = selectedCompanyId;
-        if (!companyId) {
+        if (!companyId || !items.some((m) => m.company_id === companyId)) {
           companyId = items[0].company_id;
           setSelectedCompanyId(companyId);
         }
 
-        // 2. Query company jobs
-        const { data: jobsData, error: jobsErr } = await supabase
+        // Recruiters: only jobs they posted. Admin: all jobs of the company.
+        let jobsQuery = supabase
           .from('job_posts')
           .select('*')
           .eq('company_id', companyId)
           .order('updated_at', { ascending: false });
+        if (!isAdmin) {
+          jobsQuery = jobsQuery.eq('created_by_user_id', user.id);
+        }
 
+        const { data: jobsData, error: jobsErr } = await jobsQuery;
         if (jobsErr) throw jobsErr;
         const loadedJobs = (jobsData || []) as JobPost[];
         setJobs(loadedJobs);
 
-        // If no active tab is designated, pre-select first job
         if (loadedJobs.length > 0 && !activeJobTabId) {
           setActiveJobTabId(loadedJobs[0].id);
         }
 
-        // 3. Query candidates applications matching job IDs
         if (loadedJobs.length > 0) {
           const jobIds = loadedJobs.map(j => j.id);
 
@@ -136,7 +158,6 @@ export const RecruiterJobsPage: React.FC = () => {
           setApplications(loadedApps);
 
           if (loadedApps.length > 0) {
-            // 4. Query associated metadata profiles for candidates
             const applicantIds = Array.from(new Set(loadedApps.map(a => a.applicant_user_id)));
             const { data: profilesData, error: profsErr } = await supabase
               .from('profiles')
@@ -151,7 +172,6 @@ export const RecruiterJobsPage: React.FC = () => {
             });
             setProfilesMap(profsMap);
 
-            // 5. Query historic stage chronological records
             const appIds = loadedApps.map(a => a.id);
             const { data: stagesData, error: stagesErr } = await supabase
               .from('application_stages')
@@ -169,10 +189,20 @@ export const RecruiterJobsPage: React.FC = () => {
               stgMap[s.application_id].push(s as ApplicationStage);
             });
             setStagesMap(stgMap);
+          } else {
+            setProfilesMap({});
+            setStagesMap({});
           }
         } else {
           setApplications([]);
+          setProfilesMap({});
+          setStagesMap({});
         }
+      } else {
+        setJobs([]);
+        setApplications([]);
+        setProfilesMap({});
+        setStagesMap({});
       }
 
     } catch (err: any) {
@@ -181,7 +211,7 @@ export const RecruiterJobsPage: React.FC = () => {
     } finally {
       setLoadingWorkspace(false);
     }
-  }, [user, selectedCompanyId, activeJobTabId]);
+  }, [user, profile?.role, selectedCompanyId, activeJobTabId]);
 
   useEffect(() => {
     if (user) {
@@ -444,14 +474,18 @@ export const RecruiterJobsPage: React.FC = () => {
           <Compass className="h-12 w-12 text-slate-600 mx-auto" />
           <div className="space-y-1">
             <h4 className="text-sm font-bold text-slate-300">Tính năng Tuyển dụng chưa sẵn sàng</h4>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">Bạn không sở hữu thành viên quản trị công ty tuyển dụng hoặc đơn yêu cầu của bạn đang chờ phê duyệt.</p>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+              {profile?.role === 'admin'
+                ? 'Chưa có công ty nào trong hệ thống để quản trị. Hãy phê duyệt đơn đăng ký recruiter trước.'
+                : 'Bạn không sở hữu thành viên quản trị công ty tuyển dụng hoặc đơn yêu cầu của bạn đang chờ phê duyệt.'}
+            </p>
           </div>
           <Link
-            to="/recruiter/request"
+            to={profile?.role === 'admin' ? '/admin/recruiter-requests' : '/recruiter/request'}
             className="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs"
             id="register-recruiter-cta"
           >
-            Đăng ký Công ty mới ngay
+            {profile?.role === 'admin' ? 'Mở Menu Admin' : 'Đăng ký Công ty mới ngay'}
           </Link>
         </section>
       ) : (

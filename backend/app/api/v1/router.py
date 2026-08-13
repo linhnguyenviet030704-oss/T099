@@ -54,7 +54,7 @@ async def chat(
     _user: AuthenticatedUser = Depends(enforce_chat_rate_limit),
     service: ChatService = Depends(get_chat_service),
 ) -> ChatResponse:
-    return await service.chat(request)
+    return await service.chat(request, _user.id)
 
 
 @router.patch("/admin/profiles/{user_id}", response_model=ProfileResponse)

@@ -11,10 +11,11 @@ from httpx import ASGITransport, AsyncClient
 from backend.app.core.config import settings
 from backend.app.core.exceptions import NotFoundError
 from backend.app.core.security import TokenVerificationError, verify_access_token
-from backend.app.dependencies.services import get_profile_service
+from backend.app.dependencies.services import get_chat_service, get_profile_service
 from backend.app.main import app
 from backend.app.models.domain import Profile
 from backend.app.schemas.profile import ProfileUpdateRequest
+from backend.app.services.chat_service import ChatService
 
 
 def _make_token(*, sub: str | None = None, email: str = "user@example.com", expired: bool = False) -> str:
@@ -56,6 +57,40 @@ def test_verify_access_token_bad_signature():
     )
     with pytest.raises(TokenVerificationError):
         verify_access_token(token)
+
+
+def test_verify_access_token_es256_via_jwks(monkeypatch):
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    user_id = uuid4()
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "sub": str(user_id),
+            "email": "user@example.com",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(hours=1)).timestamp()),
+        },
+        private_key,
+        algorithm="ES256",
+        headers={"kid": "test-es256"},
+    )
+
+    class _Key:
+        key = private_key.public_key()
+
+    class _Jwks:
+        def get_signing_key_from_jwt(self, _token: str) -> _Key:
+            return _Key()
+
+    monkeypatch.setattr("backend.app.core.security._jwks_client", lambda: _Jwks(), raising=False)
+    user = verify_access_token(token)
+    assert user.id == user_id
+    assert user.email == "user@example.com"
+
 
 
 class _FakeProfileService:
@@ -183,6 +218,106 @@ async def test_chat_empty_message(api_client: AsyncClient):
         json={"message": ""},
     )
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_chat_returns_mock_jobs(api_client: AsyncClient):
+    job_id = uuid4()
+
+    async def fetch_jobs():
+        return [
+            {
+                "id": str(job_id),
+                "title": "Backend Engineer",
+                "location": "Hà Nội",
+                "employment_type": "full_time",
+                "salary_min": 20_000_000,
+                "salary_max": 35_000_000,
+                "currency": "VND",
+                "companies": {"name": "Acme"},
+            }
+        ]
+
+    app.dependency_overrides[get_chat_service] = lambda: ChatService(fetch_jobs)
+    response = await api_client.post(
+        "/api/v1/chat",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+        json={"message": "Gợi ý việc phù hợp"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] == "Gợi ý 1 việc làm phù hợp (mock matching)."
+    assert len(body["jobs"]) == 1
+    assert body["jobs"][0]["id"] == str(job_id)
+    assert body["jobs"][0]["company_name"] == "Acme"
+    assert body["jobs"][0]["score"] == 0.95
+
+
+@pytest.mark.asyncio
+async def test_chat_returns_mock_candidates(api_client: AsyncClient):
+    job_id = uuid4()
+    app_id = uuid4()
+    applicant_id = uuid4()
+
+    async def fetch_jobs():
+        return []
+
+    async def fetch_candidates(requested_job_id):
+        assert requested_job_id == job_id
+        return [
+            {
+                "id": str(app_id),
+                "applicant_user_id": str(applicant_id),
+                "current_status": "pending",
+                "resume_title_snapshot": "CV.pdf",
+                "resume_storage_path_snapshot": "u/cv.pdf",
+                "profiles": {"full_name": "Ada", "email": "ada@example.com"},
+            }
+        ]
+
+    async def allow(_actor, _job):
+        return None
+
+    app.dependency_overrides[get_chat_service] = lambda: ChatService(
+        fetch_jobs, fetch_candidates, allow
+    )
+    response = await api_client.post(
+        "/api/v1/chat",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+        json={"message": "Gợi ý ứng viên phù hợp", "job_id": str(job_id)},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["jobs"] == []
+    assert len(body["candidates"]) == 1
+    assert body["candidates"][0]["application_id"] == str(app_id)
+    assert body["candidates"][0]["full_name"] == "Ada"
+    assert body["candidates"][0]["score"] == 0.95
+
+
+@pytest.mark.asyncio
+async def test_chat_candidates_forbidden(api_client: AsyncClient):
+    from backend.app.core.exceptions import ForbiddenError
+
+    async def fetch_jobs():
+        return []
+
+    async def fetch_candidates(_job_id):
+        return []
+
+    async def deny(_actor, _job):
+        raise ForbiddenError("Not a recruiter for this job")
+
+    app.dependency_overrides[get_chat_service] = lambda: ChatService(
+        fetch_jobs, fetch_candidates, deny
+    )
+    response = await api_client.post(
+        "/api/v1/chat",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+        json={"message": "hello", "job_id": str(uuid4())},
+    )
+    assert response.status_code == 403
+    assert response.json()["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio

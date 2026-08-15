@@ -18,6 +18,7 @@ class ProfileResponse(BaseModel):
     phone: str | None = None
     avatar_url: str | None = None
     role: ProfileRole
+    default_resume_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

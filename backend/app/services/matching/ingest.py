@@ -4,9 +4,8 @@ import hashlib
 from typing import Any, Protocol
 from uuid import UUID
 
+from backend.app.agent.graph import build_ingest_graph
 from backend.app.core.exceptions import NotFoundError
-from backend.app.services.matching.embed import embed_text
-from backend.app.services.matching.parse import parse_resume_bytes
 
 
 class ResumeStore(Protocol):
@@ -25,7 +24,15 @@ class ResumeStore(Protocol):
     ) -> None: ...
 
 
-async def ingest_resume(store: ResumeStore, resume_id: UUID, *, encode=None) -> str:
+async def ingest_resume(
+    store: ResumeStore,
+    resume_id: UUID,
+    *,
+    encode=None,
+    complete=None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> str:
     resume = await store.get_resume(resume_id)
     if not resume:
         raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
@@ -34,7 +41,13 @@ async def ingest_resume(store: ResumeStore, resume_id: UUID, *, encode=None) -> 
     existing = await store.get_parsed(resume_id)
     if existing and existing.get("content_hash") == digest:
         return "exists"
-    parsed = parse_resume_bytes(blob, mime_type=resume.get("mime_type") or "")
-    embedding = embed_text(parsed["markdown"], encode=encode)
-    await store.save(resume_id, parsed, digest, embedding)
+    graph = build_ingest_graph(encode=encode, complete=complete, api_key=api_key, base_url=base_url)
+    result = await graph.ainvoke(
+        {
+            "raw_bytes": blob,
+            "mime_type": resume.get("mime_type") or "",
+        }
+    )
+    parsed = {"markdown": result.get("markdown") or "", "metadata": result.get("metadata") or {}}
+    await store.save(resume_id, parsed, digest, list(result.get("embedding") or []))
     return "indexed"

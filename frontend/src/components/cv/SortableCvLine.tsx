@@ -4,7 +4,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Eye, EyeOff } from 'lucide-react';
 import { CvLine } from '../../lib/cv';
 import { LINE_TYPE_OPTIONS } from '../../lib/profileLines';
-import { formatDate } from '../../lib/format';
 
 const lineTypeLabel = (value: string): string =>
   LINE_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
@@ -62,22 +61,11 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
 
       <div className="flex-1 min-w-0">
         <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100 mb-1">
-          {lineTypeLabel(line.line_type)}
+          {lineTypeLabel(line.name)}
         </span>
-        <p className="text-xs font-bold text-slate-800 truncate">
-          {line.title || '(Chưa có tiêu đề)'}
+        <p className="text-xs font-bold text-slate-800 line-clamp-3 whitespace-pre-line">
+          {line.value || '(Chưa có nội dung)'}
         </p>
-        {line.organization && (
-          <p className="text-[11px] text-slate-500 truncate">
-            {line.organization}
-          </p>
-        )}
-        {(line.start_date || line.end_date) && (
-          <p className="text-[10px] font-mono text-slate-400 mt-0.5">
-            {line.start_date ? formatDate(line.start_date) : '...'} -{' '}
-            {line.end_date ? formatDate(line.end_date) : 'Hiện tại'}
-          </p>
-        )}
         {line.sourceId === null && (
           <span className="inline-block mt-1 text-[8px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
             Dòng mới

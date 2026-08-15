@@ -1,0 +1,11 @@
+from backend.app.agent.state import AgentState
+from backend.app.services.matching.rrf import score_candidates
+
+
+async def rrf_node(state: AgentState) -> dict:
+    return {
+        "candidates": score_candidates(
+            list(state.get("candidates") or []),
+            list(state.get("jd_skills") or []),
+        )
+    }

@@ -1,25 +1,25 @@
-from __future__ import annotations
-
 from collections.abc import Callable, Sequence
 
-EMBEDDING_DIM = 384
-DEFAULT_EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
+from backend.app.services.matching.llm import DEFAULT_EMBED_DIM, DEFAULT_EMBED_MODEL, embed_query
+
+EMBEDDING_DIM = DEFAULT_EMBED_DIM
+DEFAULT_EMBEDDING_MODEL = DEFAULT_EMBED_MODEL
 
 EncodeFn = Callable[[str], Sequence[float]]
 
 
-def embed_text(text: str, encode: EncodeFn | None = None) -> list[float]:
-    fn = encode or default_encode
-    vector = [float(x) for x in fn(text or " ")]
+def embed_text(
+    text: str,
+    encode: EncodeFn | None = None,
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    model: str | None = None,
+) -> list[float]:
+    if encode is not None:
+        vector = [float(x) for x in encode(text or " ")]
+    else:
+        vector = embed_query(text or " ", model=model, base_url=base_url, api_key=api_key)
     if len(vector) != EMBEDDING_DIM:
         raise ValueError(f"embedding dim {len(vector)} != {EMBEDDING_DIM}")
     return vector
-
-
-def default_encode(text: str) -> list[float]:
-    """Lazy fastembed MiniLM. Tests must inject encode=."""
-    from fastembed import TextEmbedding
-
-    model = TextEmbedding(model_name=DEFAULT_EMBEDDING_MODEL)
-    vectors = list(model.embed([text]))
-    return [float(x) for x in vectors[0]]

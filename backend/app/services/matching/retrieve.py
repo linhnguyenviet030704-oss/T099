@@ -5,49 +5,23 @@ from typing import Any
 from uuid import UUID
 
 from backend.app.core.exceptions import NotFoundError
-from backend.app.services.matching.embed import embed_text
+from backend.app.services.matching.embed import DEFAULT_EMBEDDING_MODEL, embed_text
 from backend.app.services.matching.ingest import ingest_resume
-from backend.app.services.matching.skills import coverage_score, extract_skills, load_taxonomy_index
+from backend.app.services.matching.skills import (
+    expand_query,
+    extract_skills,
+    related_skills,
+)
 from backend.app.services.matching.store import SupabaseResumeStore
 from supabase import Client
 
-SEMANTIC_WEIGHT = 0.6
-SKILL_WEIGHT = 0.4
 
-
-def semantic_score(distance: float) -> float:
-    return max(0.0, 1.0 - distance)
-
-
-def combine_scores(semantic: float, coverage: float) -> float:
-    return SEMANTIC_WEIGHT * semantic + SKILL_WEIGHT * coverage
-
-
-def jd_skills_from_text(title: str, description: str, requirements: str | None) -> list[str]:
-    blob = " ".join(part for part in (title, description, requirements or "") if part)
-    return extract_skills(blob)
-
-
-def rank_candidates(
-    rows: list[dict[str, Any]],
-    jd_skills: list[str],
-    taxonomy_index: dict[str, str] | None = None,
-) -> list[dict[str, Any]]:
-    index = taxonomy_index or load_taxonomy_index()
-    ranked: list[dict[str, Any]] = []
-    for row in rows:
-        coverage = coverage_score(row.get("skills") or [], jd_skills, index)
-        semantic = semantic_score(float(row.get("distance") or 0.0))
-        ranked.append(
-            {
-                **row,
-                "skill_score": coverage,
-                "semantic_score": semantic,
-                "score": combine_scores(semantic, coverage),
-            }
-        )
-    ranked.sort(key=lambda item: item["score"], reverse=True)
-    return ranked
+def job_query_text(job: dict[str, Any]) -> str:
+    requirements = (job.get("requirements") or "").strip()
+    if requirements:
+        return requirements
+    # ponytail: some posts leave requirements empty; title+description still match
+    return " ".join(part for part in (job.get("title"), job.get("description")) if part)
 
 
 def _profile(row: dict[str, Any]) -> dict[str, Any]:
@@ -59,12 +33,71 @@ def _profile(row: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def persist_match_resume_rows(
+    client: Client,
+    job_id: UUID,
+    ranked: list[dict[str, Any]],
+) -> None:
+    resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
+    inserted = (
+        client.table("match_resume")
+        .insert(
+            {
+                "job_post_id": str(job_id),
+                "matched_resume_ids": resume_ids,
+                "embedding_model": DEFAULT_EMBEDDING_MODEL,
+            }
+        )
+        .execute()
+    )
+    rows = inserted.data or []
+    if not rows:
+        return
+    match_id = rows[0]["id"]
+    evidence = []
+    for rank, row in enumerate(ranked, start=1):
+        resume_id = row.get("resume_id")
+        if not resume_id:
+            continue
+        cv_skills = list(row.get("skills") or [])
+        related: list[str] = []
+        seen: set[str] = set()
+        for skill in cv_skills:
+            for neighbor in related_skills(skill, depth=2):
+                if neighbor not in seen and neighbor not in cv_skills:
+                    seen.add(neighbor)
+                    related.append(neighbor)
+        evidence.append(
+            {
+                "match_resume_id": match_id,
+                "resume_id": str(resume_id),
+                "job_post_id": str(job_id),
+                "rank": rank,
+                "score": row.get("score"),
+                "skill_score": row.get("skill_score"),
+                "semantic_score": row.get("semantic_score"),
+                "semantic_rank": rank,
+                "matched_skill_names": cv_skills,
+                "related_skill_names": related,
+                "raw_factors": {
+                    "distance_original": row.get("distance_original"),
+                    "distance_expanded": row.get("distance_expanded"),
+                },
+            }
+        )
+    if evidence:
+        client.table("match_evidence").insert(evidence).execute()
+
+
 async def retrieve_for_job(
     client: Client,
     job_id: UUID,
     *,
     encode=None,
+    complete=None,
     store: SupabaseResumeStore | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     resume_store = store or SupabaseResumeStore(client)
 
@@ -82,9 +115,9 @@ async def retrieve_for_job(
     if not job:
         raise NotFoundError("Job not found", code="JOB_NOT_FOUND")
 
-    def _apps() -> list[dict[str, Any]]:
+    def _submits() -> list[dict[str, Any]]:
         result = (
-            client.table("applications")
+            client.table("job_submits")
             .select(
                 "id, applicant_user_id, resume_id, current_status, "
                 "resume_title_snapshot, resume_storage_path_snapshot, "
@@ -98,18 +131,25 @@ async def retrieve_for_job(
         )
         return result.data or []
 
-    applications = await asyncio.to_thread(_apps)
-    for row in applications:
+    submits = await asyncio.to_thread(_submits)
+    for row in submits:
         resume_id = row.get("resume_id")
         if resume_id:
-            await ingest_resume(resume_store, UUID(str(resume_id)), encode=encode)
+            await ingest_resume(
+                resume_store,
+                UUID(str(resume_id)),
+                encode=encode,
+                complete=complete,
+                api_key=api_key,
+                base_url=base_url,
+            )
 
-    query_text = " ".join(
-        part for part in (job.get("title"), job.get("description"), job.get("requirements")) if part
-    )
-    query_embedding = embed_text(query_text, encode=encode)
+    query_text = job_query_text(job)
+    expanded = expand_query(query_text)
+    original_embedding = embed_text(query_text, encode=encode, api_key=api_key, base_url=base_url)
+    expanded_embedding = embed_text(expanded, encode=encode, api_key=api_key, base_url=base_url)
 
-    def _match() -> list[dict[str, Any]]:
+    def _match(query_embedding: list[float]) -> list[dict[str, Any]]:
         result = client.rpc(
             "match_resumes_for_job",
             {
@@ -120,12 +160,14 @@ async def retrieve_for_job(
         ).execute()
         return result.data or []
 
-    matches = await asyncio.to_thread(_match)
-    distance_by_resume = {str(item["resume_id"]): float(item["distance"]) for item in matches}
+    original_matches = await asyncio.to_thread(_match, original_embedding)
+    expanded_matches = await asyncio.to_thread(_match, expanded_embedding)
+    original_by_resume = {str(item["resume_id"]): float(item["distance"]) for item in original_matches}
+    expanded_by_resume = {str(item["resume_id"]): float(item["distance"]) for item in expanded_matches}
 
-    def _parsed(resume_id: str) -> dict[str, Any] | None:
+    def _embedded(resume_id: str) -> dict[str, Any] | None:
         result = (
-            client.table("parsed_resumes")
+            client.table("embedded_resumes")
             .select("metadata")
             .eq("resume_id", resume_id)
             .maybe_single()
@@ -134,9 +176,9 @@ async def retrieve_for_job(
         return result.data
 
     candidates: list[dict[str, Any]] = []
-    for row in applications:
+    for row in submits:
         resume_id = str(row.get("resume_id") or "")
-        parsed = await asyncio.to_thread(_parsed, resume_id) if resume_id else None
+        parsed = await asyncio.to_thread(_embedded, resume_id) if resume_id else None
         metadata = (parsed or {}).get("metadata") or {}
         skills = metadata.get("skills") or []
         profile = _profile(row)
@@ -151,12 +193,12 @@ async def retrieve_for_job(
                 "resume_storage_path": row.get("resume_storage_path_snapshot"),
                 "current_status": row.get("current_status") or "pending",
                 "skills": skills,
-                "distance": distance_by_resume.get(resume_id, 1.0),
+                "distance_original": original_by_resume.get(resume_id, 1.0),
+                "distance_expanded": expanded_by_resume.get(resume_id, 1.0),
             }
         )
 
     return {
-        "jd_skills": jd_skills_from_text(job.get("title") or "", job.get("description") or "", job.get("requirements")),
+        "jd_skills": extract_skills(query_text),
         "candidates": candidates,
     }
-

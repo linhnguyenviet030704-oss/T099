@@ -15,7 +15,7 @@ class SupabaseResumeStore:
     async def get_parsed(self, resume_id: UUID) -> dict[str, Any] | None:
         def _query() -> dict[str, Any] | None:
             result = (
-                self._client.table("parsed_resumes")
+                self._client.table("embedded_resumes")
                 .select("resume_id, markdown, metadata, content_hash")
                 .eq("resume_id", str(resume_id))
                 .maybe_single()
@@ -57,17 +57,12 @@ class SupabaseResumeStore:
         rid = str(resume_id)
 
         def _query() -> None:
-            self._client.table("parsed_resumes").upsert(
+            self._client.table("embedded_resumes").upsert(
                 {
                     "resume_id": rid,
                     "markdown": parsed["markdown"],
                     "metadata": parsed["metadata"],
                     "content_hash": content_hash,
-                }
-            ).execute()
-            self._client.table("resume_embeddings").upsert(
-                {
-                    "resume_id": rid,
                     "embedding": embedding,
                     "model": DEFAULT_EMBEDDING_MODEL,
                 }

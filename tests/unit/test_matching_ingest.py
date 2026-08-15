@@ -34,7 +34,11 @@ class _FakeStore:
 
 
 def _encode(text: str) -> list[float]:
-    return [float((i + len(text)) % 7) for i in range(384)]
+    return [float((i + len(text)) % 7) for i in range(2560)]
+
+
+def _complete(_prompt: str, **_kwargs) -> str:
+    return '{"summary": "Python API engineer.", "titles": ["Backend"], "body": "Built FastAPI services."}'
 
 
 @pytest.mark.asyncio
@@ -50,12 +54,15 @@ async def test_ingest_parses_and_saves_first_time():
         },
         blob=blob,
     )
-    status = await ingest_resume(store, resume_id, encode=_encode)
+    status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
     assert status == "indexed"
     assert store.saved is not None
     assert store.saved["content_hash"] == sha256(blob).hexdigest()
-    assert "Python" in store.saved["parsed"]["metadata"]["skills"]
-    assert len(store.saved["embedding"]) == 384
+    assert store.saved["parsed"]["metadata"]["skills"] == ["FastAPI"]
+    assert store.saved["parsed"]["metadata"]["summary"] == "Python API engineer."
+    assert "summary:" not in store.saved["parsed"]["markdown"]
+    assert "Built FastAPI services." in store.saved["parsed"]["markdown"]
+    assert len(store.saved["embedding"]) == 2560
 
 
 @pytest.mark.asyncio
@@ -73,7 +80,7 @@ async def test_ingest_skips_when_hash_matches():
         blob=blob,
         existing={"content_hash": digest},
     )
-    status = await ingest_resume(store, resume_id, encode=_encode)
+    status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
     assert status == "exists"
     assert store.saved is None
     assert store.downloads == 1
@@ -93,6 +100,6 @@ async def test_ingest_reindexes_when_file_changed():
         blob=blob,
         existing={"content_hash": "old"},
     )
-    status = await ingest_resume(store, resume_id, encode=_encode)
+    status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
     assert status == "indexed"
     assert store.saved["content_hash"] == sha256(blob).hexdigest()

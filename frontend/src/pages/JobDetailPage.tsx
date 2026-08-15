@@ -133,7 +133,7 @@ export const JobDetailPage: React.FC = () => {
 
         // Fetch application matching this job
         const { data: appData } = await supabase
-          .from('applications')
+          .from('job_submits')
           .select('*')
           .eq('job_post_id', jobId)
           .eq('applicant_user_id', user.id)
@@ -207,7 +207,7 @@ export const JobDetailPage: React.FC = () => {
       };
 
       const { data, error } = await supabase
-        .from('applications')
+        .from('job_submits')
         .insert(payload)
         .select('*')
         .single();

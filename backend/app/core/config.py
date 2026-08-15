@@ -9,7 +9,7 @@ DEFAULT_JWT_SECRET = "super-secret-jwt-token-with-at-least-32-characters-long"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     model_name: str = "gpt-4o-mini"
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+
+    qwen_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    qwen_api_key: str = ""
+    llm_model: str = "qwen3.7-flash"
+    embedding_model: str = "qwen3.7-text-embedding"
 
     @model_validator(mode="after")
     def reject_default_jwt_in_production(self) -> Self:

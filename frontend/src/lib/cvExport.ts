@@ -24,8 +24,8 @@ export interface CvExportResult {
 
 /**
  * Full CV export pipeline:
- *  1. Optionally write edited lines back to user_profile_lines (batch).
- *  2. Optionally insert new lines into user_profile_lines (batch).
+ *  1. Optionally write edited lines back to profile_lines (batch).
+ *  2. Optionally insert new lines into profile_lines (batch).
  *  3. Generate the PDF (wysiwyg or text).
  *  4. Upload to the private `resumes` bucket.
  *  5. Insert resume metadata row (rollback storage on failure).
@@ -34,18 +34,13 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
   if (!supabase) throw new Error('Supabase client chưa được cấu hình.');
   const { userId, docNode, header, lines, options, sourceById, templateId } = params;
 
-  // --- 1 & 2: write-back to source profile lines ---
   if (options.saveEditedToSource) {
     const edited = lines
       .filter((l) => l.sourceId && sourceById[l.sourceId])
       .map((l) => ({
         id: l.sourceId as string,
-        line_type: l.line_type,
-        title: l.title,
-        organization: l.organization,
-        description: l.description,
-        start_date: l.start_date,
-        end_date: l.end_date,
+        name: l.name,
+        value: l.value,
         display_order: sourceById[l.sourceId as string].display_order ?? 0,
       }));
     if (edited.length > 0) {
@@ -58,12 +53,8 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
       .filter((l) => l.sourceId === null)
       .map((l, idx) => ({
         key: l.key,
-        line_type: l.line_type,
-        title: l.title,
-        organization: l.organization,
-        description: l.description,
-        start_date: l.start_date,
-        end_date: l.end_date,
+        name: l.name,
+        value: l.value,
         display_order: idx,
       }));
     if (newDrafts.length > 0) {
@@ -71,7 +62,6 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
     }
   }
 
-  // --- 3: generate PDF ---
   const accent =
     CV_TEMPLATES.find((t) => t.id === templateId)?.accent || '#10b981';
   const blob =
@@ -79,7 +69,6 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
       ? await generateWysiwygPdf(docNode)
       : await generateTextPdf(header, lines, accent);
 
-  // --- 4: upload to storage ---
   const resumeId = crypto.randomUUID();
   const safeTitle = options.title.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'cv';
   const fileName = `${safeTitle}.pdf`;
@@ -93,8 +82,6 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
     throw new Error(`[Lỗi Storage]: ${uploadErr.message}`);
   }
 
-  // --- 5: insert resume metadata (rollback storage if it fails) ---
-  // Determine whether this is the user's first active resume to set default.
   const { count } = await supabase
     .from('resumes')
     .select('id', { count: 'exact', head: true })

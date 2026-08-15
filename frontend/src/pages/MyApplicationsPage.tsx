@@ -36,7 +36,7 @@ export const MyApplicationsPage: React.FC = () => {
 
       // 1. Query applications matching user ID
       const { data: appsData, error: appsErr } = await supabase
-        .from('applications')
+        .from('job_submits')
         .select('*, job_posts(*, companies(*))')
         .eq('applicant_user_id', user.id)
         .order('applied_at', { ascending: false });

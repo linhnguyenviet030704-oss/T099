@@ -250,16 +250,15 @@ begin
     n_lines := 15 + ((i + 3) % 6);
     for j in 1..n_lines loop
       lt := line_types[1 + ((j - 1) % array_length(line_types, 1))];
-      insert into public.user_profile_lines (
-        user_id, line_type, title, organization, description,
-        start_date, end_date, display_order
+      insert into public.profile_lines (
+        user_id, name, value, display_order
       ) values (
         uid,
         lt,
         case lt
-          when 'summary' then 'Tóm tắt chuyên môn #' || j::text
-          when 'experience' then 'Kỹ sư / chuyên viên #' || j::text
-          when 'education' then 'Cử nhân / khóa học #' || j::text
+          when 'summary' then 'Tóm tắt chuyên môn #' || j::text || E'\n' || 'Nội dung mock line ' || j::text
+          when 'experience' then 'Kỹ sư / chuyên viên #' || j::text || E'\nOrg mock ' || ((j % 12) + 1)::text
+          when 'education' then 'Tốt nghiệp đại học quốc gia HCM; CPA: 3.2/4.0 #' || j::text
           when 'skill' then 'Kỹ năng #' || j::text
           when 'project' then 'Dự án #' || j::text
           when 'certification' then 'Chứng chỉ #' || j::text
@@ -267,29 +266,13 @@ begin
           when 'link' then 'Portfolio / link #' || j::text
           else 'Khác #' || j::text
         end,
-        case
-          when lt in ('experience', 'education', 'project', 'certification')
-            then 'Org mock ' || ((j % 12) + 1)::text
-          else null
-        end,
-        'Nội dung mock line ' || j::text || ' cho user seed #' || i::text,
-        case
-          when lt in ('experience', 'education', 'project')
-            then (date '2018-01-01' + ((j * 97) || ' days')::interval)::date
-          else null
-        end,
-        case
-          when lt in ('experience', 'education', 'project') and (j % 3) <> 0
-            then (date '2020-01-01' + ((j * 131) || ' days')::interval)::date
-          else null
-        end,
         j - 1
       );
     end loop;
   end loop;
 
   ---------------------------------------------------------------------------
-  -- Resumes + 20 applications
+  -- Resumes + 20 job_submits
   ---------------------------------------------------------------------------
   for i in 1..20 loop
     uid := applicant_ids[i];
@@ -314,7 +297,7 @@ begin
     rid := ('c0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
     aid := ('d0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
 
-    insert into public.applications (
+    insert into public.job_submits (
       id, job_post_id, applicant_user_id, resume_id, cover_letter
     ) values (
       aid, jid, uid, rid,

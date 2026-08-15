@@ -65,7 +65,7 @@ export const ResumesPage: React.FC = () => {
 
       // Query candidate applications to count usages per CV
       const { data: appsData, error: aErr } = await supabase
-        .from('applications')
+        .from('job_submits')
         .select('resume_id')
         .eq('applicant_user_id', user.id);
 
@@ -101,7 +101,7 @@ export const ResumesPage: React.FC = () => {
     try {
       setLoadingLines(true);
       const { data, error: lErr } = await supabase
-        .from('user_profile_lines')
+        .from('profile_lines')
         .select('*')
         .eq('user_id', user.id)
         .order('display_order', { ascending: true })
@@ -222,21 +222,11 @@ export const ResumesPage: React.FC = () => {
     if (!supabase || !user) return;
     try {
       setSavingId(resumeId);
-      
-      // Update all resumes of this user to is_default = false
-      const { error: resetErr } = await supabase
-        .from('resumes')
-        .update({ is_default: false })
-        .eq('user_id', user.id);
 
-      if (resetErr) throw resetErr;
-
-      // Set this particular resume as true
       const { error: confirmErr } = await supabase
-        .from('resumes')
-        .update({ is_default: true, updated_at: new Date().toISOString() })
-        .eq('id', resumeId)
-        .eq('user_id', user.id);
+        .from('profiles')
+        .update({ default_resume_id: resumeId })
+        .eq('id', user.id);
 
       if (confirmErr) throw confirmErr;
 

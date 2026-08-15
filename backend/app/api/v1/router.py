@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
+from backend.app.core.config import settings
 from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.core.rate_limit import enforce_chat_rate_limit
 from backend.app.core.security import AuthenticatedUser
@@ -74,7 +75,12 @@ async def ingest_own_resume(
         raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
     if str(resume.get("user_id")) != str(current_user.id):
         raise ForbiddenError("Not your resume")
-    status = await ingest_resume(store, resume_id)
+    status = await ingest_resume(
+        store,
+        resume_id,
+        api_key=settings.qwen_api_key,
+        base_url=settings.qwen_base_url,
+    )
     return IngestResponse(status=status)
 
 

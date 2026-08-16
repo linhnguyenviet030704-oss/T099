@@ -1,0 +1,27 @@
+---
+description: Supabase keys, RLS, and migration safety
+globs: "{backend/**/*,supabase/**/*}"
+alwaysApply: false
+---
+
+# Supabase security
+
+## Keys
+
+- Frontend: `SUPABASE_URL` + publishable/anon key only.
+- Backend may use `SUPABASE_SERVICE_ROLE_KEY` — never commit, log, return via API, or ship to frontend.
+- Service-role bypasses RLS → enforce authorization in FastAPI services.
+
+## Migrations
+
+- All schema changes via `supabase/migrations/` (use `npx supabase migration new <name>`).
+- Include table, index, FK, constraint, trigger, function, RLS when needed.
+- Must reset cleanly: `npx supabase db reset`.
+- No manual production Dashboard schema edits.
+
+## RLS
+
+- Enable RLS on every `public` table the frontend can touch.
+- Prefer `auth.uid() = user_id` (or equivalent) for user-owned rows.
+- Never disable RLS “just to make it work”.
+- Do not authorize from editable `user_metadata`; use DB columns / `app_metadata` / backend checks.

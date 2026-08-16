@@ -1,0 +1,26 @@
+{
+  "skills": {
+    "Python": { "aliases": ["python", "py"] },
+    "FastAPI": { "aliases": ["fastapi", "fast api"] },
+    "PostgreSQL": { "aliases": ["postgresql", "postgres", "psql"] },
+    "Docker": { "aliases": ["docker"] },
+    "JavaScript": { "aliases": ["javascript", "js"] },
+    "TypeScript": { "aliases": ["typescript", "ts"] },
+    "React": { "aliases": ["react", "reactjs"] },
+    "SQL": { "aliases": ["sql"] },
+    "Git": { "aliases": ["git"] },
+    "Linux": { "aliases": ["linux"] }
+  },
+  "relations": [
+    { "from": "Python", "to": "FastAPI", "type": "commonly_used_with", "weight": 1.0 },
+    { "from": "Python", "to": "PostgreSQL", "type": "commonly_used_with", "weight": 0.9 },
+    { "from": "FastAPI", "to": "PostgreSQL", "type": "commonly_used_with", "weight": 0.8 },
+    { "from": "FastAPI", "to": "Docker", "type": "commonly_used_with", "weight": 0.7 },
+    { "from": "JavaScript", "to": "TypeScript", "type": "similar_to", "weight": 0.9 },
+    { "from": "TypeScript", "to": "React", "type": "commonly_used_with", "weight": 0.9 },
+    { "from": "JavaScript", "to": "React", "type": "commonly_used_with", "weight": 0.85 },
+    { "from": "PostgreSQL", "to": "SQL", "type": "parent_of", "weight": 1.0 },
+    { "from": "Docker", "to": "Linux", "type": "commonly_used_with", "weight": 0.6 },
+    { "from": "Git", "to": "Linux", "type": "commonly_used_with", "weight": 0.4 }
+  ]
+}

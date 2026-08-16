@@ -242,314 +242,163 @@ Supabase chịu trách nhiệm:
 
 # 6. Database design
 
-Khuyến nghị tách schema public API và internal.
+Schema nghiệp vụ nằm ở `public` (Supabase Data API). Không tách `api` / `agent` schema cho MVP.
+
+Bảng user **không** đặt tên `user` (`user` là reserved word Postgres; `auth.users` đã tồn tại). Hàng user = `public.profiles`, 1-1 với `auth.users`.
+
+Bảng frontend được expose có RLS:
 
 ```text
-api
-agent
+public.profiles              -- user: role + default_resume_id
+public.profile_lines         -- name/value dùng construct resume
+public.resumes               -- metadata; file PDF trong storage bucket `resumes`
+public.job_posts             -- FK bắt buộc company_id
+public.companies
+public.job_submits           -- candidate gửi resume tới job_post
+public.match_job             -- lịch sử match resume → public jobs
+public.match_resume          -- lịch sử match job → resumes đã submit
+public.match_evidence        -- evidence từng cặp resume/job
 ```
 
-## 6.1 Schema `api`
-
-Các bảng frontend có thể được expose có kiểm soát:
+Bảng vector (không grant Data API cho `authenticated`):
 
 ```text
-api.profiles
-api.candidate_preferences
-api.candidate_skills
-api.jobs
-api.match_runs
-api.match_results
-api.match_feedback
+public.embedded_resumes      -- embedding + parsed markdown của resume
 ```
 
-## 6.2 Schema `agent`
-
-Không expose trực tiếp cho frontend:
+Job & skill graph **không** lưu DB, **không** expose API. Resource nội bộ agent:
 
 ```text
-agent.skills
-agent.skill_relations
-agent.job_skills
-agent.job_embeddings
-agent.candidate_embeddings
-agent.match_evidence
-agent.scoring_configs
-agent.agent_runs
-agent.embedding_jobs
-agent.ingestion_runs
+backend/app/services/matching/resources/skill_graph.json
 ```
 
 ---
 
 # 7. Data model
 
-## 7.1 profiles
+Đây là schema PostgreSQL (SQL), không phải class ORM. Backend đọc/ghi qua Supabase client.
+
+## 7.1 profiles (user)
+
+Role enum hiện tại: `candidate | recruiter | admin` (ứng với candidates / recruiters / admin).
 
 ```sql
-create table api.profiles (
-    id uuid primary key,
-    user_id uuid not null unique,
-    headline text,
-    summary text,
-    years_experience numeric,
-    seniority_level text,
-    city text,
-    country text,
-    remote_preference text,
-    expected_salary_min numeric,
-    expected_salary_max numeric,
-    currency text,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-);
+-- public.profiles.id = auth.users.id
+-- role public.profile_role not null default 'candidate'
+-- default_resume_id uuid references public.resumes(id) on delete set null
 ```
+
+`default_resume_id` phải thuộc cùng user. Trigger đồng bộ `resumes.is_default`.
 
 ---
 
-## 7.2 candidate_preferences
+## 7.2 profile_lines
 
-```sql
-create table api.candidate_preferences (
-    id uuid primary key default gen_random_uuid(),
-    profile_id uuid not null references api.profiles(id),
-    preferred_titles text[],
-    preferred_industries text[],
-    preferred_company_sizes text[],
-    preferred_locations text[],
-    remote_only boolean default false,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-);
-```
-
----
-
-## 7.3 skills
-
-```sql
-create table agent.skills (
-    id uuid primary key default gen_random_uuid(),
-    canonical_name text not null unique,
-    aliases text[],
-    category text,
-    embedding vector,
-    created_at timestamptz default now()
-);
-```
-
----
-
-## 7.4 candidate_skills
-
-```sql
-create table api.candidate_skills (
-    profile_id uuid references api.profiles(id),
-    skill_id uuid,
-    proficiency numeric,
-    years_experience numeric,
-    source text,
-    primary key (profile_id, skill_id)
-);
-```
-
----
-
-## 7.5 skill_relations
-
-```sql
-create table agent.skill_relations (
-    skill_id uuid not null,
-    related_skill_id uuid not null,
-    relation_type text not null,
-    weight numeric not null default 1.0,
-    source text,
-    primary key (skill_id, related_skill_id, relation_type)
-);
-```
-
-Ví dụ relation type:
+Mỗi dòng là một cặp name/value. Cột `name` là enumerator (`public.profile_line_type`):
 
 ```text
-similar_to
-parent_of
-child_of
-commonly_used_with
-replacement_for
+summary          -- Giới thiệu bản thân
+experience       -- Kinh nghiệm làm việc
+education        -- Học vấn
+skill            -- Kỹ năng
+project          -- Dự án
+certification    -- Chứng chỉ
+language         -- Ngoại ngữ
+link             -- Liên kết
+other            -- Thông tin bổ sung
 ```
+
+Ví dụ:
+
+```json
+{ "name": "education", "value": "Tốt nghiệp đại học quốc gia HCM" }
+{ "name": "education", "value": "CPA: 3.2/4.0" }
+```
+
+Các dòng này là nguồn để construct resume / CV PDF.
 
 ---
 
-## 7.6 jobs
+## 7.3 resumes
 
-```sql
-create table api.jobs (
-    id uuid primary key default gen_random_uuid(),
-    external_id text,
-    title text not null,
-    company_name text,
-    description text not null,
-    requirements text,
-    city text,
-    country text,
-    remote_type text,
-    salary_min numeric,
-    salary_max numeric,
-    currency text,
-    seniority_level text,
-    years_experience_min numeric,
-    industry text,
-    company_size text,
+Metadata file CV. Binary nằm trong private Storage bucket `resumes`, path `{user_id}/resumes/{resume_id}/{filename}`. Chỉ PDF/DOC/DOCX.
 
-    search_vector tsvector,
-
-    status text default 'active',
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-);
-```
-
-GIN index:
-
-```sql
-create index jobs_search_idx
-on api.jobs
-using gin(search_vector);
-```
+Recruiter **không** đọc mọi resume. Chỉ đọc resume đã được `job_submits` gửi tới `job_post` mà recruiter quản lý.
 
 ---
 
-## 7.7 job_embeddings
+## 7.4 embedded_resumes
 
-```sql
-create table agent.job_embeddings (
-    job_id uuid primary key references api.jobs(id),
-    embedding vector(1536),
-    embedding_model text not null,
-    embedding_version text,
-    updated_at timestamptz default now()
-);
-```
-
-HNSW index:
-
-```sql
-create index job_embedding_hnsw_idx
-on agent.job_embeddings
-using hnsw (embedding vector_cosine_ops);
-```
-
-Dimension phải điều chỉnh theo embedding model thực tế.
-
----
-
-## 7.8 job_skills
-
-```sql
-create table agent.job_skills (
-    job_id uuid references api.jobs(id),
-    skill_id uuid references agent.skills(id),
-    importance numeric default 1.0,
-    required boolean default false,
-    source text,
-    primary key (job_id, skill_id)
-);
-```
-
----
-
-# 8. Match run model
-
-## 8.1 match_runs
-
-```sql
-create table api.match_runs (
-    id uuid primary key default gen_random_uuid(),
-    profile_id uuid not null references api.profiles(id),
-
-    status text not null default 'queued',
-
-    scoring_config_version text,
-    embedding_model text,
-
-    started_at timestamptz,
-    completed_at timestamptz,
-
-    error_code text,
-    error_message text,
-
-    created_at timestamptz default now()
-);
-```
-
-Status:
+Vector store (pgvector HNSW cosine). Service role only.
 
 ```text
-queued
-processing
-completed
-failed
-cancelled
+resume_id PK → resumes
+embedding vector(384)
+model
+markdown
+metadata jsonb
+content_hash
 ```
 
 ---
 
-## 8.2 match_results
+## 7.5 companies / job_posts
 
-```sql
-create table api.match_results (
-    id uuid primary key default gen_random_uuid(),
-
-    match_run_id uuid not null references api.match_runs(id),
-    job_id uuid not null references api.jobs(id),
-
-    rank integer not null,
-
-    score numeric not null,
-
-    skill_score numeric,
-    experience_score numeric,
-    location_score numeric,
-    salary_score numeric,
-    semantic_score numeric,
-    company_score numeric,
-
-    explanation text,
-
-    created_at timestamptz default now(),
-
-    unique(match_run_id, job_id)
-);
-```
+`job_posts.company_id` NOT NULL → `companies`.
 
 ---
+
+## 7.6 job_submits
+
+Một lần candidate gửi resume tới job_post.
+
+RLS:
+
+- candidate: chỉ submit của mình;
+- recruiter: chỉ submit tới job_post mình quản lý (kèm resume + storage object tương ứng).
+
+---
+
+## 7.7 Skill graph (agent resource, không phải bảng)
+
+File JSON: taxonomy + relations (`similar_to`, `parent_of`, `commonly_used_with`, …). Agent load in-process, BFS depth ≤ 2. Không REST endpoint.
+
+---
+
+# 8. Match history
+
+Không dùng `match_runs` / `match_results` từng hàng job. Mỗi lần matching ghi một hàng lịch sử + mảng id đã match.
+
+## 8.1 match_job
+
+Resume của ứng viên match với public `job_posts`:
+
+```text
+resume_id
+user_id
+matched_job_ids uuid[]
+```
+
+Candidate chỉ SELECT hàng của mình.
+
+## 8.2 match_resume
+
+Job match với resume đã submit:
+
+```text
+job_post_id
+matched_resume_ids uuid[]
+```
+
+Recruiter chỉ SELECT nếu quản lý `job_post_id`.
 
 ## 8.3 match_evidence
 
-```sql
-create table agent.match_evidence (
-    match_result_id uuid primary key references api.match_results(id),
+Một hàng / cặp `(resume_id, job_post_id)` thuộc đúng một parent (`match_job_id` XOR `match_resume_id`).
 
-    lexical_rank integer,
-    semantic_rank integer,
-    graph_rank integer,
+Lưu rank, factor scores, matched/related skill names, constraints, raw_factors, explanation.
 
-    lexical_score numeric,
-    semantic_similarity numeric,
-    graph_score numeric,
-    rrf_score numeric,
-
-    matched_skill_ids uuid[],
-    related_skill_ids uuid[],
-
-    passed_constraints jsonb,
-    failed_constraints jsonb,
-
-    raw_factors jsonb,
-
-    created_at timestamptz default now()
-);
-```
+Frontend không INSERT. Backend (service role) ghi; owner được SELECT qua parent.
 
 ---
 
@@ -609,7 +458,7 @@ Nó chỉ được dùng các function/tool đã định nghĩa.
 ```python
 load_candidate_profile(profile_id)
 
-load_candidate_preferences(profile_id)
+load_profile_lines(user_id)
 
 extract_profile_features(profile)
 
@@ -658,7 +507,7 @@ PostgreSQL FTS query:
 select
     id,
     ts_rank_cd(search_vector, query) as score
-from api.jobs,
+from public.job_posts,
      websearch_to_tsquery('english', :query) query
 where search_vector @@ query
 order by score desc
@@ -699,9 +548,9 @@ Pseudo SQL:
 
 ```sql
 select
-    job_id,
+    resume_id,
     1 - (embedding <=> :query_embedding) as similarity
-from agent.job_embeddings
+from public.embedded_resumes
 order by embedding <=> :query_embedding
 limit :limit;
 ```
@@ -871,37 +720,15 @@ Tổng weights:
 1.00
 ```
 
-Không hard-code trực tiếp trong code.
+Không hard-code trực tiếp trong code nếu có thể version.
 
-Lưu ở:
-
-```text
-agent.scoring_configs
-```
+MVP: weights trong matching code. Có thể nâng cấp thành file resource cạnh skill graph.
 
 ---
 
 # 15. Scoring config
 
-```sql
-create table agent.scoring_configs (
-    id uuid primary key default gen_random_uuid(),
-    version text not null unique,
-
-    skill_weight numeric not null,
-    experience_weight numeric not null,
-    location_weight numeric not null,
-    salary_weight numeric not null,
-    semantic_weight numeric not null,
-    company_weight numeric not null,
-
-    config jsonb,
-
-    active boolean default false,
-
-    created_at timestamptz default now()
-);
-```
+Không lưu bảng `scoring_configs` trong MVP. Weights nằm trong matching engine (và có thể version bằng constant / resource file).
 
 Ví dụ:
 
@@ -1190,7 +1017,9 @@ Response:
 Frontend có thể đọc trực tiếp từ Supabase:
 
 ```text
-api.match_results
+public.match_job
+public.match_resume
+public.match_evidence
 ```
 
 Hoặc backend:
@@ -1478,9 +1307,9 @@ Frontend
    ↓
 Supabase Auth
    ↓
-api.profiles
-api.candidate_skills
-api.candidate_preferences
+public.profiles
+public.profile_lines
+public.resumes
 ```
 
 Sau khi profile update:
@@ -1554,21 +1383,20 @@ Service role không được xuất hiện trong:
 
 ---
 
-# 27. Internal schema protection
+# 27. Internal resource protection
 
-Không expose `agent` schema qua Data API nếu không cần.
+Không expose vector table hay skill graph qua Data API.
 
 Frontend không cần truy cập:
 
 ```text
-agent.job_embeddings
-agent.candidate_embeddings
-agent.scoring_configs
-agent.match_evidence
-agent.skill_relations
+public.embedded_resumes
+backend/app/services/matching/resources/skill_graph.json
 ```
 
-Nếu frontend cần explanation evidence, backend nên map dữ liệu cần thiết sang response DTO.
+`match_evidence` chỉ SELECT cho owner của `match_job` / recruiter của `match_resume`. Backend ghi bằng service role.
+
+Nếu frontend cần explanation, backend map sang DTO.
 
 ---
 
@@ -1962,12 +1790,14 @@ migrations chạy tự động
 
 Tasks:
 
-- profiles;
-- candidate preferences;
-- skills;
-- candidate skills;
-- jobs;
-- job skills;
+- profiles (user, role, default_resume_id);
+- profile_lines (name/value);
+- resumes + storage bucket;
+- embedded_resumes;
+- companies / job_posts;
+- job_submits;
+- match_job / match_resume / match_evidence;
+- skill graph JSON resource;
 - RLS;
 - frontend CRUD.
 

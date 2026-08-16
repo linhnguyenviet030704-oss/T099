@@ -112,12 +112,8 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
     () =>
       cvLines.filter(
         (l) => l.sourceId && sourceById[l.sourceId] && lineContentDiffers(l, {
-          line_type: sourceById[l.sourceId].line_type,
-          title: sourceById[l.sourceId].title,
-          organization: sourceById[l.sourceId].organization,
-          description: sourceById[l.sourceId].description,
-          start_date: sourceById[l.sourceId].start_date,
-          end_date: sourceById[l.sourceId].end_date,
+          name: sourceById[l.sourceId].name,
+          value: sourceById[l.sourceId].value,
         }),
       ).length,
     [cvLines, sourceById],
@@ -318,18 +314,13 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-slate-850 text-slate-300 border border-slate-800">
-                        {lineTypeLabel(line.line_type)}
+                        {lineTypeLabel(line.name)}
                       </span>
                       <Plus className="h-3.5 w-3.5 text-slate-500 group-hover:text-emerald-400" />
                     </div>
-                    <p className="text-xs font-bold text-slate-200 mt-1 truncate">
-                      {line.title}
+                    <p className="text-xs font-bold text-slate-200 mt-1 line-clamp-2 whitespace-pre-line">
+                      {line.value}
                     </p>
-                    {line.organization && (
-                      <p className="text-[10px] text-slate-500 truncate">
-                        {line.organization}
-                      </p>
-                    )}
                   </button>
                 ))}
               </div>

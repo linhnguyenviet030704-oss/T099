@@ -152,10 +152,10 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
                   Phân loại <span className="text-emerald-500">*</span>
                 </label>
                 <select
-                  value={draft.line_type}
+                  value={draft.name}
                   onChange={(e) =>
                     updateDraft(draft.key, {
-                      line_type: e.target.value as LineDraft['line_type'],
+                      name: e.target.value as LineDraft['name'],
                     })
                   }
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -166,36 +166,6 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Tiêu đề chính <span className="text-emerald-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={draft.title}
-                  onChange={(e) =>
-                    updateDraft(draft.key, { title: e.target.value })
-                  }
-                  placeholder="Ví dụ: Kỹ sư phần mềm"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Đơn vị / Tổ chức
-                </label>
-                <input
-                  type="text"
-                  value={draft.organization}
-                  onChange={(e) =>
-                    updateDraft(draft.key, { organization: e.target.value })
-                  }
-                  placeholder="Tên công ty, trường học"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
               </div>
 
               <div className="space-y-1.5">
@@ -214,45 +184,17 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Ngày bắt đầu
-                </label>
-                <input
-                  type="date"
-                  value={draft.start_date}
-                  onChange={(e) =>
-                    updateDraft(draft.key, { start_date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Ngày kết thúc
-                </label>
-                <input
-                  type="date"
-                  value={draft.end_date}
-                  onChange={(e) =>
-                    updateDraft(draft.key, { end_date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Mô tả chi tiết
+                  Nội dung <span className="text-emerald-500">*</span>
                 </label>
                 <textarea
                   rows={3}
-                  value={draft.description}
+                  value={draft.value}
                   onChange={(e) =>
-                    updateDraft(draft.key, { description: e.target.value })
+                    updateDraft(draft.key, { value: e.target.value })
                   }
-                  placeholder="Mô tả kỹ năng, thành tựu, quy mô dự án..."
+                  placeholder="Ví dụ: Tốt nghiệp đại học quốc gia HCM"
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
                 />
               </div>

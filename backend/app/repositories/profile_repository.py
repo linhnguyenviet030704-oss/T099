@@ -127,6 +127,7 @@ def _to_profile(row: dict[str, Any]) -> Profile:
         phone=row.get("phone"),
         avatar_url=row.get("avatar_url"),
         role=role,
+        default_resume_id=UUID(str(row["default_resume_id"])) if row.get("default_resume_id") else None,
         created_at=created_at,
         updated_at=updated_at,
     )

@@ -9,11 +9,6 @@ interface CvLineEditorProps {
   onClose: () => void;
 }
 
-/**
- * Inline editor for the currently-selected CV line. Edits are kept in builder
- * state only; persistence to the source profile lines happens at export time
- * via the write-back prompts.
- */
 export const CvLineEditor: React.FC<CvLineEditorProps> = ({
   line,
   onChange,
@@ -34,15 +29,15 @@ export const CvLineEditor: React.FC<CvLineEditorProps> = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="space-y-3">
         <div className="space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
             Phân loại
           </label>
           <select
-            value={line.line_type}
+            value={line.name}
             onChange={(e) =>
-              onChange({ line_type: e.target.value as CvLine['line_type'] })
+              onChange({ name: e.target.value as CvLine['name'] })
             }
             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
           >
@@ -56,61 +51,13 @@ export const CvLineEditor: React.FC<CvLineEditorProps> = ({
 
         <div className="space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Tiêu đề chính
-          </label>
-          <input
-            type="text"
-            value={line.title}
-            onChange={(e) => onChange({ title: e.target.value })}
-            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Đơn vị / Tổ chức
-          </label>
-          <input
-            type="text"
-            value={line.organization}
-            onChange={(e) => onChange({ organization: e.target.value })}
-            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Bắt đầu
-            </label>
-            <input
-              type="date"
-              value={line.start_date}
-              onChange={(e) => onChange({ start_date: e.target.value })}
-              className="w-full px-2 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Kết thúc
-            </label>
-            <input
-              type="date"
-              value={line.end_date}
-              onChange={(e) => onChange({ end_date: e.target.value })}
-              className="w-full px-2 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-1.5 sm:col-span-2">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-            Mô tả chi tiết
+            Nội dung
           </label>
           <textarea
-            rows={4}
-            value={line.description}
-            onChange={(e) => onChange({ description: e.target.value })}
+            rows={5}
+            value={line.value}
+            onChange={(e) => onChange({ value: e.target.value })}
+            placeholder="Ví dụ: Tốt nghiệp đại học quốc gia HCM"
             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
           />
         </div>

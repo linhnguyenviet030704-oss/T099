@@ -138,7 +138,7 @@ export function groupLines(
   const sections: CvSection[] = [];
   for (const type of SECTION_ORDER) {
     if (onlyTypes && !onlyTypes.includes(type)) continue;
-    const inType = selected.filter((l) => l.line_type === type);
+    const inType = selected.filter((l) => l.name === type);
     if (inType.length > 0) {
       sections.push({ type, label: SECTION_LABELS[type], lines: inType });
     }

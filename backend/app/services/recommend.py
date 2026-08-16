@@ -94,7 +94,7 @@ async def list_applications_for_job(
 ) -> list[dict[str, Any]]:
     def _query() -> list[dict[str, Any]]:
         result = (
-            client.table("applications")
+            client.table("job_submits")
             .select(
                 "id, applicant_user_id, current_status, resume_title_snapshot, "
                 "resume_storage_path_snapshot, profiles!applicant_user_id(full_name, email)"

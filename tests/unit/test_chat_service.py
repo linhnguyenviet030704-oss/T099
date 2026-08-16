@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from backend.app.core.exceptions import AppError, ForbiddenError
-from backend.app.schemas.chat import ChatRequest
+from backend.app.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
 from backend.app.services.chat_service import ChatService
 
 
@@ -137,3 +137,46 @@ async def test_chat_candidates_forbidden():
             ChatRequest(message="hello", job_id=job_id),
             uuid4(),
         )
+
+
+@pytest.mark.asyncio
+async def test_chat_job_id_uses_matching_runner_not_mock():
+    job_id = uuid4()
+    app_id = uuid4()
+    user_id = uuid4()
+
+    async def fetch_jobs():
+        return []
+
+    async def fetch_candidates(_job_id):
+        raise AssertionError("mock fetch_candidates must not run when matcher is set")
+
+    async def allow(_actor, _job):
+        return None
+
+    async def match(requested):
+        assert requested == job_id
+        return ChatResponse(
+            response="Gợi ý 1 ứng viên phù hợp.",
+            candidates=[
+                RecommendedCandidate(
+                    application_id=app_id,
+                    applicant_user_id=user_id,
+                    full_name="Ada",
+                    email="ada@example.com",
+                    resume_title="CV.pdf",
+                    resume_storage_path="u/cv.pdf",
+                    current_status="pending",
+                    score=0.81,
+                )
+            ],
+        )
+
+    result = await ChatService(fetch_jobs, fetch_candidates, allow, match).chat(
+        ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
+        uuid4(),
+    )
+    assert result.response == "Gợi ý 1 ứng viên phù hợp."
+    assert result.candidates[0].score == 0.81
+    assert "mock matching" not in result.response
+

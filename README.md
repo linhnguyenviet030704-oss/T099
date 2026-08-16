@@ -28,23 +28,22 @@ Sản phẩm giải quyết vấn đề như thế nào bằng AI:
 
 | Layer | Technology |
 |-------|-----------|
-| AI Agent | LangGraph + OpenAI |
+| AI / matching | LangGraph + Qwen Cloud (DashScope) |
 | Backend | FastAPI + Python 3.11+ |
 | Frontend | React + Vite + TypeScript |
-| Database / Auth / Storage | Supabase (PostgreSQL) |
-| DevOps | Docker + GitHub Actions |
+| Database / Auth / Storage | Supabase local (PostgreSQL) |
 
 ## Cấu trúc repo
 
 ```text
-project/
-├── frontend/          # React (Vite)
-├── backend/
-│   └── app/           # FastAPI (api → services → repositories)
-├── supabase/          # config, migrations, seed
-├── agent/             # LangGraph agent
-├── tests/             # unit / api / agent
-└── docs/
+.
+├── frontend/          # React (Vite), UI chạy cổng 3000
+├── backend/app/       # FastAPI (api → services → repositories)
+├── supabase/          # config, migrations, seed.sql
+├── tests/             # pytest (unit / api / agent)
+├── scripts/           # seed CV, tiện ích local
+├── dev.ps1            # chạy Supabase + API + frontend (Windows)
+└── requirements.txt   # Python deps (chạy từ root)
 ```
 
 Luồng request mặc định:
@@ -55,28 +54,26 @@ Frontend → FastAPI /api/v1 → Service → Repository → Supabase
 
 Auth: Frontend đăng nhập Supabase Auth → gửi `Authorization: Bearer <access_token>` → FastAPI verify JWT.
 
+Backend đọc env từ `.env` ở **root** hoặc `backend/.env`. Docker Compose (nếu dùng) chỉ đọc `.env` ở root.
+
 ---
 
 ## Yêu cầu môi trường
 
-- Python **3.11+** (khuyến nghị)
-- Node.js **20+** và npm
-- [Supabase CLI](https://supabase.com/docs/guides/cli) (`npx supabase` cũng được)
-- Docker Desktop (để chạy Supabase local)
-- Git
+- Python **3.11+**
+- Node.js **18+** và npm
+- Docker Desktop (Supabase local chạy trên Docker)
+- [Supabase CLI](https://supabase.com/docs/guides/cli) — dùng `npx supabase` cũng được, không cần cài global
 
 ---
 
-## Cài đặt & chạy local
+## Cài đặt lần đầu
 
-### 1. Clone repo
+Làm từ **thư mục root** của repo.
 
-```bash
-git clone <URL_REPO_GITHUB>
-cd team-Matikanefukukitaru
-```
+### 1. Python backend
 
-### 2. Python backend
+Windows (PowerShell):
 
 ```powershell
 python -m venv .venv
@@ -86,88 +83,131 @@ pip install -r requirements.txt
 copy backend\.env.example .env
 ```
 
-Trên macOS/Linux:
+macOS / Linux:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -U pip
+python -m pip install -U pip
 pip install -r requirements.txt
 cp backend/.env.example .env
 ```
 
-### 3. Supabase local
-
-```powershell
-npx supabase start
-npx supabase status
-npx supabase db reset
-```
-
-Từ `supabase status`, copy vào `.env` (root):
-
-| Env var | Lấy từ |
-|---------|--------|
-| `SUPABASE_URL` | API URL |
-| `SUPABASE_ANON_KEY` | anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role key |
-| `SUPABASE_JWT_SECRET` | JWT secret (local mặc định thường là giá trị trong `backend/.env.example`) |
-
-**Không commit** file `.env` / secret thật.
-
-### 4. Chạy API
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Hoặc (entrypoint tương thích):
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Kiểm tra: [http://localhost:8000/health](http://localhost:8000/health)  
-Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-
-API hiện có:
-
-| Method | Path | Auth |
-|--------|------|------|
-| `GET` | `/health` | No |
-| `GET` | `/api/v1/health` | No |
-| `GET` | `/api/v1/profiles/me` | Bearer JWT |
-| `PATCH` | `/api/v1/profiles/me` | Bearer JWT |
-| `POST` | `/api/v1/chat` | Bearer JWT (rate limited) |
-| `PATCH` | `/api/v1/admin/profiles/{id}` | Bearer JWT (admin) |
-| `POST` | `/api/v1/admin/recruiter-forms/{id}/review` | Bearer JWT (admin) |
-
-### 5. Frontend
+### 2. Frontend
 
 ```powershell
 cd frontend
 copy .env.example .env
 npm install
+cd ..
+```
+
+macOS / Linux: `cp .env.example .env` rồi `npm install`.
+
+### 3. Supabase local
+
+Cần Docker Desktop đang chạy.
+
+```powershell
+npx supabase start
+npx supabase db reset
+npx supabase status
+```
+
+`db reset` chạy migration trong `supabase/migrations/` và seed `supabase/seed.sql`.
+
+Từ `npx supabase status`, điền vào **`.env` (root)**:
+
+| Env var | Lấy từ |
+|---------|--------|
+| `SUPABASE_URL` | API URL (`http://127.0.0.1:54321`) |
+| `SUPABASE_ANON_KEY` | `anon` / `Publishable` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `service_role` / `Secret` key |
+| `SUPABASE_JWT_SECRET` | JWT secret — local mặc định đã có trong `backend/.env.example` |
+
+Cùng `SUPABASE_URL` và `SUPABASE_ANON_KEY` điền vào `frontend/.env` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`). `VITE_API_BASE_URL` giữ `http://localhost:8000`.
+
+**Không commit** file `.env` / secret thật.
+
+### 4. LLM (matching / ingest CV)
+
+Đặt `QWEN_API_KEY` trong `.env` (root). Không có key thì UI, auth và CRUD vẫn chạy; gợi ý matching và ingest embedding sẽ không gọi được Qwen.
+
+`OPENAI_API_KEY` là leftover, không cần cho luồng hiện tại.
+
+---
+
+## Chạy local
+
+Windows — một lệnh (cần đã có `.venv` và `frontend/node_modules`):
+
+```powershell
+.\dev.ps1
+```
+
+Hoặc chạy từng phần:
+
+```powershell
+npx supabase start
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Terminal khác:
+
+```powershell
+cd frontend
 npm run dev
 ```
 
-Điền `frontend/.env`:
+| Dịch vụ | URL |
+|---------|-----|
+| UI | http://localhost:3000 |
+| API docs | http://localhost:8000/docs |
+| Health | http://localhost:8000/health |
+| Supabase Studio | http://127.0.0.1:54323 |
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key từ supabase status>
-VITE_API_BASE_URL=http://localhost:8000
+Tài khoản seed (mật khẩu `password123`):
+
+| Email | Role |
+|-------|------|
+| `candidate@example.com` | candidate |
+| `recruiter@example.com` | recruiter |
+| `admin@example.com` | admin |
+
+SQL seed tạo row CV nhưng **chưa** upload file PDF lên Storage. Để có file CV mock (và ingest embedding nếu đã có `QWEN_API_KEY`):
+
+```powershell
+.\.venv\Scripts\python.exe scripts\seed_mock_cvs.py
 ```
 
-UI: [http://localhost:3000](http://localhost:3000)
+API chính (`/api/v1`, Bearer JWT trừ health):
 
-### 6. Chạy tests
+| Method | Path |
+|--------|------|
+| `GET` | `/health` và `/api/v1/health` (không cần auth) |
+| `GET` / `PATCH` | `/api/v1/profiles/me` |
+| `POST` | `/api/v1/chat` (rate limited) |
+| `POST` | `/api/v1/resumes/{resume_id}/ingest` |
+| `PATCH` | `/api/v1/admin/profiles/{id}` (admin) |
+| `POST` | `/api/v1/admin/recruiter-forms/{id}/review` (admin) |
+
+---
+
+## Tests
+
+Từ root, với `.venv` đã kích hoạt (hoặc gọi python trong `.venv`):
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest tests -v
 ```
 
-Frontend typecheck:
+Lint Python:
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff check backend/ agent/ tests/
+```
+
+Typecheck frontend:
 
 ```powershell
 cd frontend
@@ -176,48 +216,12 @@ npm run lint
 
 ---
 
-## Production (Supabase Cloud)
-
-1. Tạo project trên [Supabase](https://supabase.com).
-2. Link và đẩy migration:
-
-```powershell
-npx supabase link --project-ref <PROJECT_REF>
-npx supabase db push
-```
-
-3. Đặt env production cho backend (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `CORS_ORIGINS`).
-4. Frontend chỉ dùng URL + **anon/publishable** key — **không** đưa service-role xuống browser.
-
----
-
-## Đẩy lên GitHub
-
-```powershell
-git status
-git add .
-git commit -m "Describe your change"
-git branch -M main
-git remote add origin <URL_REPO_GITHUB>
-git push -u origin main
-```
-
-Checklist trước khi push:
-
-- [ ] Không có `.env`, key, token trong commit
-- [ ] `pytest tests` pass
-- [ ] Frontend `npm run lint` pass (nếu sửa UI)
-- [ ] Migration mới nằm trong `supabase/migrations/`
-
----
-
 ## Deliverables Checklist
 
-- [x] Source Code (GitHub)
+- [x] Source code
 - [x] README.md
-- [ ] Architecture Diagram (`docs/architecture_diagram.md`)
+- [x] Architecture Diagram (`docs/architecture_diagram.md`)
 - [ ] AI Logs (auto-collected)
-- [ ] Live URL / Deploy
 - [ ] Video Demo
 - [ ] Pitch Deck (`presentation/`)
 - [x] Weekly Journal (`JOURNAL.md`)

@@ -4,7 +4,7 @@ from backend.app.agent.graph import build_ingest_graph
 
 
 def _encode(text: str) -> list[float]:
-    return [0.0] * 2560
+    return [0.0] * 1536
 
 
 def _complete(_prompt: str, **_kwargs) -> str:

@@ -79,6 +79,70 @@ declare
   lt public.profile_line_type;
   reg_status public.recruiter_registration_status;
   cname text;
+  cv_titles text[] := array[
+    'Senior React Engineer',
+    'Mid React TypeScript',
+    'React Next specialist',
+    'React JavaScript Git',
+    'React TypeScript emailed zips',
+    'Junior React JavaScript',
+    'React Git intern',
+    'React TypeScript contractor',
+    'Angular TypeScript frontend',
+    'Vanilla JavaScript Git',
+    'TypeScript Git libraries',
+    'JavaScript only intern',
+    'Git only release manager',
+    'React plus Python backend',
+    'Fullstack React Python',
+    'Python FastAPI Git',
+    'Python FastAPI data',
+    'DevOps Docker Linux Git',
+    'Docker Linux operator',
+    'PostgreSQL DBA',
+    'SQL report analyst',
+    'Linux sysadmin',
+    'Python scripting',
+    'Product designer Figma',
+    'Business analyst',
+    'Career change accountant',
+    'Node JavaScript Git Linux',
+    'Staff frontend architect',
+    'WordPress JavaScript Git',
+    'React bootcamp graduate'
+  ];
+  cv_names text[] := array[
+    'Nguyễn Văn Ứng Viên',
+    'Trần Minh Khoa',
+    'Lê Thị Hạnh',
+    'Phạm Đức Anh',
+    'Hoàng Ngọc Lan',
+    'Huỳnh Gia Bảo',
+    'Phan Thanh Tâm',
+    'Vũ Hải Đăng',
+    'Võ Thị Mai',
+    'Đặng Quốc Huy',
+    'Nguyễn Thị Phương',
+    'Trần Văn Long',
+    'Lê Minh Tú',
+    'Phạm Thị Hoa',
+    'Hoàng Anh Tuấn',
+    'Huỳnh Nhật Nam',
+    'Phan Thị Linh',
+    'Vũ Đức Thịnh',
+    'Võ Thanh Hà',
+    'Đặng Gia Hân',
+    'Nguyễn Hữu Phước',
+    'Trần Khánh Vy',
+    'Lê Quốc Bảo',
+    'Phạm Minh Châu',
+    'Hoàng Nhật Quang',
+    'Huỳnh Thị Yến',
+    'Phan Văn Sơn',
+    'Vũ Ngọc Ánh',
+    'Võ Đình Khôi',
+    'Đặng Thùy Dương'
+  ];
 begin
   ---------------------------------------------------------------------------
   -- 100 users (3 known + 97 generated)
@@ -227,6 +291,12 @@ begin
     job_ids := array_append(job_ids, jid);
   end loop;
 
+  update public.job_posts
+  set
+    description = 'FPT Software hiring a Frontend React Developer for a product squad. You will ship component libraries, hooks, and dashboard screens with React, TypeScript, and JavaScript, and review Git pull requests daily.',
+    requirements = E'React TypeScript JavaScript Git\n- 2+ years building production UIs with React\n- Strong TypeScript and JavaScript\n- Git pull requests and code review'
+  where id = job_ids[1];
+
   ---------------------------------------------------------------------------
   -- 80 users × 15–20 profile lines
   ---------------------------------------------------------------------------
@@ -272,9 +342,11 @@ begin
   end loop;
 
   ---------------------------------------------------------------------------
-  -- Resumes + 20 job_submits
+  -- 30 demo resumes. Job 1 (FPT Frontend React #1) gets all 30 applications.
+  -- Storage objects are not created here. After reset run:
+  --   python scripts/seed_mock_cvs.py
   ---------------------------------------------------------------------------
-  for i in 1..20 loop
+  for i in 1..30 loop
     uid := applicant_ids[i];
     rid := ('c0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
     insert into public.resumes (
@@ -284,11 +356,12 @@ begin
       rid, uid, 'resumes',
       uid::text || '/resumes/' || rid::text || '/cv-mock.pdf',
       'cv-mock-' || i::text || '.pdf',
-      'CV mock #' || i::text,
+      cv_titles[i],
       'application/pdf',
       100000 + i * 1024,
       true
     );
+    update public.profiles set full_name = cv_names[i] where id = uid;
   end loop;
 
   for i in 1..20 loop
@@ -304,6 +377,36 @@ begin
       'Cover letter mock #' || i::text || ' — quan tâm vị trí này.'
     );
   end loop;
+
+  for i in 2..30 loop
+    uid := applicant_ids[i];
+    rid := ('c0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    aid := ('e0000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into public.job_submits (
+      id, job_post_id, applicant_user_id, resume_id, cover_letter
+    ) values (
+      aid, job_ids[1], uid, rid,
+      'Cover letter — ' || cv_titles[i]
+    );
+  end loop;
+
+  insert into public.application_stages (
+    application_id, changed_by_user_id, stage, note, is_system_generated
+  )
+  select
+    ('e0000000-0000-4000-8000-' || lpad(gs::text, 12, '0'))::uuid,
+    recruiter_id,
+    case (gs % 5)
+      when 1 then 'screening'::public.application_status
+      when 2 then 'interview'::public.application_status
+      when 3 then 'offer'::public.application_status
+      when 4 then 'rejected'::public.application_status
+      else 'screening'::public.application_status
+    end,
+    'Seed pipeline demo #' || gs::text,
+    false
+  from generate_series(2, 30) as gs
+  where (gs % 5) <> 0;
 
   insert into public.application_stages (
     application_id, changed_by_user_id, stage, note, is_system_generated

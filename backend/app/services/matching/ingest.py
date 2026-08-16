@@ -6,6 +6,9 @@ from uuid import UUID
 
 from backend.app.agent.graph import build_ingest_graph
 from backend.app.core.exceptions import NotFoundError
+from backend.app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ResumeStore(Protocol):
@@ -51,3 +54,26 @@ async def ingest_resume(
     parsed = {"markdown": result.get("markdown") or "", "metadata": result.get("metadata") or {}}
     await store.save(resume_id, parsed, digest, list(result.get("embedding") or []))
     return "indexed"
+
+
+async def try_ingest_resume(
+    store: ResumeStore,
+    resume_id: UUID,
+    *,
+    encode=None,
+    complete=None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> str | None:
+    try:
+        return await ingest_resume(
+            store,
+            resume_id,
+            encode=encode,
+            complete=complete,
+            api_key=api_key,
+            base_url=base_url,
+        )
+    except Exception:
+        logger.exception("ingest skipped resume_id=%s", resume_id)
+        return None

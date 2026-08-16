@@ -1,4 +1,5 @@
--- qwen3-embedding:8b is 4096-d. Existing 384-d vectors cannot be recast.
+-- qwen3.7-text-embedding: 1536-d (HNSW max is 2000; 2048/2560/4096 cannot be indexed).
+-- Existing 384-d vectors cannot be recast.
 
 delete from public.match_evidence;
 delete from public.match_resume;
@@ -9,7 +10,7 @@ drop index if exists public.embedded_resumes_hnsw;
 alter table public.embedded_resumes drop column if exists embedding;
 
 alter table public.embedded_resumes
-  add column embedding extensions.vector(4096) not null;
+  add column embedding extensions.vector(1536) not null;
 
 create index embedded_resumes_hnsw
   on public.embedded_resumes
@@ -19,7 +20,7 @@ drop function if exists public.match_resumes_for_job(extensions.vector, uuid, in
 drop function if exists public.match_resumes_for_job(extensions.vector(384), uuid, int);
 
 create or replace function public.match_resumes_for_job (
-  query_embedding extensions.vector(4096),
+  query_embedding extensions.vector(1536),
   p_job_id uuid,
   match_count int default 50
 )

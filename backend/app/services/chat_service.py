@@ -5,8 +5,11 @@ from typing import Any
 from uuid import UUID
 
 from backend.app.core.exceptions import AppError
+from backend.app.core.logging import get_logger
 from backend.app.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
+
+logger = get_logger(__name__)
 
 FetchJobs = Callable[[], Awaitable[list[dict[str, Any]]]]
 FetchCandidates = Callable[[UUID], Awaitable[list[dict[str, Any]]]]
@@ -76,6 +79,7 @@ class ChatService:
             except AppError:
                 raise
             except Exception as exc:
+                logger.exception("match_candidates failed")
                 raise AppError(502, "Không lấy được danh sách ứng viên", "CANDIDATES_UNAVAILABLE") from exc
         if self._fetch_candidates is None:
             raise AppError(403, "Not a recruiter for this job", "FORBIDDEN")

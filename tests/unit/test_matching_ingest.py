@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from backend.app.services.matching.ingest import ingest_resume
+from backend.app.services.matching.ingest import ingest_resume, try_ingest_resume
 
 
 class _FakeStore:
@@ -34,7 +34,7 @@ class _FakeStore:
 
 
 def _encode(text: str) -> list[float]:
-    return [float((i + len(text)) % 7) for i in range(2560)]
+    return [float((i + len(text)) % 7) for i in range(1536)]
 
 
 def _complete(_prompt: str, **_kwargs) -> str:
@@ -62,7 +62,7 @@ async def test_ingest_parses_and_saves_first_time():
     assert store.saved["parsed"]["metadata"]["summary"] == "Python API engineer."
     assert "summary:" not in store.saved["parsed"]["markdown"]
     assert "Built FastAPI services." in store.saved["parsed"]["markdown"]
-    assert len(store.saved["embedding"]) == 2560
+    assert len(store.saved["embedding"]) == 1536
 
 
 @pytest.mark.asyncio
@@ -103,3 +103,24 @@ async def test_ingest_reindexes_when_file_changed():
     status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
     assert status == "indexed"
     assert store.saved["content_hash"] == sha256(blob).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_try_ingest_skips_missing_storage_object():
+    resume_id = uuid4()
+
+    class _MissingFile(_FakeStore):
+        async def download(self, bucket_id, storage_path):
+            raise RuntimeError("Object not found")
+
+    store = _MissingFile(
+        resume={
+            "id": str(resume_id),
+            "bucket_id": "resumes",
+            "storage_path": "missing/cv-mock.pdf",
+            "mime_type": "application/pdf",
+        },
+        blob=b"",
+    )
+    assert await try_ingest_resume(store, resume_id, encode=_encode, complete=_complete) is None
+    assert store.saved is None

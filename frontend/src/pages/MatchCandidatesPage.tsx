@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Send, Sparkles, Users2 } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
-import { supabase, handleSupabaseError } from '../lib/supabase';
 import { apiJson } from '../lib/api';
+import { supabase, handleSupabaseError } from '../lib/supabase';
+import { getResumeSignedUrl } from '../lib/storage';
 import { ENUM_LABELS } from '../lib/format';
 import { JobPost } from '../types';
 
@@ -35,7 +36,7 @@ type JobOption = JobPost & { company_name?: string };
 
 const welcomeFor = (jobTitle?: string) =>
   jobTitle
-    ? `Vị trí “${jobTitle}”. Pool chỉ gồm CV đã nộp tin này. Matching thật chưa chạy — điểm hiện tại là mock.`
+    ? `Vị trí “${jobTitle}”. Pool chỉ gồm CV đã nộp tin này.`
     : 'Chọn một vị trí tuyển dụng, rồi bấm “Gợi ý ứng viên phù hợp” hoặc gõ tin nhắn.';
 
 export const MatchCandidatesPage: React.FC = () => {
@@ -141,12 +142,8 @@ export const MatchCandidatesPage: React.FC = () => {
     }
     try {
       setOpeningId(candidate.application_id);
-      const { data, error } = await supabase.storage
-        .from('resumes')
-        .createSignedUrl(candidate.resume_storage_path, 180);
-      if (error) throw error;
-      if (!data?.signedUrl) throw new Error('Signed URL is blank');
-      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      const signedUrl = await getResumeSignedUrl(candidate.resume_storage_path);
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Không mở được CV.');
     } finally {

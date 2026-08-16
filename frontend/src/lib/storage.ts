@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, handleSupabaseError } from './supabase';
 
 /**
  * Clean original filename to prevent storage or URL issues.
@@ -44,7 +44,7 @@ export async function getResumeSignedUrl(storagePath: string): Promise<string> {
     .createSignedUrl(storagePath, 180);
     
   if (error) {
-    throw error;
+    throw new Error(handleSupabaseError(error));
   }
   
   if (!data?.signedUrl) {

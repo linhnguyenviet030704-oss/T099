@@ -52,9 +52,9 @@ def test_chat_complete_omits_authorization_when_api_key_blank():
     assert "Authorization" not in calls[0]["headers"]
 
 
-def test_embed_query_returns_2560_vector_and_passes_api_key():
+def test_embed_query_returns_1536_vector_and_passes_api_key():
     calls: list[dict] = []
-    vector = [0.1] * 2560
+    vector = [0.1] * 1536
 
     def post(url, json, headers, timeout):
         calls.append({"url": url, "json": json, "headers": headers})
@@ -70,5 +70,5 @@ def test_embed_query_returns_2560_vector_and_passes_api_key():
     assert out == vector
     assert calls[0]["url"] == "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/embeddings"
     assert calls[0]["json"]["model"] == "qwen3.7-text-embedding"
-    assert calls[0]["json"]["dimensions"] == 2560
+    assert calls[0]["json"]["dimensions"] == 1536
     assert calls[0]["headers"]["Authorization"] == "Bearer emb-key"

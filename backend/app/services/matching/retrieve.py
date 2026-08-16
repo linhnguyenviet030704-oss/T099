@@ -6,7 +6,7 @@ from uuid import UUID
 
 from backend.app.core.exceptions import NotFoundError
 from backend.app.services.matching.embed import DEFAULT_EMBEDDING_MODEL, embed_text
-from backend.app.services.matching.ingest import ingest_resume
+from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.skills import (
     expand_query,
     extract_skills,
@@ -22,6 +22,13 @@ def job_query_text(job: dict[str, Any]) -> str:
         return requirements
     # ponytail: some posts leave requirements empty; title+description still match
     return " ".join(part for part in (job.get("title"), job.get("description")) if part)
+
+
+def _row(result: Any) -> dict[str, Any] | None:
+    if result is None:
+        return None
+    data = getattr(result, "data", None)
+    return data if isinstance(data, dict) else None
 
 
 def _profile(row: dict[str, Any]) -> dict[str, Any]:
@@ -135,7 +142,7 @@ async def retrieve_for_job(
     for row in submits:
         resume_id = row.get("resume_id")
         if resume_id:
-            await ingest_resume(
+            await try_ingest_resume(
                 resume_store,
                 UUID(str(resume_id)),
                 encode=encode,
@@ -173,7 +180,7 @@ async def retrieve_for_job(
             .maybe_single()
             .execute()
         )
-        return result.data
+        return _row(result)
 
     candidates: list[dict[str, Any]] = []
     for row in submits:

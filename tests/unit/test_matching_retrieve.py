@@ -1,10 +1,16 @@
-from backend.app.services.matching.retrieve import job_query_text
+from backend.app.services.matching.retrieve import job_query_text, _row
 from backend.app.services.matching.rrf import score_candidates, semantic_score
 
 
 def test_job_query_text_prefers_requirements():
     assert job_query_text({"title": "BE", "description": "code", "requirements": "Python"}) == "Python"
     assert job_query_text({"title": "BE", "description": "code", "requirements": "  "}) == "BE code"
+
+
+def test_row_accepts_missing_execute_result():
+    assert _row(None) is None
+    assert _row(type("R", (), {"data": None})()) is None
+    assert _row(type("R", (), {"data": {"metadata": {"skills": ["Python"]}}})())["metadata"]["skills"] == ["Python"]
 
 
 def test_semantic_score_clamps_cosine_distance():

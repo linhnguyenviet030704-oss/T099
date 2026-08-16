@@ -5,7 +5,7 @@ import pytest
 
 from backend.app.agent.graph import build_ingest_graph, build_matching_graph
 
-EMBED_DIM = 2560
+EMBED_DIM = 1536
 
 
 def _encode(text: str) -> list[float]:

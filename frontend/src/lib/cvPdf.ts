@@ -1,6 +1,5 @@
 import { CvHeader, CvLine } from './cv';
 import { LineType } from './profileLines';
-import { formatDate } from './format';
 import { SECTION_ORDER, sectionLabel } from './cvTemplates';
 
 const hexToRgb = (hex: string): [number, number, number] => {
@@ -12,11 +11,6 @@ const hexToRgb = (hex: string): [number, number, number] => {
     16,
   );
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-
-const dateRange = (start: string, end: string): string => {
-  if (!start && !end) return '';
-  return `${start ? formatDate(start) : '...'} - ${end ? formatDate(end) : 'Hiện tại'}`;
 };
 
 /**
@@ -135,11 +129,10 @@ export async function generateTextPdf(
 
   // Group by section type in canonical order.
   for (const type of SECTION_ORDER) {
-    const inType = selected.filter((l) => l.line_type === (type as LineType));
+    const inType = selected.filter((l) => l.name === (type as LineType));
     if (inType.length === 0) continue;
 
     ensureSpace(14);
-    // Section heading
     pdf.setFont(fontName, 'bold');
     pdf.setFontSize(11);
     pdf.setTextColor(ar, ag, ab);
@@ -152,48 +145,13 @@ export async function generateTextPdf(
 
     for (const line of inType) {
       ensureSpace(16);
-
-      // Title + date range on the same row
-      pdf.setFont(fontName, 'bold');
-      pdf.setFontSize(12);
-      pdf.setTextColor(17, 24, 39);
-      const range = dateRange(line.start_date, line.end_date);
-      const rangeWidth = range
-        ? pdf.getStringUnitWidth(range) * 9.5 * 0.3528
-        : 0;
-      const titleMax = contentWidth - rangeWidth - 4;
-      const titleLines = pdf.splitTextToSize(line.title || '', titleMax);
-      pdf.text(titleLines, marginX, y);
-      if (range) {
-        pdf.setFont(fontName, 'normal');
-        pdf.setFontSize(9.5);
-        pdf.setTextColor(107, 114, 128);
-        pdf.text(range, pageWidth - marginX, y, { align: 'right' });
-      }
-      y += titleLines.length * 5.5;
-
-      // Organization
-      if (line.organization) {
-        pdf.setFont(fontName, 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(55, 65, 81);
-        const orgLines = pdf.splitTextToSize(line.organization, contentWidth);
-        pdf.text(orgLines, marginX, y);
-        y += orgLines.length * 5;
-      }
-
-      // Description
-      if (line.description) {
-        pdf.setFont(fontName, 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(75, 85, 99);
-        const descLines = pdf.splitTextToSize(line.description, contentWidth);
-        ensureSpace(descLines.length * 5);
-        pdf.text(descLines, marginX, y);
-        y += descLines.length * 5;
-      }
-
-      y += 4;
+      pdf.setFont(fontName, 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(55, 65, 81);
+      const valueLines = pdf.splitTextToSize(line.value || '', contentWidth);
+      ensureSpace(valueLines.length * 5);
+      pdf.text(valueLines, marginX, y);
+      y += valueLines.length * 5 + 4;
     }
     y += 3;
   }

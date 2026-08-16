@@ -16,5 +16,6 @@ class Profile:
     phone: str | None
     avatar_url: str | None
     role: ProfileRole
+    default_resume_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

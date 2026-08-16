@@ -6,7 +6,6 @@ import {
   MapPin, 
   ShieldAlert, 
   Plus, 
-  Calendar, 
   Briefcase, 
   GraduationCap, 
   FileEdit, 
@@ -61,12 +60,8 @@ export const ProfilePage: React.FC = () => {
   const [cvMode, setCvMode] = useState(false);
 
   // Line single entry form state
-  const [lineType, setLineType] = useState<UserProfileLine['line_type']>('summary');
-  const [lineTitle, setLineTitle] = useState('');
-  const [lineOrg, setLineOrg] = useState('');
-  const [lineDesc, setLineDesc] = useState('');
-  const [lineStart, setLineStart] = useState('');
-  const [lineEnd, setLineEnd] = useState('');
+  const [lineType, setLineType] = useState<UserProfileLine['name']>('summary');
+  const [lineValue, setLineValue] = useState('');
   const [lineOrder, setLineOrder] = useState(0);
 
   // Admin users lists
@@ -81,7 +76,7 @@ export const ProfilePage: React.FC = () => {
     try {
       setLoadingLines(true);
       const { data, error } = await supabase
-        .from('user_profile_lines')
+        .from('profile_lines')
         .select('*')
         .eq('user_id', user.id)
         .order('display_order', { ascending: true })
@@ -175,39 +170,30 @@ export const ProfilePage: React.FC = () => {
     setLineMessage(null);
 
     // Validations
-    if (!lineTitle.trim()) {
-      setLineMessage('Tiêu đề chính không thể bỏ trống.');
-      return;
-    }
-
-    if (lineStart && lineEnd && new Date(lineEnd) < new Date(lineStart)) {
-      setLineMessage('Thời gian kết thúc không thể trước ngày bắt đầu.');
+    if (!lineValue.trim()) {
+      setLineMessage('Nội dung không thể bỏ trống.');
       return;
     }
 
     try {
       const payload = {
         user_id: user.id,
-        line_type: lineType,
-        title: lineTitle.trim(),
-        organization: lineOrg.trim() || null,
-        description: lineDesc.trim() || null,
-        start_date: lineStart || null,
-        end_date: lineEnd || null,
+        name: lineType,
+        value: lineValue.trim(),
         display_order: Number(lineOrder) || 0,
         updated_at: new Date().toISOString(),
       };
 
       if (editingLineId) {
         const { error } = await supabase
-          .from('user_profile_lines')
+          .from('profile_lines')
           .update(payload)
           .eq('id', editingLineId)
           .eq('user_id', user.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('user_profile_lines')
+          .from('profile_lines')
           .insert(payload);
         if (error) throw error;
       }
@@ -223,12 +209,8 @@ export const ProfilePage: React.FC = () => {
 
   const handleEditLineClick = (line: UserProfileLine) => {
     setEditingLineId(line.id);
-    setLineType(line.line_type);
-    setLineTitle(line.title);
-    setLineOrg(line.organization || '');
-    setLineDesc(line.description || '');
-    setLineStart(line.start_date || '');
-    setLineEnd(line.end_date || '');
+    setLineType(line.name);
+    setLineValue(line.value);
     setLineOrder(line.display_order);
     setLineFormOpen(true);
   };
@@ -239,7 +221,7 @@ export const ProfilePage: React.FC = () => {
 
     try {
       const { error } = await supabase
-        .from('user_profile_lines')
+        .from('profile_lines')
         .delete()
         .eq('id', id)
         .eq('user_id', user.id);
@@ -254,11 +236,7 @@ export const ProfilePage: React.FC = () => {
   const resetLineForm = () => {
     setEditingLineId(null);
     setLineType('summary');
-    setLineTitle('');
-    setLineOrg('');
-    setLineDesc('');
-    setLineStart('');
-    setLineEnd('');
+    setLineValue('');
     setLineOrder(0);
     setLineMessage(null);
   };
@@ -608,7 +586,7 @@ export const ProfilePage: React.FC = () => {
                         <select
                           id="line-type-select"
                           value={lineType}
-                          onChange={(e) => setLineType(e.target.value as any)}
+                          onChange={(e) => setLineType(e.target.value as UserProfileLine['name'])}
                           className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         >
                           {Object.entries(ENUM_LABELS.line_type).map(([key, val]) => (
@@ -618,37 +596,8 @@ export const ProfilePage: React.FC = () => {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400" htmlFor="line-title-input">
-                          Tiêu đề chính <span className="text-emerald-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          id="line-title-input"
-                          required
-                          value={lineTitle}
-                          onChange={(e) => setLineTitle(e.target.value)}
-                          placeholder="Ví dụ: Kỹ sư kỹ thuật phần mềm, Đại học Bách Khoa"
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400" htmlFor="line-org-input">
-                          Đơn vị tổ chức / Công ty
-                        </label>
-                        <input
-                          type="text"
-                          id="line-org-input"
-                          value={lineOrg}
-                          onChange={(e) => setLineOrg(e.target.value)}
-                          placeholder="Tên trường, tập đoàn công nghệ"
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
                         <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400" htmlFor="line-order-input">
-                          Thứ tự hiển thị (display order)
+                          Thứ tự hiển thị
                         </label>
                         <input
                           type="number"
@@ -659,42 +608,17 @@ export const ProfilePage: React.FC = () => {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400" htmlFor="line-start-input">
-                          Tháng/Ngày bắt đầu
-                        </label>
-                        <input
-                          type="date"
-                          id="line-start-input"
-                          value={lineStart}
-                          onChange={(e) => setLineStart(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400" htmlFor="line-end-input">
-                          Tháng/Ngày kết thúc (Bỏ trống nếu đang làm)
-                        </label>
-                        <input
-                          type="date"
-                          id="line-end-input"
-                          value={lineEnd}
-                          onChange={(e) => setLineEnd(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                        />
-                      </div>
-
                       <div className="space-y-1.5 sm:col-span-2">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400" htmlFor="line-desc-textarea">
-                          Mô tả chi tiết nội dung đạt được
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400" htmlFor="line-value-textarea">
+                          Nội dung <span className="text-emerald-500">*</span>
                         </label>
                         <textarea
-                          id="line-desc-textarea"
-                          rows={3}
-                          value={lineDesc}
-                          onChange={(e) => setLineDesc(e.target.value)}
-                          placeholder="Mô tả kỹ năng tích lũy, quy mô dự án tham gia..."
+                          id="line-value-textarea"
+                          rows={4}
+                          required
+                          value={lineValue}
+                          onChange={(e) => setLineValue(e.target.value)}
+                          placeholder="Ví dụ: Tốt nghiệp đại học quốc gia HCM"
                           className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
                         />
                       </div>
@@ -767,28 +691,10 @@ export const ProfilePage: React.FC = () => {
                             </div>
 
                             <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-slate-850 text-slate-300 mb-1 border border-slate-800">
-                              {ENUM_LABELS.line_type[line.line_type] || line.line_type}
+                              {ENUM_LABELS.line_type[line.name] || line.name}
                             </span>
 
-                            <h4 className="text-xs font-bold text-slate-200 pr-16">{line.title}</h4>
-                            
-                            {line.organization && (
-                              <p className="text-[11px] font-medium text-emerald-400/95 mt-0.5">{line.organization}</p>
-                            )}
-
-                            {/* Dates duration label */}
-                            {(line.start_date || line.end_date) && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 mt-1.5">
-                                <Calendar className="h-3 w-3" />
-                                {line.start_date ? formatDate(line.start_date) : '...'} - {line.end_date ? formatDate(line.end_date) : 'Hiện tại'}
-                              </span>
-                            )}
-
-                            {line.description && (
-                              <p className="text-xs text-slate-400 leading-relaxed mt-2 whitespace-pre-line border-t border-slate-900 pt-2 font-light">
-                                {line.description}
-                              </p>
-                            )}
+                            <p className="text-xs text-slate-200 pr-16 whitespace-pre-line">{line.value}</p>
 
                           </div>
                         </div>

@@ -8,7 +8,6 @@ import {
   SECTION_ORDER,
 } from '../../lib/cvTemplates';
 import { LineType } from '../../lib/profileLines';
-import { formatDate } from '../../lib/format';
 
 const A4: React.CSSProperties = {
   width: '210mm',
@@ -17,11 +16,6 @@ const A4: React.CSSProperties = {
   fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   color: '#1f2937',
   background: '#ffffff',
-};
-
-const dateRange = (start: string, end: string): string => {
-  if (!start && !end) return '';
-  return `${start ? formatDate(start) : '...'} - ${end ? formatDate(end) : 'Hiện tại'}`;
 };
 
 const initials = (name: string): string =>
@@ -81,22 +75,9 @@ const ModernTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
 
 const Entry: React.FC<{ line: CvLine; dense?: boolean }> = ({ line, dense }) => (
   <div style={{ marginBottom: dense ? 8 : 12 }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-      <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: 0, color: '#111827' }}>{line.title}</h3>
-      {dateRange(line.start_date, line.end_date) && (
-        <span style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>
-          {dateRange(line.start_date, line.end_date)}
-        </span>
-      )}
-    </div>
-    {line.organization && (
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginTop: 1 }}>{line.organization}</div>
-    )}
-    {line.description && (
-      <p style={{ fontSize: 11.5, color: '#4b5563', lineHeight: 1.5, margin: '4px 0 0', whiteSpace: 'pre-line' }}>
-        {line.description}
-      </p>
-    )}
+    <p style={{ fontSize: dense ? 11 : 12, color: '#374151', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-line' }}>
+      {line.value}
+    </p>
   </div>
 );
 
@@ -150,15 +131,7 @@ const SidebarTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => 
             <h2 style={sideHeading}>{s.label}</h2>
             {s.lines.map((line) => (
               <div key={line.key} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700 }}>{line.title}</div>
-                {line.organization && (
-                  <div style={{ fontSize: 10, opacity: 0.85 }}>{line.organization}</div>
-                )}
-                {line.description && (
-                  <div style={{ fontSize: 10, opacity: 0.85, lineHeight: 1.45, whiteSpace: 'pre-line' }}>
-                    {line.description}
-                  </div>
-                )}
+                <div style={{ fontSize: 11.5, lineHeight: 1.45, whiteSpace: 'pre-line' }}>{line.value}</div>
               </div>
             ))}
           </div>
@@ -237,24 +210,9 @@ const ClassicTemplate: React.FC<TemplateProps> = ({ header, lines }) => {
             </h2>
             {s.lines.map((line) => (
               <div key={line.key} style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <h3 style={{ fontSize: 13.5, fontWeight: 700, margin: 0, color: '#111827' }}>{line.title}</h3>
-                  {dateRange(line.start_date, line.end_date) && (
-                    <span style={{ fontSize: 11, fontStyle: 'italic', color: '#64748b' }}>
-                      {dateRange(line.start_date, line.end_date)}
-                    </span>
-                  )}
-                </div>
-                {line.organization && (
-                  <div style={{ fontSize: 12, fontStyle: 'italic', color: '#475569', marginTop: 1 }}>
-                    {line.organization}
-                  </div>
-                )}
-                {line.description && (
-                  <p style={{ fontSize: 11.5, color: '#374151', lineHeight: 1.55, margin: '4px 0 0', whiteSpace: 'pre-line' }}>
-                    {line.description}
-                  </p>
-                )}
+                <p style={{ fontSize: 11.5, color: '#374151', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-line' }}>
+                  {line.value}
+                </p>
               </div>
             ))}
           </div>

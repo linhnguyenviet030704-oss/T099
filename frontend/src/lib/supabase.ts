@@ -38,6 +38,9 @@ export function handleSupabaseError(error: any): string {
   if (message.includes('Invalid login credentials')) {
     return 'Email hoặc mật khẩu không chính xác.';
   }
+  if (/object not found/i.test(message) || error.statusCode === '404' || error.statusCode === 404) {
+    return 'Không tìm thấy file CV trên Storage.';
+  }
   if (message.includes('User already registered')) {
     return 'Email này đã được đăng ký tài khoản.';
   }

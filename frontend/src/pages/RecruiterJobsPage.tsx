@@ -147,7 +147,7 @@ export const RecruiterJobsPage: React.FC = () => {
           const jobIds = loadedJobs.map(j => j.id);
 
           const { data: appsData, error: appsErr } = await supabase
-            .from('applications')
+            .from('job_submits')
             .select('*')
             .in('job_post_id', jobIds)
             .order('applied_at', { ascending: false });

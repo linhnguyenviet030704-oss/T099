@@ -171,7 +171,7 @@ async def test_list_applications_for_job_filters_job_and_not_withdrawn():
     client = _FakeClient(rows)
     result = await list_applications_for_job(client, job_id)
     assert result == rows
-    assert client.table_name == "applications"
+    assert client.table_name == "job_submits"
     assert client.query is not None
     assert client.query.eq_args == ("job_post_id", str(job_id))
     assert client.query.is_args == ("withdrawn_at", "null")

@@ -13,6 +13,7 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   role: ProfileRole;
+  default_resume_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -49,12 +50,8 @@ export interface CompanyMember {
 export interface UserProfileLine {
   id: string;
   user_id: string;
-  line_type: 'summary' | 'experience' | 'education' | 'skill' | 'project' | 'certification' | 'language' | 'link' | 'other';
-  title: string;
-  organization: string | null;
-  description: string | null;
-  start_date: string | null;
-  end_date: string | null;
+  name: 'summary' | 'experience' | 'education' | 'skill' | 'project' | 'certification' | 'language' | 'link' | 'other';
+  value: string;
   display_order: number;
   created_at?: string;
   updated_at?: string;

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase, handleSupabaseError } from '../lib/supabase';
 import { useAuth } from '../auth/AuthProvider';
-import { apiJson } from '../lib/api';
+import { INDEX_FAIL_COPY, ingestResume } from '../lib/ingest';
 import { JobPost, Resume, Application } from '../types';
 import { formatCurrency, formatDate, ENUM_LABELS } from '../lib/format';
 
@@ -48,6 +48,7 @@ export const JobDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savingSavedJob, setSavingSavedJob] = useState(false);
+  const [indexWarning, setIndexWarning] = useState(false);
   const [success, setSuccess] = useState(false);
 
   // Form states
@@ -214,12 +215,10 @@ export const JobDetailPage: React.FC = () => {
 
       if (error) throw error;
 
-      if (session?.access_token) {
-        void apiJson(`/resumes/${selectedResumeId}/ingest`, session.access_token, {
-          method: 'POST',
-        }).catch(() => {
-          // ponytail: apply already succeeded; retrieve will ingest lazily
-        });
+      try {
+        if (session?.access_token) await ingestResume(selectedResumeId, session.access_token);
+      } catch {
+        setIndexWarning(true);
       }
 
       setSuccess(true);
@@ -595,7 +594,10 @@ export const JobDetailPage: React.FC = () => {
                 {success && (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl text-xs flex items-center gap-1.5 select-none">
                     <CheckCircle2 className="h-4.5 w-4.5" />
-                    <p>Ứng tuyển hồ sơ thành công! Đang lưu.</p>
+                    <div>
+                      <p>Ứng tuyển hồ sơ thành công! Đang lưu.</p>
+                      {indexWarning && <p className="mt-1 text-amber-400">{INDEX_FAIL_COPY}</p>}
+                    </div>
                   </div>
                 )}
 

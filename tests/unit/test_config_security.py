@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from backend.app.core.config import DEFAULT_JWT_SECRET, Settings
+from backend.app.config.env import DEFAULT_JWT_SECRET, Settings
 
 
 def test_development_allows_default_jwt_secret():

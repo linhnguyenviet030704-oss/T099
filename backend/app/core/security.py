@@ -8,7 +8,7 @@ from uuid import UUID
 import jwt
 from jwt import PyJWTError
 
-from backend.app.core.config import settings
+from backend.app.config.env import settings
 
 _ASYMMETRIC_ALGS = ("ES256", "RS256")
 

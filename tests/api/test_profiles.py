@@ -8,13 +8,13 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from backend.app.core.config import settings
+from backend.app.api.schemas.profile import ProfileUpdateRequest
+from backend.app.config.env import settings
 from backend.app.core.exceptions import NotFoundError
 from backend.app.core.security import TokenVerificationError, verify_access_token
 from backend.app.dependencies.services import get_chat_service, get_profile_service
 from backend.app.main import app
 from backend.app.models.domain import Profile
-from backend.app.schemas.profile import ProfileUpdateRequest
 from backend.app.services.chat_service import ChatService
 
 

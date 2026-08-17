@@ -4,9 +4,9 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
+from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
 from backend.app.core.exceptions import AppError
-from backend.app.core.logging import get_logger
-from backend.app.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
+from backend.app.observability.logger import get_logger
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
 
 logger = get_logger(__name__)

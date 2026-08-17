@@ -38,7 +38,7 @@ Sản phẩm giải quyết vấn đề như thế nào bằng AI:
 ```text
 .
 ├── frontend/          # React (Vite), UI chạy cổng 3000
-├── backend/app/       # FastAPI (api → services → repositories)
+├── backend/app/       # FastAPI (api, agents, services, clients)
 ├── supabase/          # config, migrations, seed.sql
 ├── tests/             # pytest (unit / api / agent)
 ├── scripts/           # seed CV, tiện ích local

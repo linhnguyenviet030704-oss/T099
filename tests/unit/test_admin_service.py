@@ -4,7 +4,7 @@ import pytest
 
 from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.models.domain import Profile
-from backend.app.schemas.profile import ProfileRoleUpdateRequest, RecruiterReviewRequest
+from backend.app.api.schemas.profile import ProfileRoleUpdateRequest, RecruiterReviewRequest
 from backend.app.services.admin_service import AdminService
 
 

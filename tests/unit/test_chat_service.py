@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from backend.app.core.exceptions import AppError, ForbiddenError
-from backend.app.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
+from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
 from backend.app.services.chat_service import ChatService
 
 

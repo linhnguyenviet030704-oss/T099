@@ -6,7 +6,7 @@ import pytest
 
 from backend.app.core.exceptions import NotFoundError
 from backend.app.models.domain import Profile
-from backend.app.schemas.profile import ProfileUpdateRequest
+from backend.app.api.schemas.profile import ProfileUpdateRequest
 from backend.app.services.profile_service import ProfileService
 
 

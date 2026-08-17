@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from backend.app.core.exceptions import ForbiddenError, NotFoundError
-from backend.app.schemas.chat import RecommendedCandidate, RecommendedJob
+from backend.app.api.schemas.chat import RecommendedCandidate, RecommendedJob
 from supabase import Client
 
 MOCK_SCORES = (0.95, 0.88, 0.81, 0.74, 0.67)

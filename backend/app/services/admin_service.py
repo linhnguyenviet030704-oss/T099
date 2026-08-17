@@ -5,7 +5,7 @@ from uuid import UUID
 from backend.app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from backend.app.models.domain import Profile
 from backend.app.repositories.profile_repository import ProfileRepository
-from backend.app.schemas.profile import (
+from backend.app.api.schemas.profile import (
     ProfileRoleUpdateRequest,
     RecruiterReviewRequest,
     RecruiterReviewResponse,

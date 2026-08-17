@@ -6,6 +6,8 @@ from typing import Any, TypedDict
 class AgentState(TypedDict, total=False):
     query: str
     job_id: str
+    rerank_mode: str
+    jd_query: str
     jd_skills: list[str]
     candidates: list[dict[str, Any]]
     response: str

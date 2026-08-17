@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from backend.app.core.exceptions import NotFoundError
+from backend.app.config.models import RETRIEVE_CANDIDATE_K
 from backend.app.services.matching.embed import DEFAULT_EMBEDDING_MODEL, embed_text
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.skills import (
@@ -133,7 +134,7 @@ async def retrieve_for_job(
             .eq("job_post_id", str(job_id))
             .is_("withdrawn_at", "null")
             .order("applied_at", desc=True)
-            .limit(50)
+            .limit(RETRIEVE_CANDIDATE_K)
             .execute()
         )
         return result.data or []
@@ -162,7 +163,7 @@ async def retrieve_for_job(
             {
                 "query_embedding": query_embedding,
                 "p_job_id": str(job_id),
-                "match_count": 50,
+                "match_count": RETRIEVE_CANDIDATE_K,
             },
         ).execute()
         return result.data or []
@@ -175,7 +176,7 @@ async def retrieve_for_job(
     def _embedded(resume_id: str) -> dict[str, Any] | None:
         result = (
             client.table("embedded_resumes")
-            .select("metadata")
+            .select("metadata, markdown")
             .eq("resume_id", resume_id)
             .maybe_single()
             .execute()
@@ -200,6 +201,7 @@ async def retrieve_for_job(
                 "resume_storage_path": row.get("resume_storage_path_snapshot"),
                 "current_status": row.get("current_status") or "pending",
                 "skills": skills,
+                "markdown": (parsed or {}).get("markdown") or "",
                 "distance_original": original_by_resume.get(resume_id, 1.0),
                 "distance_expanded": expanded_by_resume.get(resume_id, 1.0),
             }
@@ -207,5 +209,6 @@ async def retrieve_for_job(
 
     return {
         "jd_skills": extract_skills(query_text),
+        "jd_query": query_text,
         "candidates": candidates,
     }

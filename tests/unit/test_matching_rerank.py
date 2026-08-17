@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from backend.app.config.models import RERANK_DOC_MAX_CHARS
 from backend.app.services.matching.rerank import apply_rerank, truncate_rerank_text
 
@@ -79,3 +81,65 @@ def test_apply_rerank_respects_candidate_and_final_k():
     )
     assert len(out) == 2
     assert [r["application_id"] for r in out] == ["3", "2"]
+
+
+from backend.app.config.models import DEFAULT_EMBED_MODEL, DEFAULT_RERANK_MODEL, RERANK_CONFIG_VERSION
+from backend.app.services.matching.retrieve import persist_match_resume_rows
+
+
+class _RpcClient:
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    def rpc(self, name, params):
+        self.calls.append({"name": name, "params": params})
+        return self
+
+    def execute(self):
+        return type("R", (), {"data": [{"id": "run"}]})()
+
+
+def test_persist_match_resume_rows_calls_insert_rpc_once():
+    client = _RpcClient()
+    job_id = uuid4()
+    actor_id = uuid4()
+    resume_id = uuid4()
+    persist_match_resume_rows(
+        client,  # type: ignore[arg-type]
+        job_id,
+        [
+            {
+                "resume_id": str(resume_id),
+                "rrf_score": 0.4,
+                "rrf_rank": 1,
+                "rerank_score": 0.9,
+                "skill_score": 0.5,
+                "semantic_score": 0.8,
+                "skills": ["Python"],
+                "distance_original": 0.1,
+                "distance_expanded": 0.2,
+            }
+        ],
+        actor_id=actor_id,
+        query_text="Python",
+        recruiter_message="Gợi ý ứng viên phù hợp",
+        rerank_mode="qwen",
+        rerank_status="success",
+    )
+    assert len(client.calls) == 1
+    assert client.calls[0]["name"] == "insert_match_resume_run"
+    params = client.calls[0]["params"]
+    assert params["p_job_post_id"] == str(job_id)
+    assert params["p_requested_by"] == str(actor_id)
+    assert params["p_query_text"] == "Python"
+    assert params["p_rerank_mode"] == "qwen"
+    assert params["p_rerank_status"] == "success"
+    assert params["p_rerank_model"] == DEFAULT_RERANK_MODEL
+    assert params["p_rerank_config_version"] == RERANK_CONFIG_VERSION
+    assert params["p_embedding_model"] == DEFAULT_EMBED_MODEL
+    assert params["p_matched_resume_ids"] == [str(resume_id)]
+    assert params["p_evidence"][0]["resume_id"] == str(resume_id)
+    assert params["p_evidence"][0]["rank"] == 1
+    assert params["p_evidence"][0]["rrf_score"] == 0.4
+    assert params["p_evidence"][0]["rerank_score"] == 0.9
+    assert "score" not in params["p_evidence"][0]

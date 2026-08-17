@@ -4,9 +4,14 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
+from backend.app.config.models import (
+    DEFAULT_EMBED_MODEL,
+    DEFAULT_RERANK_MODEL,
+    RETRIEVE_CANDIDATE_K,
+    RERANK_CONFIG_VERSION,
+)
 from backend.app.core.exceptions import NotFoundError
-from backend.app.config.models import RETRIEVE_CANDIDATE_K
-from backend.app.services.matching.embed import DEFAULT_EMBEDDING_MODEL, embed_text
+from backend.app.services.matching.embed import embed_text
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.skills import (
     expand_query,
@@ -45,23 +50,14 @@ def persist_match_resume_rows(
     client: Client,
     job_id: UUID,
     ranked: list[dict[str, Any]],
+    *,
+    actor_id: UUID,
+    query_text: str,
+    recruiter_message: str,
+    rerank_mode: str,
+    rerank_status: str,
 ) -> None:
     resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
-    inserted = (
-        client.table("match_resume")
-        .insert(
-            {
-                "job_post_id": str(job_id),
-                "matched_resume_ids": resume_ids,
-                "embedding_model": DEFAULT_EMBEDDING_MODEL,
-            }
-        )
-        .execute()
-    )
-    rows = inserted.data or []
-    if not rows:
-        return
-    match_id = rows[0]["id"]
     evidence = []
     for rank, row in enumerate(ranked, start=1):
         resume_id = row.get("resume_id")
@@ -77,14 +73,13 @@ def persist_match_resume_rows(
                     related.append(neighbor)
         evidence.append(
             {
-                "match_resume_id": match_id,
                 "resume_id": str(resume_id),
-                "job_post_id": str(job_id),
                 "rank": rank,
-                "score": row.get("score"),
+                "rrf_rank": row.get("rrf_rank"),
+                "rrf_score": row.get("rrf_score"),
+                "rerank_score": row.get("rerank_score"),
                 "skill_score": row.get("skill_score"),
                 "semantic_score": row.get("semantic_score"),
-                "semantic_rank": rank,
                 "matched_skill_names": cv_skills,
                 "related_skill_names": related,
                 "raw_factors": {
@@ -93,8 +88,22 @@ def persist_match_resume_rows(
                 },
             }
         )
-    if evidence:
-        client.table("match_evidence").insert(evidence).execute()
+    client.rpc(
+        "insert_match_resume_run",
+        {
+            "p_job_post_id": str(job_id),
+            "p_requested_by": str(actor_id),
+            "p_query_text": query_text,
+            "p_recruiter_message": recruiter_message,
+            "p_rerank_mode": rerank_mode,
+            "p_rerank_status": rerank_status,
+            "p_rerank_model": DEFAULT_RERANK_MODEL if rerank_mode == "qwen" else None,
+            "p_rerank_config_version": RERANK_CONFIG_VERSION,
+            "p_embedding_model": DEFAULT_EMBED_MODEL,
+            "p_matched_resume_ids": resume_ids,
+            "p_evidence": evidence,
+        },
+    ).execute()
 
 
 async def retrieve_for_job(

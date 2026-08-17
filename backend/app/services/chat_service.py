@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 FetchJobs = Callable[[], Awaitable[list[dict[str, Any]]]]
 FetchCandidates = Callable[[UUID], Awaitable[list[dict[str, Any]]]]
 AssertJobAccess = Callable[[UUID, UUID], Awaitable[None]]
-MatchCandidates = Callable[[UUID], Awaitable[ChatResponse]]
+MatchCandidates = Callable[[UUID, UUID, str, str], Awaitable[ChatResponse]]
 
 
 def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
@@ -54,7 +54,7 @@ class ChatService:
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
         if request.job_id is not None:
-            return await self._recommend_candidates(request.job_id, actor_id)
+            return await self._recommend_candidates(request, actor_id)
         return await self._recommend_jobs()
 
     async def _recommend_jobs(self) -> ChatResponse:
@@ -73,13 +73,14 @@ class ChatService:
             jobs=jobs,
         )
 
-    async def _recommend_candidates(self, job_id: UUID, actor_id: UUID | None) -> ChatResponse:
-        if actor_id is None or self._assert_job_access is None:
+    async def _recommend_candidates(self, request: ChatRequest, actor_id: UUID | None) -> ChatResponse:
+        job_id = request.job_id
+        if job_id is None or actor_id is None or self._assert_job_access is None:
             raise AppError(403, "Not a recruiter for this job", "FORBIDDEN")
         await self._assert_job_access(actor_id, job_id)
         if self._match_candidates is not None:
             try:
-                return await self._match_candidates(job_id)
+                return await self._match_candidates(job_id, actor_id, request.message, request.rerank)
             except AppError:
                 raise
             except Exception as exc:

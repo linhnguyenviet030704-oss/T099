@@ -40,4 +40,7 @@ def test_score_candidates_rrf_prefers_expanded_and_skill_over_one_semantic_hit()
     assert ranked[0]["application_id"] == "bob"
     assert ranked[0]["skill_score"] == 1.0
     assert ranked[1]["skill_score"] == 1 / 3
-    assert ranked[0]["score"] > ranked[1]["score"]
+    assert ranked[0]["rrf_score"] > ranked[1]["rrf_score"]
+    assert ranked[0]["rrf_rank"] == 1
+    assert ranked[1]["rrf_rank"] == 2
+    assert "score" not in ranked[0]

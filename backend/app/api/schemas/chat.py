@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -6,6 +7,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=5000)
     job_id: UUID | None = None
+    rerank: Literal["qwen", "agent"] = "qwen"
 
 
 class RecommendedJob(BaseModel):
@@ -28,7 +30,9 @@ class RecommendedCandidate(BaseModel):
     resume_title: str | None = None
     resume_storage_path: str | None = None
     current_status: str
-    score: float
+    rrf_score: float
+    rerank_score: float | None = None
+    rerank_status: Literal["success", "fallback", "not_requested"] = "not_requested"
 
 
 class ChatResponse(BaseModel):

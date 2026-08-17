@@ -1,6 +1,6 @@
 import pytest
 
-from backend.app.agent.graph import build_ingest_graph
+from backend.app.agents.ingest.graph import build_ingest_graph
 
 
 def _encode(text: str) -> list[float]:

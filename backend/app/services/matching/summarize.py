@@ -8,11 +8,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from backend.app.services.matching.llm import chat_complete
+from backend.app.clients.llm import chat_complete
 
 CompleteFn = Callable[..., str]
 
-_PROMPT_PATH = Path(__file__).resolve().parent / "resources" / "summarize_prompt.txt"
+_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system" / "summarize.txt"
 SUMMARIZE_PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
 
 _TITLE_NOISE = {

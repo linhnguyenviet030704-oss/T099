@@ -1,6 +1,6 @@
 """Parse → clean → LLM summarize CVs in data/test_CV_parse/CV → parsed_CV.
 
-Skips embedding. Prompt: backend/app/services/matching/resources/summarize_prompt.txt
+Skips embedding. Prompt: backend/app/prompts/system/summarize.txt
 
 Usage:
     python scripts/test_cv_parse.py
@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from backend.app.agent.graph import build_ingest_graph
+from backend.app.agents.ingest.graph import build_ingest_graph
 
 SRC = ROOT / "data" / "test_CV_parse" / "CV"
 OUT = ROOT / "data" / "test_CV_parse" / "parsed_CV"

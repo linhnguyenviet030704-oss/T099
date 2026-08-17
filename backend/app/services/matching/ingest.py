@@ -4,9 +4,9 @@ import hashlib
 from typing import Any, Protocol
 from uuid import UUID
 
-from backend.app.agent.graph import build_ingest_graph
+from backend.app.agents.ingest.graph import build_ingest_graph
 from backend.app.core.exceptions import NotFoundError
-from backend.app.core.logging import get_logger
+from backend.app.observability.logger import get_logger
 
 logger = get_logger(__name__)
 

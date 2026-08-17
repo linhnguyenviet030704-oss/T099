@@ -3,7 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from backend.app.agent.graph import build_ingest_graph, build_matching_graph
+from backend.app.agents.ingest.graph import build_ingest_graph
+from backend.app.agents.matching.graph import build_matching_graph
 
 EMBED_DIM = 1536
 

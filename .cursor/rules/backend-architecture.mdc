@@ -11,15 +11,18 @@ Stack: FastAPI in `backend/app/`, Supabase for Postgres/Auth/Storage, migrations
 ## Layers (required)
 
 ```text
-api/ → schemas/ → services/ → repositories/ → Supabase
-dependencies/ → auth, DI
-core/ → config, security, logging
+api/routes + api/schemas  →  HTTP
+agents/                   →  LangGraph ingest + matching
+services/ + repositories/ →  domain + persistence
+clients/                  →  LLM + Supabase
+config/ + observability/ + guardrails/ + core/
 ```
 
 - Routes: validate input, resolve current user, call service, return response model.
 - No business logic in routes. No Supabase queries in routes.
 - Repositories: persistence only — no `HTTPException`, no business rules.
-- Import `settings` from `core.config` — never scatter `os.getenv()`.
+- Import `settings` from `config.env` — never scatter `os.getenv()`.
+- HTTP clients live in `clients/`. Agent graphs live in `agents/`. Do not add empty folders for tools/workflows that do not exist yet.
 
 ## AuthZ
 

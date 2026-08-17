@@ -4,9 +4,9 @@ import asyncio
 
 from fastapi import Depends
 
-from backend.app.agent.graph import build_matching_graph
-from backend.app.core.config import settings
-from backend.app.dependencies.supabase import get_supabase_client
+from backend.app.agents.matching.graph import build_matching_graph
+from backend.app.clients.supabase import get_supabase_client
+from backend.app.config.env import settings
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.admin_service import AdminService
 from backend.app.services.chat_service import ChatService, chat_response_from_graph

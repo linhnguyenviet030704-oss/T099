@@ -6,10 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api.v1.router import router as v1_router
-from backend.app.core.config import settings
+from backend.app.api.router import router as v1_router
+from backend.app.config.env import settings
 from backend.app.core.exceptions import register_exception_handlers
-from backend.app.core.logging import configure_logging, get_logger, new_request_id, request_id_ctx
+from backend.app.observability.logger import configure_logging, get_logger, new_request_id, request_id_ctx
 
 logger = get_logger(__name__)
 

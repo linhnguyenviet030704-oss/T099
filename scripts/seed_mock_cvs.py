@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 import pymupdf
 from supabase import create_client
 
-from backend.app.core.config import Settings
+from backend.app.config.env import Settings
 from backend.app.services.matching.embed import DEFAULT_EMBEDDING_MODEL, embed_text
 from backend.app.services.matching.parse import parse_resume_bytes
 from backend.app.services.matching.skills import extract_skills

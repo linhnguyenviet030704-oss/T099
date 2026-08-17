@@ -1,4 +1,4 @@
-from backend.app.core.rate_limit import RateLimiter
+from backend.app.guardrails.rate_limit import RateLimiter
 
 
 def test_rate_limiter_allows_under_limit():

@@ -1,6 +1,7 @@
 from collections.abc import Callable, Sequence
 
-from backend.app.services.matching.llm import DEFAULT_EMBED_DIM, DEFAULT_EMBED_MODEL, embed_query
+from backend.app.clients.llm import embed_query
+from backend.app.config.models import DEFAULT_EMBED_DIM, DEFAULT_EMBED_MODEL
 
 EMBEDDING_DIM = DEFAULT_EMBED_DIM
 DEFAULT_EMBEDDING_MODEL = DEFAULT_EMBED_MODEL

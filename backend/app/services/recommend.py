@@ -64,7 +64,9 @@ def mock_recommend_candidates(rows: list[dict[str, Any]]) -> list[RecommendedCan
                 resume_title=row.get("resume_title_snapshot"),
                 resume_storage_path=row.get("resume_storage_path_snapshot"),
                 current_status=row.get("current_status") or "pending",
-                score=MOCK_SCORES[index],
+                rrf_score=MOCK_SCORES[index],
+                rerank_score=None,
+                rerank_status="not_requested",
             )
         )
     return candidates

@@ -292,7 +292,8 @@ async def test_chat_returns_mock_candidates(api_client: AsyncClient):
     assert len(body["candidates"]) == 1
     assert body["candidates"][0]["application_id"] == str(app_id)
     assert body["candidates"][0]["full_name"] == "Ada"
-    assert body["candidates"][0]["score"] == 0.95
+    assert body["candidates"][0]["rrf_score"] == 0.95
+    assert body["candidates"][0]["rerank_status"] == "not_requested"
 
 
 @pytest.mark.asyncio

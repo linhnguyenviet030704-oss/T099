@@ -153,7 +153,9 @@ def test_mock_recommend_candidates_scores_and_profile():
         _application_row(profiles={"full_name": "Bob", "email": "bob@example.com"}),
     ]
     candidates = mock_recommend_candidates(rows)
-    assert [c.score for c in candidates] == [MOCK_SCORES[0], MOCK_SCORES[1]]
+    assert [c.rrf_score for c in candidates] == [MOCK_SCORES[0], MOCK_SCORES[1]]
+    assert candidates[0].rerank_score is None
+    assert candidates[0].rerank_status == "not_requested"
     assert candidates[0].application_id == app_id
     assert candidates[0].applicant_user_id == user_id
     assert candidates[0].full_name == "Ada"

@@ -20,6 +20,8 @@ MatchCandidates = Callable[[UUID], Awaitable[ChatResponse]]
 def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
     candidates: list[RecommendedCandidate] = []
     for row in result.get("candidates") or []:
+        rerank_status = str(row.get("rerank_status") or "not_requested")
+        rerank_score = row.get("rerank_score")
         candidates.append(
             RecommendedCandidate(
                 application_id=UUID(str(row["application_id"])),
@@ -29,7 +31,9 @@ def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
                 resume_title=row.get("resume_title"),
                 resume_storage_path=row.get("resume_storage_path"),
                 current_status=row.get("current_status") or "pending",
-                score=float(row.get("score") or 0.0),
+                rrf_score=float(row.get("rrf_score") or 0.0),
+                rerank_score=None if rerank_score is None else float(rerank_score),
+                rerank_status=rerank_status,  # type: ignore[arg-type]
             )
         )
     return ChatResponse(response=str(result.get("response") or ""), candidates=candidates)

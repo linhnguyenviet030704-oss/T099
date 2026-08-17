@@ -3,7 +3,9 @@ import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { Profile, UserProfileLine } from '../../types';
 import { CvBuilder } from './CvBuilder';
 import { exportCv } from '../../lib/cvExport';
+import { INDEX_FAIL_COPY, ingestResume } from '../../lib/ingest';
 import { getResumeSignedUrl } from '../../lib/storage';
+import { useAuth } from '../../auth/AuthProvider';
 
 interface CvBuilderContainerProps {
   profile: Profile;
@@ -25,7 +27,9 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
   onClose,
   onCreated,
 }) => {
+  const { session } = useAuth();
   const [successPath, setSuccessPath] = useState<string | null>(null);
+  const [indexWarning, setIndexWarning] = useState(false);
 
   const sourceById = useMemo(() => {
     const m: Record<string, UserProfileLine> = {};
@@ -54,6 +58,9 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
           <p className="text-xs text-slate-400 mt-1">
             CV của bạn đã được lưu dưới dạng PDF trong kho lưu trữ riêng tư và sẵn sàng để nộp đơn.
           </p>
+          {indexWarning && (
+            <p className="text-xs text-amber-400 mt-2">{INDEX_FAIL_COPY}</p>
+          )}
         </div>
         <div className="flex items-center justify-center gap-2 pt-2">
           <button
@@ -93,6 +100,15 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
             sourceById,
             templateId,
           });
+          try {
+            if (session?.access_token) {
+              await ingestResume(result.resumeId, session.access_token);
+            } else {
+              setIndexWarning(true);
+            }
+          } catch {
+            setIndexWarning(true);
+          }
           setSuccessPath(result.storagePath);
           onCreated?.();
         }}

@@ -21,9 +21,10 @@ import { Resume, UserProfileLine } from '../types';
 import { buildResumeStoragePath, getResumeSignedUrl } from '../lib/storage';
 import { formatDate } from '../lib/format';
 import { CvBuilderContainer } from '../components/cv/CvBuilderContainer';
+import { INDEX_FAIL_COPY, ingestResume } from '../lib/ingest';
 
 export const ResumesPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { profile } = useCurrentProfile();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [appCounts, setAppCounts] = useState<Record<string, number>>({});
@@ -206,6 +207,16 @@ export const ResumesPage: React.FC = () => {
       }
 
       setUploadMessage({ type: 'success', text: 'Tải lên tài liệu và khởi tạo hồ sơ thành công!' });
+      if (session?.access_token) {
+        try {
+          await ingestResume(resumeId, session.access_token);
+        } catch {
+          setUploadMessage({
+            type: 'success',
+            text: 'Tải lên tài liệu và khởi tạo hồ sơ thành công! ' + INDEX_FAIL_COPY,
+          });
+        }
+      }
       setFile(null);
       setTitle('');
       await loadResumesWorkspace();

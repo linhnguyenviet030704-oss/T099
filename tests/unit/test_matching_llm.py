@@ -1,4 +1,4 @@
-from backend.app.services.matching.llm import chat_complete, embed_query
+from backend.app.clients.llm import chat_complete, embed_query
 
 
 class _FakeResponse:

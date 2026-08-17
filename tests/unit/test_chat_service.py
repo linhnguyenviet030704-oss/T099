@@ -153,6 +153,7 @@ async def test_chat_candidates_forbidden():
 @pytest.mark.asyncio
 async def test_chat_job_id_uses_matching_runner_not_mock():
     job_id = uuid4()
+    actor_id = uuid4()
     app_id = uuid4()
     user_id = uuid4()
 
@@ -165,8 +166,11 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
     async def allow(_actor, _job):
         return None
 
-    async def match(requested):
+    async def match(requested, actor, message, rerank):
         assert requested == job_id
+        assert actor == actor_id
+        assert message == "Gợi ý ứng viên phù hợp"
+        assert rerank == "qwen"
         return ChatResponse(
             response="Gợi ý 1 ứng viên phù hợp.",
             candidates=[
@@ -187,7 +191,7 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
 
     result = await ChatService(fetch_jobs, fetch_candidates, allow, match).chat(
         ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
-        uuid4(),
+        actor_id,
     )
     assert result.response == "Gợi ý 1 ứng viên phù hợp."
     assert result.candidates[0].rrf_score == 0.81

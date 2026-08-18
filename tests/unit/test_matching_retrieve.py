@@ -1,4 +1,9 @@
-from backend.app.services.matching.retrieve import job_query_text, _row
+from uuid import uuid4
+
+import pytest
+
+from backend.app.core.exceptions import ForbiddenError
+from backend.app.services.matching.retrieve import _row, job_query_text, persist_match_resume_rows, retrieve_for_job
 from backend.app.services.matching.rrf import score_candidates, semantic_score
 
 
@@ -41,3 +46,52 @@ def test_score_candidates_rrf_prefers_expanded_and_skill_over_one_semantic_hit()
     assert ranked[0]["skill_score"] == 1.0
     assert ranked[1]["skill_score"] == 1 / 3
     assert ranked[0]["score"] > ranked[1]["score"]
+
+
+class _ExplodingClient:
+    """Raises if any data method is called — proves the authorization check
+    runs strictly before any Supabase query/RPC, not just "raises somewhere"."""
+
+    def table(self, _name):
+        raise AssertionError("must not touch data before the access check")
+
+    def rpc(self, *_args, **_kwargs):
+        raise AssertionError("must not touch data before the access check")
+
+
+@pytest.mark.asyncio
+async def test_retrieve_for_job_blocks_before_touching_data_when_unauthorized(monkeypatch):
+    actor_id = uuid4()
+    job_id = uuid4()
+    calls: list[tuple] = []
+
+    async def _deny(client, passed_actor_id, passed_job_id):
+        calls.append((client, passed_actor_id, passed_job_id))
+        raise ForbiddenError("Not a recruiter for this job")
+
+    monkeypatch.setattr("backend.app.services.matching.retrieve.assert_recruiter_job_access", _deny)
+
+    client = _ExplodingClient()
+    with pytest.raises(ForbiddenError):
+        await retrieve_for_job(client, actor_id, job_id)
+
+    assert calls == [(client, actor_id, job_id)]
+
+
+@pytest.mark.asyncio
+async def test_persist_match_resume_rows_blocks_before_insert_when_unauthorized(monkeypatch):
+    actor_id = uuid4()
+    job_id = uuid4()
+    calls: list[tuple] = []
+
+    async def _deny(client, passed_actor_id, passed_job_id):
+        calls.append((client, passed_actor_id, passed_job_id))
+        raise ForbiddenError("Not a recruiter for this job")
+
+    monkeypatch.setattr("backend.app.services.matching.retrieve.assert_recruiter_job_access", _deny)
+
+    client = _ExplodingClient()
+    with pytest.raises(ForbiddenError):
+        await persist_match_resume_rows(client, actor_id, job_id, [])
+
+    assert calls == [(client, actor_id, job_id)]

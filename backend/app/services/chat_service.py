@@ -12,9 +12,9 @@ from backend.app.services.recommend import mock_recommend, mock_recommend_candid
 logger = get_logger(__name__)
 
 FetchJobs = Callable[[], Awaitable[list[dict[str, Any]]]]
-FetchCandidates = Callable[[UUID], Awaitable[list[dict[str, Any]]]]
+FetchCandidates = Callable[[UUID, UUID], Awaitable[list[dict[str, Any]]]]
 AssertJobAccess = Callable[[UUID, UUID], Awaitable[None]]
-MatchCandidates = Callable[[UUID], Awaitable[ChatResponse]]
+MatchCandidates = Callable[[UUID, UUID], Awaitable[ChatResponse]]
 
 
 def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
@@ -75,7 +75,7 @@ class ChatService:
         await self._assert_job_access(actor_id, job_id)
         if self._match_candidates is not None:
             try:
-                return await self._match_candidates(job_id)
+                return await self._match_candidates(job_id, actor_id)
             except AppError:
                 raise
             except Exception as exc:
@@ -84,7 +84,7 @@ class ChatService:
         if self._fetch_candidates is None:
             raise AppError(403, "Not a recruiter for this job", "FORBIDDEN")
         try:
-            rows = await self._fetch_candidates(job_id)
+            rows = await self._fetch_candidates(job_id, actor_id)
         except AppError:
             raise
         except Exception as exc:

@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 
-from backend.app.core.exceptions import AppError, ForbiddenError
 from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
+from backend.app.core.exceptions import AppError, ForbiddenError
 from backend.app.services.chat_service import ChatService
 
 
@@ -81,8 +81,9 @@ async def test_chat_returns_mock_candidates_for_job():
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(requested_job_id):
+    async def fetch_candidates(requested_job_id, requested_actor_id):
         assert requested_job_id == job_id
+        assert requested_actor_id == actor_id
         return [_candidate_row(id=str(app_id))]
 
     async def allow(_actor, _job):
@@ -105,7 +106,7 @@ async def test_chat_candidates_empty_pool():
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(_job_id):
+    async def fetch_candidates(_job_id, _actor_id):
         return []
 
     async def allow(_actor, _job):
@@ -126,7 +127,7 @@ async def test_chat_candidates_forbidden():
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(_job_id):
+    async def fetch_candidates(_job_id, _actor_id):
         return [_candidate_row()]
 
     async def deny(_actor, _job):
@@ -148,14 +149,14 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(_job_id):
+    async def fetch_candidates(_job_id, _actor_id):
         raise AssertionError("mock fetch_candidates must not run when matcher is set")
 
     async def allow(_actor, _job):
         return None
 
-    async def match(requested):
-        assert requested == job_id
+    async def match(requested_job_id, requested_actor_id):
+        assert requested_job_id == job_id
         return ChatResponse(
             response="Gợi ý 1 ứng viên phù hợp.",
             candidates=[

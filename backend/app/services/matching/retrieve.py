@@ -13,6 +13,7 @@ from backend.app.services.matching.skills import (
     related_skills,
 )
 from backend.app.services.matching.store import SupabaseResumeStore
+from backend.app.services.recommend import assert_recruiter_job_access
 from supabase import Client
 
 
@@ -40,24 +41,30 @@ def _profile(row: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def persist_match_resume_rows(
+async def persist_match_resume_rows(
     client: Client,
+    actor_id: UUID,
     job_id: UUID,
     ranked: list[dict[str, Any]],
 ) -> None:
-    resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
-    inserted = (
-        client.table("match_resume")
-        .insert(
-            {
-                "job_post_id": str(job_id),
-                "matched_resume_ids": resume_ids,
-                "embedding_model": DEFAULT_EMBEDDING_MODEL,
-            }
+    await assert_recruiter_job_access(client, actor_id, job_id)
+
+    def _insert_match() -> list[dict[str, Any]]:
+        resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
+        inserted = (
+            client.table("match_resume")
+            .insert(
+                {
+                    "job_post_id": str(job_id),
+                    "matched_resume_ids": resume_ids,
+                    "embedding_model": DEFAULT_EMBEDDING_MODEL,
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
-    rows = inserted.data or []
+        return inserted.data or []
+
+    rows = await asyncio.to_thread(_insert_match)
     if not rows:
         return
     match_id = rows[0]["id"]
@@ -92,12 +99,17 @@ def persist_match_resume_rows(
                 },
             }
         )
-    if evidence:
+
+    def _insert_evidence() -> None:
         client.table("match_evidence").insert(evidence).execute()
+
+    if evidence:
+        await asyncio.to_thread(_insert_evidence)
 
 
 async def retrieve_for_job(
     client: Client,
+    actor_id: UUID,
     job_id: UUID,
     *,
     encode=None,
@@ -106,6 +118,7 @@ async def retrieve_for_job(
     api_key: str | None = None,
     base_url: str | None = None,
 ) -> dict[str, Any]:
+    await assert_recruiter_job_access(client, actor_id, job_id)
     resume_store = store or SupabaseResumeStore(client)
 
     def _job() -> dict[str, Any] | None:

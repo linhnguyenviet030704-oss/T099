@@ -4,8 +4,8 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.api.schemas.chat import RecommendedCandidate, RecommendedJob
+from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from supabase import Client
 
 MOCK_SCORES = (0.95, 0.88, 0.81, 0.74, 0.67)
@@ -89,9 +89,12 @@ async def list_published_jobs(client: Client, limit: int = MOCK_LIMIT) -> list[d
 
 async def list_applications_for_job(
     client: Client,
+    actor_id: UUID,
     job_id: UUID,
     limit: int = MOCK_LIMIT,
 ) -> list[dict[str, Any]]:
+    await assert_recruiter_job_access(client, actor_id, job_id)
+
     def _query() -> list[dict[str, Any]]:
         result = (
             client.table("job_submits")

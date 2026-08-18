@@ -51,6 +51,12 @@ class Settings(BaseSettings):
                 raise ValueError("CORS_ORIGINS must be explicit, non-wildcard origins in production")
         return self
 
+    @model_validator(mode="after")
+    def require_service_role_key_in_production(self) -> Self:
+        if self.app_env == "production" and not self.supabase_service_role_key.strip():
+            raise ValueError("SUPABASE_SERVICE_ROLE_KEY must be set in production")
+        return self
+
 
 @lru_cache
 def get_settings() -> Settings:

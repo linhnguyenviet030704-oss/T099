@@ -43,6 +43,14 @@ class Settings(BaseSettings):
             raise ValueError("SUPABASE_JWT_SECRET must be set to a non-default value in production")
         return self
 
+    @model_validator(mode="after")
+    def reject_unsafe_cors_in_production(self) -> Self:
+        if self.app_env == "production":
+            origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+            if not origins or "*" in origins:
+                raise ValueError("CORS_ORIGINS must be explicit, non-wildcard origins in production")
+        return self
+
 
 @lru_cache
 def get_settings() -> Settings:

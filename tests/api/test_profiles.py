@@ -262,7 +262,7 @@ async def test_chat_returns_mock_candidates(api_client: AsyncClient):
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(requested_job_id):
+    async def fetch_candidates(requested_job_id, _actor_id):
         assert requested_job_id == job_id
         return [
             {
@@ -302,7 +302,7 @@ async def test_chat_candidates_forbidden(api_client: AsyncClient):
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(_job_id):
+    async def fetch_candidates(_job_id, _actor_id):
         return []
 
     async def deny(_actor, _job):

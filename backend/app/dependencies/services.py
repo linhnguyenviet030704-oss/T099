@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-
 from fastapi import Depends
 
 from backend.app.agents.matching.graph import build_matching_graph
@@ -39,29 +37,29 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
     async def fetch_jobs() -> list:
         return await list_published_jobs(client)
 
-    async def fetch_candidates(job_id):
-        return await list_applications_for_job(client, job_id)
+    async def fetch_candidates(job_id, actor_id):
+        return await list_applications_for_job(client, actor_id, job_id)
 
     async def assert_access(actor_id, job_id):
         await assert_recruiter_job_access(client, actor_id, job_id)
 
-    async def retrieve(job_id):
-        return await retrieve_for_job(
-            client,
-            job_id,
-            store=store,
-            api_key=settings.qwen_api_key,
-            base_url=settings.qwen_base_url,
-        )
+    async def match_candidates(job_id, actor_id):
+        async def retrieve(retrieve_job_id):
+            return await retrieve_for_job(
+                client,
+                actor_id,
+                retrieve_job_id,
+                store=store,
+                api_key=settings.qwen_api_key,
+                base_url=settings.qwen_base_url,
+            )
 
-    graph = build_matching_graph(retrieve=retrieve)
-
-    async def match_candidates(job_id):
+        graph = build_matching_graph(retrieve=retrieve)
         result = await graph.ainvoke({"job_id": str(job_id)})
         try:
-            await asyncio.to_thread(
-                persist_match_resume_rows,
+            await persist_match_resume_rows(
                 client,
+                actor_id,
                 job_id,
                 result.get("candidates") or [],
             )

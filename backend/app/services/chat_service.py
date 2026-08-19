@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
+from backend.app.config.models import FINAL_CANDIDATE_K
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
@@ -19,7 +20,7 @@ MatchCandidates = Callable[[UUID, UUID, str, str], Awaitable[ChatResponse]]
 
 def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
     candidates: list[RecommendedCandidate] = []
-    for row in result.get("candidates") or []:
+    for row in (result.get("candidates") or [])[:FINAL_CANDIDATE_K]:
         rerank_status = str(row.get("rerank_status") or "not_requested")
         rerank_score = row.get("rerank_score")
         candidates.append(

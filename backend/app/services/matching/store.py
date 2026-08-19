@@ -61,6 +61,7 @@ class SupabaseResumeStore:
                 {
                     "resume_id": rid,
                     "markdown": parsed["markdown"],
+                    "clean_markdown": parsed.get("clean_markdown") or "",
                     "metadata": parsed["metadata"],
                     "content_hash": content_hash,
                     "embedding": embedding,

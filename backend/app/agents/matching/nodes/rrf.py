@@ -7,5 +7,7 @@ async def rrf_node(state: AgentState) -> dict:
         "candidates": score_candidates(
             list(state.get("candidates") or []),
             list(state.get("jd_skills") or []),
+            constraints=state.get("skill_constraints"),
+            confirmed=bool(state.get("constraints_confirmed")),
         )
     }

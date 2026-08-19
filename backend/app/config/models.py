@@ -6,7 +6,8 @@ REQUEST_TIMEOUT = 120.0
 DEFAULT_RERANK_MODEL = "qwen3-rerank"
 DEFAULT_RERANK_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-api/v1"
 DEFAULT_RERANK_INSTRUCT = (
-    "Rank candidate resumes by how well they match this job's requirements."
+    "Rank how well the resume facts match the job skills and experience. "
+    "Do not use name, email, age, graduation year, school, or employer prestige as signals."
 )
 RERANK_CONFIG_VERSION = "2026-08-17.1"
 RETRIEVE_CANDIDATE_K = 50

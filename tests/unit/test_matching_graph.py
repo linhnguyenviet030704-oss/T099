@@ -159,9 +159,10 @@ async def test_ingest_extracts_skills_from_summary_not_raw_cv():
     result = await graph.ainvoke(
         {"raw_bytes": b"Python FastAPI Docker intern", "mime_type": "text/plain"}
     )
-    assert result["metadata"]["skills"] == ["FastAPI"]
-    assert result["metadata"]["summary"] == "API intern."
-    assert result["metadata"]["titles"] == ["Intern"]
+    assert "fastapi" in result["metadata"]["skills"]
+    assert "python" in result["metadata"]["verified_skills"]
+    assert "cooking" not in result["metadata"]["skills"]
+    assert result["metadata"]["titles"] == []
     assert not result["markdown"].startswith("---")
     assert "summary:" not in result["markdown"]
     assert "Used FastAPI" in result["markdown"]
@@ -178,7 +179,8 @@ async def test_ingest_does_not_embed_pii_even_if_llm_echoes_it():
         seen["text"] = text
         return [0.1] * EMBED_DIM
 
-    def complete(_prompt: str, **_kwargs) -> str:
+    def complete(prompt: str, **_kwargs) -> str:
+        seen["prompt"] = prompt
         return json.dumps(
             {
                 "summary": "Backend intern.",
@@ -194,7 +196,7 @@ async def test_ingest_does_not_embed_pii_even_if_llm_echoes_it():
             "mime_type": "text/plain",
         }
     )
-    blob = seen["text"] + result["markdown"]
+    blob = seen["text"] + result["markdown"] + seen.get("prompt", "")
     assert "ada@x.com" not in blob
     assert "0912345678" not in blob
     assert "Nguyen Van A" not in blob

@@ -1,0 +1,10 @@
+{
+  "description": "This user-friendly web application features a bright, visually appealing interface with interactive animations, enhancing engagement for all users.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

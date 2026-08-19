@@ -14,6 +14,11 @@ class AgentState(TypedDict, total=False):
     raw_bytes: bytes
     mime_type: str
     markdown: str
+    clean_markdown: str
     metadata: dict[str, Any]
     skills: list[str]
     embedding: list[float]
+    skill_constraints: dict[str, Any]
+    constraints_confirmed: bool
+    dense_query: str
+    bm25_query: str

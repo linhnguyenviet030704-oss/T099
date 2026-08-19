@@ -11,6 +11,7 @@ def make_rerank_node(*, rerank_fn: RerankFn | None = None):
                 jd_query=state.get("jd_query") or "",
                 mode=mode,
                 rerank_fn=rerank_fn,
+                confirmed=bool(state.get("constraints_confirmed")),
             )
         }
 

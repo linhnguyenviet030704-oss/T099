@@ -5,6 +5,7 @@ from fastapi import Depends
 from backend.app.agents.matching.graph import build_matching_graph
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
+from backend.app.observability.logger import get_logger
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.admin_service import AdminService
 from backend.app.services.chat_service import ChatService, chat_response_from_graph
@@ -17,6 +18,8 @@ from backend.app.services.recommend import (
     list_published_jobs,
 )
 from supabase import Client
+
+logger = get_logger(__name__)
 
 
 def get_profile_repository(
@@ -43,7 +46,7 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
     async def assert_access(actor_id, job_id):
         await assert_recruiter_job_access(client, actor_id, job_id)
 
-    async def match_candidates(job_id, actor_id):
+    async def match_candidates(job_id, actor_id, message, rerank):
         async def retrieve(retrieve_job_id):
             return await retrieve_for_job(
                 client,
@@ -54,17 +57,25 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
                 base_url=settings.qwen_base_url,
             )
 
-        graph = build_matching_graph(retrieve=retrieve)
-        result = await graph.ainvoke({"job_id": str(job_id)})
+        graph = build_matching_graph(retrieve=retrieve, rerank_fn=None)
+        result = await graph.ainvoke(
+            {"job_id": str(job_id), "query": message, "rerank_mode": rerank}
+        )
+        ranked = result.get("candidates") or []
+        status = str((ranked[0].get("rerank_status") if ranked else None) or "not_requested")
         try:
             await persist_match_resume_rows(
                 client,
-                actor_id,
                 job_id,
-                result.get("candidates") or [],
+                ranked,
+                actor_id=actor_id,
+                query_text=str(result.get("jd_query") or ""),
+                recruiter_message=message,
+                rerank_mode=rerank,
+                rerank_status=status,
             )
         except Exception:
-            pass
+            logger.exception("match_resume persist failed")
         return chat_response_from_graph(result)
 
     return ChatService(fetch_jobs, fetch_candidates, assert_access, match_candidates)

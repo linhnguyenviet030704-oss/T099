@@ -13,6 +13,9 @@ from backend.app.config.models import (
     DEFAULT_EMBED_DIM,
     DEFAULT_EMBED_MODEL,
     DEFAULT_LLM_MODEL,
+    DEFAULT_RERANK_BASE_URL,
+    DEFAULT_RERANK_INSTRUCT,
+    DEFAULT_RERANK_MODEL,
     REQUEST_TIMEOUT,
 )
 
@@ -93,3 +96,34 @@ def embed_query(
     )
     response.raise_for_status()
     return [float(x) for x in response.json()["data"][0]["embedding"]]
+
+
+def rerank_query(
+    query: str,
+    documents: list[str],
+    *,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
+    instruct: str | None = None,
+    post: PostFn | None = None,
+) -> list[dict[str, Any]]:
+    payload: dict[str, Any] = {
+        "model": model or DEFAULT_RERANK_MODEL,
+        "query": query,
+        "documents": documents,
+        "instruct": instruct or DEFAULT_RERANK_INSTRUCT,
+    }
+    root = (base_url if base_url is not None else DEFAULT_RERANK_BASE_URL).rstrip("/")
+    response = _post(post)(
+        f"{root}/reranks",
+        json=payload,
+        headers=_headers(_api_key(api_key)),
+        timeout=REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+    results = response.json().get("results") or []
+    return [
+        {"index": int(item["index"]), "relevance_score": float(item["relevance_score"])}
+        for item in results
+    ]

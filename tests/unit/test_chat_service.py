@@ -3,10 +3,21 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
 from backend.app.core.exceptions import AppError, ForbiddenError
 from backend.app.services.chat_service import ChatService
+
+
+def test_chat_request_rerank_defaults_to_qwen():
+    req = ChatRequest(message="hello")
+    assert req.rerank == "qwen"
+
+
+def test_chat_request_rejects_unknown_rerank():
+    with pytest.raises(ValidationError):
+        ChatRequest(message="hello", rerank="cohere")
 
 
 def _row(**overrides):
@@ -143,6 +154,7 @@ async def test_chat_candidates_forbidden():
 @pytest.mark.asyncio
 async def test_chat_job_id_uses_matching_runner_not_mock():
     job_id = uuid4()
+    actor_id = uuid4()
     app_id = uuid4()
     user_id = uuid4()
 
@@ -155,8 +167,11 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
     async def allow(_actor, _job):
         return None
 
-    async def match(requested_job_id, requested_actor_id):
-        assert requested_job_id == job_id
+    async def match(requested, actor, message, rerank):
+        assert requested == job_id
+        assert actor == actor_id
+        assert message == "Gợi ý ứng viên phù hợp"
+        assert rerank == "qwen"
         return ChatResponse(
             response="Gợi ý 1 ứng viên phù hợp.",
             candidates=[
@@ -168,16 +183,19 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
                     resume_title="CV.pdf",
                     resume_storage_path="u/cv.pdf",
                     current_status="pending",
-                    score=0.81,
+                    rrf_score=0.81,
+                    rerank_score=None,
+                    rerank_status="not_requested",
                 )
             ],
         )
 
     result = await ChatService(fetch_jobs, fetch_candidates, allow, match).chat(
         ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
-        uuid4(),
+        actor_id,
     )
     assert result.response == "Gợi ý 1 ứng viên phù hợp."
-    assert result.candidates[0].score == 0.81
+    assert result.candidates[0].rrf_score == 0.81
+    assert result.candidates[0].rerank_score is None
     assert "mock matching" not in result.response
 

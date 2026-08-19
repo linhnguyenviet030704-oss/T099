@@ -4,8 +4,14 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
+from backend.app.config.models import (
+    DEFAULT_EMBED_MODEL,
+    DEFAULT_RERANK_MODEL,
+    RERANK_CONFIG_VERSION,
+    RETRIEVE_CANDIDATE_K,
+)
 from backend.app.core.exceptions import NotFoundError
-from backend.app.services.matching.embed import DEFAULT_EMBEDDING_MODEL, embed_text
+from backend.app.services.matching.embed import embed_text
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.skills import (
     expand_query,
@@ -43,31 +49,17 @@ def _profile(row: dict[str, Any]) -> dict[str, Any]:
 
 async def persist_match_resume_rows(
     client: Client,
-    actor_id: UUID,
     job_id: UUID,
     ranked: list[dict[str, Any]],
+    *,
+    actor_id: UUID,
+    query_text: str,
+    recruiter_message: str,
+    rerank_mode: str,
+    rerank_status: str,
 ) -> None:
     await assert_recruiter_job_access(client, actor_id, job_id)
-
-    def _insert_match() -> list[dict[str, Any]]:
-        resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
-        inserted = (
-            client.table("match_resume")
-            .insert(
-                {
-                    "job_post_id": str(job_id),
-                    "matched_resume_ids": resume_ids,
-                    "embedding_model": DEFAULT_EMBEDDING_MODEL,
-                }
-            )
-            .execute()
-        )
-        return inserted.data or []
-
-    rows = await asyncio.to_thread(_insert_match)
-    if not rows:
-        return
-    match_id = rows[0]["id"]
+    resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
     evidence = []
     for rank, row in enumerate(ranked, start=1):
         resume_id = row.get("resume_id")
@@ -83,14 +75,13 @@ async def persist_match_resume_rows(
                     related.append(neighbor)
         evidence.append(
             {
-                "match_resume_id": match_id,
                 "resume_id": str(resume_id),
-                "job_post_id": str(job_id),
                 "rank": rank,
-                "score": row.get("score"),
+                "rrf_rank": row.get("rrf_rank"),
+                "rrf_score": row.get("rrf_score"),
+                "rerank_score": row.get("rerank_score"),
                 "skill_score": row.get("skill_score"),
                 "semantic_score": row.get("semantic_score"),
-                "semantic_rank": rank,
                 "matched_skill_names": cv_skills,
                 "related_skill_names": related,
                 "raw_factors": {
@@ -100,11 +91,25 @@ async def persist_match_resume_rows(
             }
         )
 
-    def _insert_evidence() -> None:
-        client.table("match_evidence").insert(evidence).execute()
+    def _insert_run() -> None:
+        client.rpc(
+            "insert_match_resume_run",
+            {
+                "p_job_post_id": str(job_id),
+                "p_requested_by": str(actor_id),
+                "p_query_text": query_text,
+                "p_recruiter_message": recruiter_message,
+                "p_rerank_mode": rerank_mode,
+                "p_rerank_status": rerank_status,
+                "p_rerank_model": DEFAULT_RERANK_MODEL if rerank_mode == "qwen" else None,
+                "p_rerank_config_version": RERANK_CONFIG_VERSION,
+                "p_embedding_model": DEFAULT_EMBED_MODEL,
+                "p_matched_resume_ids": resume_ids,
+                "p_evidence": evidence,
+            },
+        ).execute()
 
-    if evidence:
-        await asyncio.to_thread(_insert_evidence)
+    await asyncio.to_thread(_insert_run)
 
 
 async def retrieve_for_job(
@@ -146,7 +151,7 @@ async def retrieve_for_job(
             .eq("job_post_id", str(job_id))
             .is_("withdrawn_at", "null")
             .order("applied_at", desc=True)
-            .limit(50)
+            .limit(RETRIEVE_CANDIDATE_K)
             .execute()
         )
         return result.data or []
@@ -175,7 +180,7 @@ async def retrieve_for_job(
             {
                 "query_embedding": query_embedding,
                 "p_job_id": str(job_id),
-                "match_count": 50,
+                "match_count": RETRIEVE_CANDIDATE_K,
             },
         ).execute()
         return result.data or []
@@ -188,7 +193,7 @@ async def retrieve_for_job(
     def _embedded(resume_id: str) -> dict[str, Any] | None:
         result = (
             client.table("embedded_resumes")
-            .select("metadata")
+            .select("metadata, markdown")
             .eq("resume_id", resume_id)
             .maybe_single()
             .execute()
@@ -213,6 +218,7 @@ async def retrieve_for_job(
                 "resume_storage_path": row.get("resume_storage_path_snapshot"),
                 "current_status": row.get("current_status") or "pending",
                 "skills": skills,
+                "markdown": (parsed or {}).get("markdown") or "",
                 "distance_original": original_by_resume.get(resume_id, 1.0),
                 "distance_expanded": expanded_by_resume.get(resume_id, 1.0),
             }
@@ -220,5 +226,6 @@ async def retrieve_for_job(
 
     return {
         "jd_skills": extract_skills(query_text),
+        "jd_query": query_text,
         "candidates": candidates,
     }

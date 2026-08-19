@@ -83,9 +83,15 @@ def score_candidates(
     )
     by_id = {_doc_id(row): row for row in annotated}
     ranked: list[dict[str, Any]] = []
-    for doc_id, raw in fused:
+    for rank, (doc_id, raw) in enumerate(fused, start=1):
         row = by_id.get(doc_id)
         if not row:
             continue
-        ranked.append({**row, "score": rrf_normalize(raw, n_lists=3)})
+        ranked.append(
+            {
+                **row,
+                "rrf_score": rrf_normalize(raw, n_lists=3),
+                "rrf_rank": rank,
+            }
+        )
     return ranked

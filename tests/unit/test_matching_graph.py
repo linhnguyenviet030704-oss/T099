@@ -61,10 +61,14 @@ async def test_matching_graph_ranks_then_responds():
         }
 
     graph = build_matching_graph(retrieve=retrieve)
-    result = await graph.ainvoke({"job_id": str(uuid4()), "query": "Gợi ý ứng viên"})
+    result = await graph.ainvoke(
+        {"job_id": str(uuid4()), "query": "Gợi ý ứng viên", "rerank_mode": "agent"}
+    )
     assert result["response"] == "Gợi ý 2 ứng viên phù hợp."
     assert result["candidates"][0]["application_id"] == app_id
-    assert result["candidates"][0]["score"] > result["candidates"][1]["score"]
+    assert result["candidates"][0]["rrf_score"] > result["candidates"][1]["rrf_score"]
+    assert result["candidates"][0]["rerank_status"] == "not_requested"
+    assert result["candidates"][0]["rerank_score"] is None
 
 
 @pytest.mark.asyncio
@@ -76,6 +80,61 @@ async def test_matching_graph_empty_pool():
     result = await graph.ainvoke({"job_id": str(uuid4()), "query": "hello"})
     assert result["response"] == "Chưa có CV nộp cho vị trí này."
     assert result["candidates"] == []
+
+
+@pytest.mark.asyncio
+async def test_matching_graph_qwen_rerank_reorders():
+    ada = str(uuid4())
+    bob = str(uuid4())
+
+    async def retrieve(_job_id):
+        return {
+            "jd_query": "Python FastAPI",
+            "jd_skills": ["Python"],
+            "candidates": [
+                {
+                    "application_id": ada,
+                    "applicant_user_id": str(uuid4()),
+                    "resume_id": str(uuid4()),
+                    "full_name": "Ada",
+                    "email": "a@x",
+                    "resume_title": "a.pdf",
+                    "resume_storage_path": "a",
+                    "current_status": "pending",
+                    "skills": ["Python"],
+                    "markdown": "ada cv",
+                    "distance_original": 0.1,
+                    "distance_expanded": 0.1,
+                },
+                {
+                    "application_id": bob,
+                    "applicant_user_id": str(uuid4()),
+                    "resume_id": str(uuid4()),
+                    "full_name": "Bob",
+                    "email": "b@x",
+                    "resume_title": "b.pdf",
+                    "resume_storage_path": "b",
+                    "current_status": "pending",
+                    "skills": ["Python"],
+                    "markdown": "bob cv",
+                    "distance_original": 0.2,
+                    "distance_expanded": 0.2,
+                },
+            ],
+        }
+
+    def rerank_fn(query: str, documents: list[str]):
+        assert query == "Python FastAPI"
+        assert documents == ["ada cv", "bob cv"]
+        return [{"index": 1, "relevance_score": 0.95}, {"index": 0, "relevance_score": 0.1}]
+
+    graph = build_matching_graph(retrieve=retrieve, rerank_fn=rerank_fn)
+    result = await graph.ainvoke(
+        {"job_id": str(uuid4()), "query": "Gợi ý ứng viên", "rerank_mode": "qwen"}
+    )
+    assert result["candidates"][0]["application_id"] == bob
+    assert result["candidates"][0]["rerank_status"] == "success"
+    assert result["candidates"][0]["rerank_score"] == 0.95
 
 
 @pytest.mark.asyncio

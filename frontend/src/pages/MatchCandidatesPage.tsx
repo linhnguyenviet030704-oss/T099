@@ -9,6 +9,8 @@ import { JobPost } from '../types';
 
 const QUICK_PROMPT = 'Gợi ý ứng viên phù hợp';
 
+type RerankStatus = 'success' | 'fallback' | 'not_requested';
+
 type ChatCandidate = {
   application_id: string;
   applicant_user_id: string;
@@ -17,7 +19,20 @@ type ChatCandidate = {
   resume_title: string | null;
   resume_storage_path: string | null;
   current_status: string;
-  score: number;
+  rrf_score: number;
+  rerank_score: number | null;
+  rerank_status: RerankStatus;
+};
+
+const displayScore = (c: ChatCandidate) =>
+  c.rerank_status === 'success' && c.rerank_score != null ? c.rerank_score : c.rrf_score;
+
+type HistoryRun = {
+  id: string;
+  created_at: string;
+  rerank_mode: string | null;
+  rerank_status: string | null;
+  recruiter_message: string | null;
 };
 
 type ChatTurn = {
@@ -46,6 +61,8 @@ export const MatchCandidatesPage: React.FC = () => {
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [rerank, setRerank] = useState<'qwen' | 'agent'>('qwen');
+  const [history, setHistory] = useState<HistoryRun[]>([]);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([
     { id: 'welcome', role: 'assistant', text: welcomeFor() },
@@ -129,10 +146,56 @@ export const MatchCandidatesPage: React.FC = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns, sending]);
 
-  const handleJobChange = (nextId: string) => {
+  const handleJobChange = async (nextId: string) => {
     setJobId(nextId);
     const job = jobs.find((item) => item.id === nextId);
     setTurns([{ id: 'welcome', role: 'assistant', text: welcomeFor(job?.title) }]);
+    setHistory([]);
+    if (!nextId || !supabase) return;
+    const { data } = await supabase
+      .from('match_resume')
+      .select('id, created_at, rerank_mode, rerank_status, recruiter_message')
+      .eq('job_post_id', nextId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    setHistory((data || []) as HistoryRun[]);
+  };
+
+  const replayHistory = async (run: HistoryRun) => {
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc('get_match_run', { p_run_id: run.id });
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    const rows = (data || []) as Array<Record<string, unknown>>;
+    const candidates: ChatCandidate[] = rows.map((row) => ({
+      application_id: String(row.application_id),
+      applicant_user_id: String(row.applicant_user_id),
+      full_name: (row.full_name as string | null) ?? null,
+      email: (row.email as string | null) ?? null,
+      resume_title: (row.resume_title as string | null) ?? null,
+      resume_storage_path: (row.resume_storage_path as string | null) ?? null,
+      current_status: String(row.current_status || 'pending'),
+      rrf_score: Number(row.rrf_score),
+      rerank_score: row.rerank_score == null ? null : Number(row.rerank_score),
+      rerank_status: (String(row.rerank_status || run.rerank_status || 'not_requested') as RerankStatus),
+    }));
+    const n = candidates.length;
+    const assistantText =
+      n === 0
+        ? `Lịch sử · ${run.created_at}\nChưa có CV nộp cho vị trí này.`
+        : `Lịch sử · ${run.created_at}\nGợi ý ${n} ứng viên phù hợp.`;
+    setTurns((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: 'user', text: run.recruiter_message || QUICK_PROMPT },
+      {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        text: assistantText,
+        candidates,
+      },
+    ]);
   };
 
   const openCv = async (candidate: ChatCandidate) => {
@@ -162,7 +225,7 @@ export const MatchCandidatesPage: React.FC = () => {
     try {
       const body = await apiJson<ChatApiResponse>('/chat', session.access_token, {
         method: 'POST',
-        body: JSON.stringify({ message, job_id: jobId }),
+        body: JSON.stringify({ message, job_id: jobId, rerank }),
       });
       setTurns((prev) => [
         ...prev,
@@ -213,6 +276,22 @@ export const MatchCandidatesPage: React.FC = () => {
           ))}
         </select>
         {jobsError && <p className="text-xs text-red-400">{jobsError}</p>}
+        {history.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {history.map((run) => (
+              <li key={run.id}>
+                <button
+                  type="button"
+                  onClick={() => void replayHistory(run)}
+                  className="w-full truncate rounded-lg px-2 py-1 text-left text-[11px] text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                >
+                  {run.created_at} · {run.rerank_mode || '—'}
+                  {run.recruiter_message ? ` · ${run.recruiter_message}` : ''}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </label>
 
       <section className="flex min-h-[28rem] flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-md">
@@ -229,7 +308,7 @@ export const MatchCandidatesPage: React.FC = () => {
                     : 'border border-slate-800 bg-slate-950 text-slate-200'
                 }`}
               >
-                <p className="leading-relaxed">{turn.text}</p>
+                <p className="leading-relaxed whitespace-pre-line">{turn.text}</p>
                 {turn.candidates && turn.candidates.length > 0 && (
                   <ul className="space-y-3">
                     {turn.candidates.map((candidate) => (
@@ -246,9 +325,14 @@ export const MatchCandidatesPage: React.FC = () => {
                               {candidate.full_name || 'Ứng viên chưa cấu hình hồ sơ'}
                             </h2>
                           </div>
-                          <span className="shrink-0 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-black text-emerald-400">
-                            {Math.round(candidate.score * 100)}%
-                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <span className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-black text-emerald-400">
+                              {Math.round(displayScore(candidate) * 100)}%
+                            </span>
+                            {candidate.rerank_status === 'fallback' && (
+                              <span className="text-[10px] font-mono text-amber-400">fallback</span>
+                            )}
+                          </div>
                         </div>
                         <p className="text-[11px] text-emerald-400">
                           {ENUM_LABELS.application_status[
@@ -287,15 +371,41 @@ export const MatchCandidatesPage: React.FC = () => {
             void sendMessage(draft);
           }}
         >
-          <button
-            type="button"
-            disabled={sending || !jobId}
-            onClick={() => void sendMessage(QUICK_PROMPT)}
-            className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            {QUICK_PROMPT}
-          </button>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={sending || !jobId}
+              onClick={() => void sendMessage(QUICK_PROMPT)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {QUICK_PROMPT}
+            </button>
+            <button
+              type="button"
+              disabled={sending || !jobId}
+              onClick={() => setRerank('qwen')}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+                rerank === 'qwen'
+                  ? 'border-emerald-500/30 bg-emerald-500 text-slate-950'
+                  : 'border-slate-700 bg-slate-950 text-slate-400'
+              }`}
+            >
+              qwen
+            </button>
+            <button
+              type="button"
+              disabled={sending || !jobId}
+              onClick={() => setRerank('agent')}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+                rerank === 'agent'
+                  ? 'border-emerald-500/30 bg-emerald-500 text-slate-950'
+                  : 'border-slate-700 bg-slate-950 text-slate-400'
+              }`}
+            >
+              agent
+            </button>
+          </div>
           <div className="flex gap-2">
             <label htmlFor="match-candidates-input" className="sr-only">
               Tin nhắn

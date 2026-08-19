@@ -30,18 +30,19 @@ def test_score_candidates_rrf_prefers_expanded_and_skill_over_one_semantic_hit()
             "application_id": "ada",
             "resume_id": "r1",
             "skills": ["Python"],
-            "distance_original": 0.1,
             "distance_expanded": 0.4,
+            "bm25_score": 0.0,
         },
         {
             "application_id": "bob",
             "resume_id": "r2",
             "skills": ["Python", "FastAPI", "Docker"],
-            "distance_original": 0.3,
+            "verified_skills": ["python", "fastapi", "docker"],
             "distance_expanded": 0.1,
+            "bm25_score": 0.0,
         },
     ]
-    ranked = score_candidates(rows, jd_skills=["Python", "FastAPI", "Docker"])
+    ranked = score_candidates(rows, jd_skills=["python", "fastapi", "docker"])
     assert ranked[0]["application_id"] == "bob"
     assert ranked[0]["skill_score"] == 1.0
     assert ranked[1]["skill_score"] == 1 / 3

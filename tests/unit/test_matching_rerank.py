@@ -72,7 +72,7 @@ def test_apply_rerank_qwen_error_falls_back():
     assert out[0]["rerank_status"] == "fallback"
 
 
-def test_apply_rerank_respects_candidate_and_final_k():
+def test_apply_rerank_respects_candidate_k_keeps_full_pool():
     rows = [_row(str(i), 1.0 - i / 10, f"d{i}") for i in range(1, 6)]
 
     def rerank_fn(query: str, documents: list[str]):
@@ -87,8 +87,29 @@ def test_apply_rerank_respects_candidate_and_final_k():
         candidate_k=3,
         final_k=2,
     )
-    assert len(out) == 2
-    assert [r["application_id"] for r in out] == ["3", "2"]
+    assert len(out) == 5
+    assert [r["application_id"] for r in out[:3]] == ["3", "2", "1"]
+    assert [r["application_id"] for r in out[3:]] == ["4", "5"]
+
+
+def test_apply_rerank_confirmed_keeps_fail_below_pass():
+    rows = [
+        {**_row("1", 0.9, "fail-cv"), "application_id": "fail", "constraint_status": "fail"},
+        {**_row("2", 0.1, "pass-cv"), "application_id": "pass", "constraint_status": "pass"},
+    ]
+
+    def rerank_fn(query: str, documents: list[str]):
+        assert documents == ["pass-cv", "fail-cv"]
+        return [{"index": 0, "relevance_score": 0.1}, {"index": 1, "relevance_score": 0.99}]
+
+    out = apply_rerank(
+        rows,
+        jd_query="Java",
+        mode="qwen",
+        rerank_fn=rerank_fn,
+        confirmed=True,
+    )
+    assert [r["application_id"] for r in out] == ["pass", "fail"]
 
 
 class _RpcClient:

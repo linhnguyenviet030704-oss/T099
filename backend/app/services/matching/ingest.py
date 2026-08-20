@@ -7,6 +7,8 @@ from uuid import UUID
 from backend.app.agents.ingest.graph import build_ingest_graph
 from backend.app.core.exceptions import NotFoundError
 from backend.app.observability.logger import get_logger
+from backend.app.services.matching.skills import taxonomy_version
+from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_VERSION
 
 logger = get_logger(__name__)
 
@@ -42,7 +44,13 @@ async def ingest_resume(
     blob = await store.download(resume.get("bucket_id") or "resumes", resume["storage_path"])
     digest = hashlib.sha256(blob).hexdigest()
     existing = await store.get_parsed(resume_id)
-    if existing and existing.get("content_hash") == digest:
+    meta = (existing or {}).get("metadata") or {}
+    if (
+        existing
+        and existing.get("content_hash") == digest
+        and meta.get("taxonomy_version") == taxonomy_version()
+        and meta.get("summary_prompt_version") == SUMMARIZE_PROMPT_VERSION
+    ):
         return "exists"
     graph = build_ingest_graph(encode=encode, complete=complete, api_key=api_key, base_url=base_url)
     result = await graph.ainvoke(
@@ -51,7 +59,11 @@ async def ingest_resume(
             "mime_type": resume.get("mime_type") or "",
         }
     )
-    parsed = {"markdown": result.get("markdown") or "", "metadata": result.get("metadata") or {}}
+    parsed = {
+        "markdown": result.get("markdown") or "",
+        "clean_markdown": result.get("clean_markdown") or "",
+        "metadata": result.get("metadata") or {},
+    }
     await store.save(resume_id, parsed, digest, list(result.get("embedding") or []))
     return "indexed"
 

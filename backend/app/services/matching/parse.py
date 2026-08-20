@@ -5,8 +5,6 @@ import re
 import pymupdf
 import pymupdf4llm
 
-
-
 SECTION_NAMES = {
     # Skills
     "skill": "Skills",

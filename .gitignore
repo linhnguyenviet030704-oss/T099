@@ -58,3 +58,7 @@ out/
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
 .ai-log/archive/
+
+docs/superpowers/
+
+new_frontend/

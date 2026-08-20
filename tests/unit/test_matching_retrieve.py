@@ -30,22 +30,26 @@ def test_score_candidates_rrf_prefers_expanded_and_skill_over_one_semantic_hit()
             "application_id": "ada",
             "resume_id": "r1",
             "skills": ["Python"],
-            "distance_original": 0.1,
             "distance_expanded": 0.4,
+            "bm25_score": 0.0,
         },
         {
             "application_id": "bob",
             "resume_id": "r2",
             "skills": ["Python", "FastAPI", "Docker"],
-            "distance_original": 0.3,
+            "verified_skills": ["python", "fastapi", "docker"],
             "distance_expanded": 0.1,
+            "bm25_score": 0.0,
         },
     ]
-    ranked = score_candidates(rows, jd_skills=["Python", "FastAPI", "Docker"])
+    ranked = score_candidates(rows, jd_skills=["python", "fastapi", "docker"])
     assert ranked[0]["application_id"] == "bob"
     assert ranked[0]["skill_score"] == 1.0
     assert ranked[1]["skill_score"] == 1 / 3
-    assert ranked[0]["score"] > ranked[1]["score"]
+    assert ranked[0]["rrf_score"] > ranked[1]["rrf_score"]
+    assert ranked[0]["rrf_rank"] == 1
+    assert ranked[1]["rrf_rank"] == 2
+    assert "score" not in ranked[0]
 
 
 class _ExplodingClient:
@@ -92,6 +96,15 @@ async def test_persist_match_resume_rows_blocks_before_insert_when_unauthorized(
 
     client = _ExplodingClient()
     with pytest.raises(ForbiddenError):
-        await persist_match_resume_rows(client, actor_id, job_id, [])
+        await persist_match_resume_rows(
+            client,
+            job_id,
+            [],
+            actor_id=actor_id,
+            query_text="",
+            recruiter_message="",
+            rerank_mode="qwen",
+            rerank_status="not_requested",
+        )
 
     assert calls == [(client, actor_id, job_id)]

@@ -1,9 +1,12 @@
-"""Reciprocal Rank Fusion. k=60 from the matching spec."""
+"""Reciprocal Rank Fusion. k=60 default, not claimed optimal."""
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
+from backend.app.services.matching.bm25 import competition_ranks
+from backend.app.services.matching.constraints import constraint_status, empty_constraints, partition_rows, soft_delta
 from backend.app.services.matching.skills import coverage_score, load_taxonomy_index
 
 RRF_K = 60
@@ -14,11 +17,14 @@ def rrf_fuse(
     *,
     weights: dict[str, float] | None = None,
     k: int = RRF_K,
+    ranks: dict[str, list[int]] | None = None,
 ) -> list[tuple[str, float]]:
     scores: dict[str, float] = {}
     for source, ranked_ids in rankings.items():
         weight = (weights or {}).get(source, 1.0)
-        for rank, doc_id in enumerate(ranked_ids, start=1):
+        source_ranks = (ranks or {}).get(source)
+        for index, doc_id in enumerate(ranked_ids):
+            rank = source_ranks[index] if source_ranks else index + 1
             scores[doc_id] = scores.get(doc_id, 0.0) + weight / (k + rank)
     return sorted(scores.items(), key=lambda item: (-item[1], item[0]))
 
@@ -40,52 +46,84 @@ def _doc_id(row: dict[str, Any]) -> str:
     return str(row.get("application_id") or row.get("resume_id") or "")
 
 
-def _ids_by_distance(rows: list[dict[str, Any]], key: str) -> list[str]:
-    return [_doc_id(row) for row in sorted(rows, key=lambda item: float(item.get(key) or 1.0))]
-
-
-def _ids_by_skill(rows: list[dict[str, Any]]) -> list[str]:
-    return [_doc_id(row) for row in sorted(rows, key=lambda item: -float(item.get("skill_score") or 0.0))]
+def _finite_distance(row: dict[str, Any]) -> float | None:
+    value = row.get("distance_expanded")
+    if value is None:
+        return None
+    distance = float(value)
+    if not math.isfinite(distance):
+        return None
+    return distance
 
 
 def score_candidates(
     rows: list[dict[str, Any]],
     jd_skills: list[str],
     taxonomy_index: dict[str, str] | None = None,
+    *,
+    constraints: dict[str, Any] | None = None,
+    confirmed: bool = False,
+    rrf_k: int = RRF_K,
 ) -> list[dict[str, Any]]:
     index = taxonomy_index or load_taxonomy_index()
+    constraint_payload = constraints or empty_constraints()
     annotated: list[dict[str, Any]] = []
     for row in rows:
-        d_orig = float(
-            row["distance_original"]
-            if row.get("distance_original") is not None
-            else row.get("distance") or 1.0
-        )
-        d_exp = float(row["distance_expanded"] if row.get("distance_expanded") is not None else d_orig)
+        verified = list(row.get("verified_skills") or [])
+        skills = list(row.get("skills") or verified)
         coverage = row.get("skill_score")
         if coverage is None:
-            coverage = coverage_score(row.get("skills") or [], jd_skills, index)
+            coverage = coverage_score(verified or skills, jd_skills, index)
+        distance = _finite_distance(row)
+        delta = soft_delta(verified, jd_skills)
+        status = constraint_status(row, constraint_payload, confirmed=confirmed)
         annotated.append(
             {
                 **row,
-                "distance_original": d_orig,
-                "distance_expanded": d_exp,
+                "skills": skills,
+                "verified_skills": verified,
                 "skill_score": float(coverage),
-                "semantic_score": semantic_score(d_orig),
+                "semantic_score": semantic_score(distance) if distance is not None else 0.0,
+                "soft_delta": delta,
+                "constraint_status": status,
+                "bm25_score": float(row.get("bm25_score") or 0.0),
             }
         )
-    fused = rrf_fuse(
-        {
-            "original": _ids_by_distance(annotated, "distance_original"),
-            "expanded": _ids_by_distance(annotated, "distance_expanded"),
-            "skill": _ids_by_skill(annotated),
-        }
+
+    dense_sorted = sorted(
+        [row for row in annotated if _finite_distance(row) is not None],
+        key=lambda row: (_finite_distance(row) or 0.0, _doc_id(row)),
     )
+    dense_ids = [_doc_id(row) for row in dense_sorted]
+    dense_ranks = competition_ranks([_finite_distance(row) or 0.0 for row in dense_sorted])
+
+    bm25_sorted = sorted(
+        [row for row in annotated if float(row.get("bm25_score") or 0.0) > 0.0],
+        key=lambda row: (-float(row["bm25_score"]), _doc_id(row)),
+    )
+    bm25_ids = [_doc_id(row) for row in bm25_sorted]
+    bm25_ranks = competition_ranks([-float(row["bm25_score"]) for row in bm25_sorted])
+
+    rankings = {"expanded": dense_ids, "bm25": bm25_ids}
+    ranks = {"expanded": dense_ranks, "bm25": bm25_ranks}
+    fused = rrf_fuse(rankings, k=rrf_k, ranks=ranks)
     by_id = {_doc_id(row): row for row in annotated}
     ranked: list[dict[str, Any]] = []
-    for doc_id, raw in fused:
+    for rank, (doc_id, raw) in enumerate(fused, start=1):
         row = by_id.get(doc_id)
         if not row:
             continue
-        ranked.append({**row, "score": rrf_normalize(raw, n_lists=3)})
-    return ranked
+        ranked.append(
+            {
+                **row,
+                "rrf_raw": raw,
+                "rrf_score": rrf_normalize(raw, n_lists=2, k=rrf_k),
+                "rrf_rank": rank,
+            }
+        )
+    if not confirmed:
+        ranked.sort(key=lambda row: (-float(row.get("rrf_raw") or 0.0), -float(row.get("soft_delta") or 0.0), _doc_id(row)))
+        for index, row in enumerate(ranked, start=1):
+            row["rrf_rank"] = index
+        return ranked
+    return partition_rows(ranked)

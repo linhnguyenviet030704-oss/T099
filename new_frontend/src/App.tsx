@@ -1,8 +1,12 @@
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
-import { AppProvider } from "./context/AppContext";
+import { ThemeProvider } from "./context/AppContext";
 import { LangProvider } from "./context/LangContext";
+import { AuthProvider } from "./auth/AuthProvider";
+import { ProfileProvider } from "./profile/ProfileProvider";
 import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import RoleRoute from "./components/RoleRoute";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -27,17 +31,90 @@ function AnimatedRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/auth/sign-in" element={<Navigate to="/login" replace />} />
+        <Route path="/auth/sign-up" element={<Navigate to="/register" replace />} />
         <Route path="/jobs" element={<JobListPage />} />
         <Route path="/jobs/:id" element={<JobDetailPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/cv-vault" element={<CVVaultPage />} />
-        <Route path="/cv-builder" element={<CVBuilderPage />} />
-        <Route path="/applications" element={<ApplicationsPage />} />
-        <Route path="/ai-suggestions" element={<AISuggestionsPage />} />
-        <Route path="/recruiter-register" element={<RecruiterRegisterPage />} />
-        <Route path="/dashboard" element={<RecruitmentDashboardPage />} />
-        <Route path="/ai-candidates" element={<AICandidatePage />} />
-        <Route path="/admin" element={<AdminRecruiterPage />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cv-vault"
+          element={
+            <ProtectedRoute>
+              <CVVaultPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/profile/resumes" element={<Navigate to="/cv-vault" replace />} />
+        <Route
+          path="/cv-builder"
+          element={
+            <ProtectedRoute>
+              <CVBuilderPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/applications"
+          element={
+            <ProtectedRoute>
+              <ApplicationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/my-applications" element={<Navigate to="/applications" replace />} />
+        <Route
+          path="/ai-suggestions"
+          element={
+            <ProtectedRoute>
+              <AISuggestionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/match" element={<Navigate to="/ai-suggestions" replace />} />
+        <Route path="/match_job" element={<Navigate to="/ai-suggestions" replace />} />
+        <Route
+          path="/recruiter-register"
+          element={
+            <ProtectedRoute>
+              <RecruiterRegisterPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/recruiter/request" element={<Navigate to="/recruiter-register" replace />} />
+        <Route
+          path="/dashboard"
+          element={
+            <RoleRoute allowedRoles={["recruiter", "admin"]}>
+              <RecruitmentDashboardPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/recruiter/jobs" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/ai-candidates"
+          element={
+            <RoleRoute allowedRoles={["recruiter", "admin"]}>
+              <AICandidatePage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/match_candidates" element={<Navigate to="/ai-candidates" replace />} />
+        <Route
+          path="/admin"
+          element={
+            <RoleRoute allowedRoles={["admin"]}>
+              <AdminRecruiterPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/admin/recruiter-requests" element={<Navigate to="/admin" replace />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AnimatePresence>
@@ -47,14 +124,18 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <LangProvider>
-    <AppProvider>
-      <BrowserRouter>
-        <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors">
-          <Navbar />
-          <AnimatedRoutes />
-        </div>
-      </BrowserRouter>
-    </AppProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <ProfileProvider>
+            <BrowserRouter>
+              <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors">
+                <Navbar />
+                <AnimatedRoutes />
+              </div>
+            </BrowserRouter>
+          </ProfileProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </LangProvider>
   );
 }

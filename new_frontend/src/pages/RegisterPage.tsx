@@ -1,20 +1,22 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Briefcase, CheckCircle2 } from "lucide-react";
-import { useApp } from "../context/AppContext";
+import { useAuth } from "../auth/AuthProvider";
+import { supabase, handleSupabaseError } from "../lib/supabase";
 import AnimatedPage from "../components/AnimatedPage";
 
 export default function RegisterPage() {
-  const { register, currentUser } = useApp();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<"session" | "confirm" | null>(null);
 
-  if (currentUser) { navigate("/", { replace: true }); return null; }
+  if (authLoading) return null;
+  if (user && !success) return <Navigate to="/profile" replace />;
 
   const handleChange = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }));
@@ -22,13 +24,37 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (form.password.length < 8) { setError("Mật khẩu phải có ít nhất 8 ký tự."); return; }
+    if (!supabase) {
+      setError("Hệ thống Supabase chưa được cấu hình.");
+      return;
+    }
+    if (form.password.length < 8) {
+      setError("Mật khẩu phải có ít nhất 8 ký tự.");
+      return;
+    }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    const ok = register(form.name, form.email, form.password);
-    setLoading(false);
-    if (ok) { setSuccess(true); setTimeout(() => navigate("/profile"), 2000); }
-    else setError("Email này đã được đăng ký. Vui lòng dùng email khác.");
+    try {
+      const { data, error: registerErr } = await supabase.auth.signUp({
+        email: form.email.trim(),
+        password: form.password,
+        options: {
+          data: { full_name: form.name.trim() },
+          emailRedirectTo: `${window.location.origin}/profile`,
+        },
+      });
+      if (registerErr) throw registerErr;
+      if (data.session) {
+        setSuccess("session");
+        setTimeout(() => navigate("/profile", { replace: true }), 1500);
+      } else {
+        setSuccess("confirm");
+        setForm((p) => ({ ...p, password: "" }));
+      }
+    } catch (err: unknown) {
+      setError(handleSupabaseError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const pwStrength = form.password.length === 0 ? 0 : form.password.length < 8 ? 1 : form.password.length < 12 ? 2 : 3;
@@ -38,21 +64,18 @@ export default function RegisterPage() {
   if (success) {
     return (
       <AnimatedPage className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-indigo-50 dark:from-slate-900 dark:to-slate-800 px-4">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="text-center"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
-            className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6"
-          >
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center max-w-sm">
+          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 size={40} className="text-emerald-600" />
-          </motion.div>
-          <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-2">Đăng ký thành công!</h2>
-          <p className="text-slate-500">Đang chuyển đến trang hồ sơ...</p>
+          </div>
+          <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-2">
+            {success === "session" ? "Đăng ký thành công!" : "Kiểm tra email"}
+          </h2>
+          <p className="text-slate-500">
+            {success === "session"
+              ? "Đang chuyển đến trang hồ sơ..."
+              : "Một liên kết xác minh đã được gửi đến email của bạn."}
+          </p>
         </motion.div>
       </AnimatedPage>
     );
@@ -88,12 +111,11 @@ export default function RegisterPage() {
                   required
                   value={form.name}
                   onChange={handleChange("name")}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Nguyễn Văn A"
                 />
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Email</label>
               <div className="relative">
@@ -103,12 +125,11 @@ export default function RegisterPage() {
                   required
                   value={form.email}
                   onChange={handleChange("email")}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="ten@email.com"
                 />
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mật khẩu</label>
               <div className="relative">
@@ -118,10 +139,10 @@ export default function RegisterPage() {
                   required
                   value={form.password}
                   onChange={handleChange("password")}
-                  className="w-full pl-10 pr-11 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-11 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="Tối thiểu 8 ký tự"
                 />
-                <button type="button" onClick={() => setShowPw((v) => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                <button type="button" onClick={() => setShowPw((v) => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -129,45 +150,27 @@ export default function RegisterPage() {
                 <div className="mt-2 flex items-center gap-2">
                   <div className="flex-1 flex gap-1">
                     {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className={`h-1.5 flex-1 rounded-full transition-all ${i <= pwStrength ? pwColors[pwStrength] : "bg-slate-200"}`}
-                      />
+                      <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= pwStrength ? pwColors[pwStrength] : "bg-slate-200"}`} />
                     ))}
                   </div>
                   <span className="text-xs text-slate-500">{pwLabels[pwStrength]}</span>
                 </div>
               )}
             </div>
-
             {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl text-sm"
-              >
+              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-xl text-sm">
                 <AlertCircle size={15} /> {error}
-              </motion.div>
+              </div>
             )}
-
             <motion.button
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold rounded-xl"
             >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Đang đăng ký...
-                </>
-              ) : "Đăng ký"}
+              {loading ? "Đang đăng ký..." : "Đăng ký"}
             </motion.button>
           </form>
-
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
             Đã có tài khoản?{" "}
             <Link to="/login" className="text-indigo-600 font-medium hover:underline">Đăng nhập</Link>

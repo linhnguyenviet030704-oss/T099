@@ -4,13 +4,20 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --port=3000",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --port=3000",
+    "lint": "tsc --noEmit",
     "format": "oxfmt"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@supabase/supabase-js": "^2.106.2",
     "framer-motion": "^13.1.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.32.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

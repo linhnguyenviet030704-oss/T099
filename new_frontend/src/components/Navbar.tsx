@@ -3,52 +3,68 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Briefcase, User, FileText, BookOpen, LogOut, Sun, Moon,
-  Menu, X, ChevronDown, Star, LayoutDashboard, Shield, Bell,
+  Menu, X, ChevronDown, Star, LayoutDashboard, Shield,
 } from "lucide-react";
-import { useApp } from "../context/AppContext";
+import { useTheme } from "../context/AppContext";
 import { useLang } from "../context/LangContext";
-import { ROLE_LABELS } from "../data/mockData";
+import { useAuth } from "../auth/AuthProvider";
+import { useCurrentProfile } from "../profile/ProfileProvider";
+import { ENUM_LABELS } from "../lib/format";
 
 export default function Navbar() {
-  const { currentUser, darkMode, toggleDarkMode, logout } = useApp();
+  const { darkMode, toggleDarkMode } = useTheme();
   const { lang, t, toggleLang } = useLang();
+  const { user, signOut } = useAuth();
+  const { profile, isRecruiter, isAdmin } = useCurrentProfile();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const isActive = (path: string) =>
+    path === "/" ? location.pathname === "/" : location.pathname === path || location.pathname.startsWith(path + "/");
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate("/");
     setMobileOpen(false);
     setProfileOpen(false);
   };
 
+  const role = profile?.role || "candidate";
+  const displayName = profile?.full_name || user?.email || "Tài khoản";
+  const displayEmail = profile?.email || user?.email || "";
+
   const navLinks = [
     { label: t.home, href: "/", always: true },
     { label: t.jobs, href: "/jobs", always: true },
-    { label: t.aiSuggestions, href: "/ai-suggestions", roles: ["candidate"] },
-    { label: t.aiCandidates, href: "/ai-candidates", roles: ["recruiter", "admin"] },
-    { label: t.dashboard, href: "/dashboard", roles: ["recruiter", "admin"] },
+    { label: t.aiSuggestions, href: "/ai-suggestions", loggedIn: true },
+    { label: t.aiCandidates, href: "/ai-candidates", recruiter: true },
+    { label: t.dashboard, href: "/dashboard", recruiter: true },
   ];
 
   const userLinks = [
     { label: t.profile, href: "/profile", icon: User, always: true },
     { label: t.cvVault, href: "/cv-vault", icon: FileText, always: true },
     { label: t.applications, href: "/applications", icon: BookOpen, always: true },
-    { label: t.recruiterRegister, href: "/recruiter-register", icon: Star, roles: ["candidate"] },
-    { label: t.adminMenu, href: "/admin", icon: Shield, roles: ["admin"] },
+    { label: t.recruiterRegister, href: "/recruiter-register", icon: Star, candidate: true },
+    { label: t.adminMenu, href: "/admin", icon: Shield, admin: true },
   ];
 
-  const visibleNavLinks = navLinks.filter(
-    (l) => l.always || (currentUser && l.roles?.includes(currentUser.role))
-  );
+  const visibleNavLinks = navLinks.filter((l) => {
+    if (l.always) return true;
+    if (!user) return false;
+    if (l.loggedIn) return true;
+    if (l.recruiter) return isRecruiter || isAdmin;
+    return false;
+  });
 
-  const visibleUserLinks = userLinks.filter(
-    (l) => l.always || (currentUser && l.roles?.includes(currentUser.role))
-  );
+  const visibleUserLinks = userLinks.filter((l) => {
+    if (l.always) return true;
+    if (l.candidate) return !isRecruiter && !isAdmin;
+    if (l.admin) return isAdmin;
+    return false;
+  });
 
   const roleColors: Record<string, string> = {
     candidate: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
@@ -61,7 +77,6 @@ export default function Navbar() {
       <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
             <Link to="/" className="flex items-center gap-2 group">
               <motion.div
                 whileHover={{ rotate: 5 }}
@@ -74,7 +89,6 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-1">
               {visibleNavLinks.map((link) => (
                 <Link
@@ -87,19 +101,11 @@ export default function Navbar() {
                   }`}
                 >
                   {link.label}
-                  {isActive(link.href) && (
-                    <motion.div
-                      layoutId="nav-indicator"
-                      className="absolute inset-0 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg -z-10"
-                    />
-                  )}
                 </Link>
               ))}
             </nav>
 
-            {/* Right side */}
             <div className="flex items-center gap-2">
-              {/* Lang toggle */}
               <motion.button
                 onClick={toggleLang}
                 whileTap={{ scale: 0.92 }}
@@ -125,25 +131,27 @@ export default function Navbar() {
                 </AnimatePresence>
               </button>
 
-              {currentUser ? (
+              {user ? (
                 <div className="relative hidden md:block">
                   <button
                     onClick={() => setProfileOpen((v) => !v)}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-indigo-400 to-purple-500 flex-shrink-0">
-                      {currentUser.avatar ? (
-                        <img src={currentUser.avatar} alt="" className="w-full h-full object-cover" />
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <span className="w-full h-full flex items-center justify-center text-white font-semibold text-sm">
-                          {currentUser.name[0]}
+                          {displayName[0]?.toUpperCase()}
                         </span>
                       )}
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-medium text-slate-800 dark:text-white leading-tight">{currentUser.name.split(" ").pop()}</p>
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${roleColors[currentUser.role] || ""}`}>
-                        {ROLE_LABELS[currentUser.role]}
+                      <p className="text-sm font-medium text-slate-800 dark:text-white leading-tight">
+                        {displayName.split(" ").pop()}
+                      </p>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${roleColors[role] || ""}`}>
+                        {ENUM_LABELS.profile_role[role]}
                       </span>
                     </div>
                     <ChevronDown size={14} className={`text-slate-400 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
@@ -160,7 +168,7 @@ export default function Navbar() {
                         onMouseLeave={() => setProfileOpen(false)}
                       >
                         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser.email}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{displayEmail}</p>
                         </div>
                         {visibleUserLinks.map((link) => (
                           <Link
@@ -173,9 +181,19 @@ export default function Navbar() {
                             {link.label}
                           </Link>
                         ))}
+                        {isRecruiter && (
+                          <Link
+                            to="/dashboard"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700 hover:text-indigo-600 transition-colors"
+                          >
+                            <LayoutDashboard size={15} />
+                            {t.dashboard}
+                          </Link>
+                        )}
                         <div className="border-t border-slate-100 dark:border-slate-700 p-1">
                           <button
-                            onClick={handleLogout}
+                            onClick={() => void handleLogout()}
                             className="flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors w-full"
                           >
                             <LogOut size={15} />
@@ -188,22 +206,15 @@ export default function Navbar() {
                 </div>
               ) : (
                 <div className="hidden md:flex items-center gap-2">
-                  <Link
-                    to="/login"
-                    className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 transition-colors"
-                  >
+                  <Link to="/login" className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-600 transition-colors">
                     {t.login}
                   </Link>
-                  <Link
-                    to="/register"
-                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors"
-                  >
+                  <Link to="/register" className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors">
                     {t.register}
                   </Link>
                 </div>
               )}
 
-              {/* Mobile menu button */}
               <button
                 className="md:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileOpen((v) => !v)}
@@ -214,7 +225,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu */}
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
@@ -239,44 +249,34 @@ export default function Navbar() {
                     {link.label}
                   </Link>
                 ))}
-                {currentUser ? (
-                  <>
-                    <div className="border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
-                      <p className="px-3 py-1 text-xs text-slate-500">{currentUser.email}</p>
-                      {visibleUserLinks.map((link) => (
-                        <Link
-                          key={link.href}
-                          to={link.href}
-                          onClick={() => setMobileOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 rounded-xl"
-                        >
-                          <link.icon size={15} />
-                          {link.label}
-                        </Link>
-                      ))}
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl w-full mt-1"
+                {user ? (
+                  <div className="border-t border-slate-100 dark:border-slate-700 pt-2 mt-2">
+                    <p className="px-3 py-1 text-xs text-slate-500">{displayEmail}</p>
+                    {visibleUserLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        to={link.href}
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 rounded-xl"
                       >
-                        <LogOut size={15} />
-                        Đăng xuất
-                      </button>
-                    </div>
-                  </>
+                        <link.icon size={15} />
+                        {link.label}
+                      </Link>
+                    ))}
+                    <button
+                      onClick={() => void handleLogout()}
+                      className="flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl w-full mt-1"
+                    >
+                      <LogOut size={15} />
+                      Đăng xuất
+                    </button>
+                  </div>
                 ) : (
                   <div className="flex gap-2 pt-2">
-                    <Link
-                      to="/login"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex-1 py-2.5 text-sm font-medium text-center border border-slate-200 rounded-xl"
-                    >
+                    <Link to="/login" onClick={() => setMobileOpen(false)} className="flex-1 py-2.5 text-sm font-medium text-center border border-slate-200 rounded-xl">
                       Đăng nhập
                     </Link>
-                    <Link
-                      to="/register"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex-1 py-2.5 text-sm font-semibold text-center text-white bg-indigo-600 rounded-xl"
-                    >
+                    <Link to="/register" onClick={() => setMobileOpen(false)} className="flex-1 py-2.5 text-sm font-semibold text-center text-white bg-indigo-600 rounded-xl">
                       Đăng ký
                     </Link>
                   </div>

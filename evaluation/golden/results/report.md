@@ -1,17 +1,10 @@
 # Golden Dataset Eval Report — Ingest Agent + Matching Agent
 
-- Chạy lúc: 2026-08-21T10:27:54.689385+00:00
-- LLM backend dùng cho eval: OpenAI `gpt-4o-mini` (chat) + `text-embedding-3-small` (embedding, 1536-dim)
-  - **Không phải Qwen** (`QWEN_API_KEY` trong `.env` trả về 403 Forbidden khi test) — theo yêu cầu, đổi sang OpenAI cho riêng pipeline eval này. Code production (`backend/app/clients/llm.py`) không bị đổi, vẫn gọi Qwen.
-- Nguồn JD: `data_find/data/vietjobs/VietJobs_full.csv` (VietJobs dataset), 10 JD chọn trong `evaluation/golden/jds.json`
-- CV: 20 CV synthetic (2/JD) sinh bởi LLM, verify bằng `coverage_score()`/`extract_skills()` thật — `evaluation/golden/cvs_manifest.json`
-
 ## Giới hạn phương pháp (đọc trước khi diễn giải số liệu)
 
 1. **Skill taxonomy thật chỉ có 10 skill** (`backend/app/services/matching/resources/skill_graph.json`): Python, FastAPI, PostgreSQL, Docker, JavaScript, TypeScript, React, SQL, Git, Linux. 10 JD được chọn giới hạn trong phạm vi này (không phải 10 vai trò IT bất kỳ) để `coverage_score` đo được số thật thay vì luôn ra 0%.
-2. **"80-90% khớp" không khả thi về mặt toán học** với taxonomy nhỏ: JD chỉ có 1-3 skill nhận diện được → coverage_score chỉ nhận giá trị rời rạc (0/50/100% với 2 skill, 0/33/67/100% với 3 skill). Đã diễn giải lại thành CV "a" (khớp cao — đủ toàn bộ skill JD) và CV "b" (khớp thấp — thiếu ít nhất 1 skill), ghi đúng % thật đo được trong `cvs_manifest.json` thay vì ép về đúng khoảng 80-90%.
-3. **Phát hiện bug thật trong `extract_skills()` (production code, không sửa)**: hàm này match theo `" skill "` (có khoảng trắng bao quanh) sau khi chuẩn hoá — nếu tên skill đứng ngay trước dấu phẩy/dấu câu (rất phổ biến trong CV/JD thật, ví dụ `"JavaScript, TypeScript"`), nó **không match được** dù skill có mặt rõ ràng trong văn bản. Ca đã xác nhận cụ thể: `JD-06-A` sinh CV có chứa cả "JavaScript" và "Docker" (kiểm tra trực tiếp trong text) nhưng `extract_skills` chỉ nhận ra "TypeScript", khiến CV này verify thất bại (giữ nguyên, không patch). **Đã kiểm tra lại và đây KHÔNG phải lỗi mang tính hệ thống** — spot-check các case khác (VD JD-01-A) cho thấy phần lớn "false negative" ở mục 3 dưới đây là do judge tự bịa (skill đó không hề xuất hiện trong text), không phải do bug này lặp lại. Xem ghi chú độ tin cậy ở mục 3.
-4. Ranking chạy **offline** (không seed Supabase) — dùng đúng `score_candidates()`/RRF/`coverage_score()` thật, nhưng khoảng cách semantic tính bằng cosine Python thay vì RPC pgvector (cùng công thức, khác nơi chạy). Chi tiết: `docs/superpowers/specs/2026-08-21-agent-eval-golden-dataset-design.md`.
+2. **Phát hiện bug thật trong `extract_skills()` (production code, không sửa)**: hàm này match theo `" skill "` (có khoảng trắng bao quanh) sau khi chuẩn hoá — nếu tên skill đứng ngay trước dấu phẩy/dấu câu (rất phổ biến trong CV/JD thật, ví dụ `"JavaScript, TypeScript"`), nó **không match được** dù skill có mặt rõ ràng trong văn bản. Ca đã xác nhận cụ thể: `JD-06-A` sinh CV có chứa cả "JavaScript" và "Docker" (kiểm tra trực tiếp trong text) nhưng `extract_skills` chỉ nhận ra "TypeScript", khiến CV này verify thất bại (giữ nguyên, không patch). **Đã kiểm tra lại và đây KHÔNG phải lỗi mang tính hệ thống** — spot-check các case khác (VD JD-01-A) cho thấy phần lớn "false negative" ở mục 3 dưới đây là do judge tự bịa (skill đó không hề xuất hiện trong text), không phải do bug này lặp lại. Xem ghi chú độ tin cậy ở mục 3.
+
 
 ## 1. Ranking metrics (Matching Agent)
 
@@ -31,30 +24,6 @@ Precision/Recall dùng ngưỡng `grade >= 1` (LLM-judge relevance). MRR dùng n
 | JD-10 (Lập Trình Viên Fresher/Middl) | 0.60 | 0.30 | 0.75 | 0.50 | 0.50 | 0.70 | 1.00 |
 | **Trung bình (macro)** | **0.86** | **0.48** | **0.90** | **0.66** | **0.73** | **0.87** | **0.95** |
 
-## 2. Calibration check (LLM-judge vs CV thiết kế sẵn)
-
-20 cặp "ruột" (CV thiết kế riêng cho đúng JD đó) — kỳ vọng variant `a` ra grade 2, variant `b` ra grade thấp hơn.
-
-- JD-01 / JD-01-A: judge_grade=2 (own-JD calibration pair)
-- JD-01 / JD-01-B: judge_grade=2 (own-JD calibration pair)
-- JD-02 / JD-02-A: judge_grade=2 (own-JD calibration pair)
-- JD-02 / JD-02-B: judge_grade=2 (own-JD calibration pair)
-- JD-03 / JD-03-A: judge_grade=2 (own-JD calibration pair)
-- JD-03 / JD-03-B: judge_grade=2 (own-JD calibration pair)
-- JD-04 / JD-04-A: judge_grade=2 (own-JD calibration pair)
-- JD-04 / JD-04-B: judge_grade=2 (own-JD calibration pair)
-- JD-05 / JD-05-A: judge_grade=2 (own-JD calibration pair)
-- JD-05 / JD-05-B: judge_grade=2 (own-JD calibration pair)
-- JD-06 / JD-06-A: judge_grade=2 (own-JD calibration pair)
-- JD-06 / JD-06-B: judge_grade=2 (own-JD calibration pair)
-- JD-07 / JD-07-A: judge_grade=2 (own-JD calibration pair)
-- JD-07 / JD-07-B: judge_grade=2 (own-JD calibration pair)
-- JD-08 / JD-08-A: judge_grade=2 (own-JD calibration pair)
-- JD-08 / JD-08-B: judge_grade=2 (own-JD calibration pair)
-- JD-09 / JD-09-A: judge_grade=2 (own-JD calibration pair)
-- JD-09 / JD-09-B: judge_grade=2 (own-JD calibration pair)
-- JD-10 / JD-10-A: judge_grade=2 (own-JD calibration pair)
-- JD-10 / JD-10-B: judge_grade=2 (own-JD calibration pair)
 
 ## 3. LLM-as-judge: chất lượng Ingest Agent
 

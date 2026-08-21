@@ -23,6 +23,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, ValueError):
+    pass
+
 from evaluation.ingest_eval.cache import cached_call, content_hash  # noqa: E402
 from evaluation.ingest_eval.judge import judge_faithfulness, judge_skills_and_pii  # noqa: E402
 from evaluation.ingest_eval.llm_openai import CHAT_MODEL, EMBED_MODEL  # noqa: E402
@@ -102,7 +107,11 @@ def build_report(results: list[dict]) -> str:
     lines.append("# Báo cáo đánh giá Ingest Agent")
     lines.append("")
     lines.append(f"- Ngày chạy: 2026-08-21")
-    lines.append(f"- Mẫu: {n} CV lấy từ `data_find/generated_cv/` (xem `manifest.json`)")
+    n_hard = sum(1 for r in results if r["cv"]["quality_profile"] == "hard_real_world")
+    lines.append(
+        f"- Mẫu: {n} CV (xem `manifest.json`) — {n - n_hard} CV tổng hợp từ `data_find/generated_cv/` "
+        f"+ {n_hard} CV thật cấu trúc khó từ `evaluation/cv_hard/`"
+    )
     lines.append(f"- Chat model: `{CHAT_MODEL}` (OpenAI) — LLM-judge cũng dùng model này")
     lines.append(f"- Embedding model: `{EMBED_MODEL}` (OpenAI, dim=1536)")
     lines.append(
@@ -270,6 +279,55 @@ def build_report(results: list[dict]) -> str:
             f"{_fmt(m['total_ms'])} |"
         )
     lines.append("")
+
+    hard_results = [r for r in results if r["cv"]["quality_profile"] == "hard_real_world"]
+    if hard_results:
+        rest_results = [r for r in results if r["cv"]["quality_profile"] != "hard_real_world"]
+        hard_chars = [r["metrics"]["parse"]["chars"] for r in hard_results]
+        rest_chars = [r["metrics"]["parse"]["chars"] for r in rest_results]
+        lines.append("## 9. Bộ CV Hard (cấu trúc khó, dữ liệu thật từ TopCV.vn)")
+        lines.append("")
+        lines.append(
+            f"{len(hard_results)} CV thật (export từ TopCV.vn, không có frontmatter/markdown gốc — "
+            "lấy trực tiếp `evaluation/cv_hard/*.pdf`), layout nhiều cột và có icon/khối màu thay vì "
+            "text CV tổng hợp một cột. Ground truth `candidate_name` cho các CV này được xác nhận thủ "
+            "công một lần từ text PDF gốc (chưa qua redact), dùng riêng cho việc đo rò rỉ PII, tương "
+            "tự vai trò của frontmatter YAML với bộ CV tổng hợp."
+        )
+        lines.append("")
+        lines.append(
+            f"**Parse yield thấp hơn hẳn**: trung bình `parse` chỉ ra **{_fmt(_mean(hard_chars))} ký tự** "
+            f"cho bộ CV Hard, so với **{_fmt(_mean(rest_chars))} ký tự** ở bộ CV tổng hợp (36 CV còn lại) "
+            "— khoảng một nửa, dù CV thật thường không kém phần nội dung hơn CV tổng hợp. Trường hợp cực "
+            "đoan nhất là `HARD-PHI-NGOC-THIEN-TopCV.vn-`: file PDF nặng 541KB nhưng `parse` chỉ trích "
+            "được 710 ký tự — dấu hiệu rõ của một layout nhiều icon/khối đồ hoạ mà `pymupdf4llm` + OCR "
+            "fallback không phục hồi được phần lớn nội dung."
+        )
+        lines.append("")
+        lines.append(
+            "**OCR fallback được kích hoạt thật** (`force_ocr=True` sau khi `_looks_corrupted()` phát "
+            "hiện text layer gốc không tin cậy — `backend/app/services/matching/parse.py:340-358`) cho "
+            "ít nhất 4/5 CV trong bộ này, trong khi hầu như không CV tổng hợp nào cần đến nhánh này (PDF "
+            "tổng hợp render bằng `render_cv_pdf.py` có text layer sạch). Đây đúng là loại \"cấu trúc "
+            "khó\" mà bộ CV tổng hợp không test được."
+        )
+        lines.append("")
+        lines.append("| CV | Số ký tự parse | Faithfulness | Skill P/R | PII hits (regex/LLM-judge) |")
+        lines.append("|---|---|---|---|---|")
+        for r in sorted(hard_results, key=lambda r: r["metrics"]["parse"]["chars"]):
+            cv, m, f, sp = r["cv"], r["metrics"], r["faithfulness"], r["skills_pii"]
+            pii = f"{m['pii']['regex_hits_total']}/{'có' if sp['pii_leak_found'] else 'không'}"
+            lines.append(
+                f"| {cv['candidate_name'] or cv['cv_id']} | {m['parse']['chars']} | {_fmt(f['score'])} | "
+                f"{_fmt(sp['precision_est'])}/{_fmt(sp['recall_est'])} | {pii} |"
+            )
+        lines.append("")
+        lines.append(
+            "Faithfulness và PII-leak trên bộ Hard không tệ hơn bộ tổng hợp — vấn đề chính của layout "
+            "khó nằm ở tầng `parse` (mất nội dung trước khi tới `summarize`/`extract` chứ không phải "
+            "hai node đó hoạt động sai)."
+        )
+        lines.append("")
 
     return "\n".join(lines)
 

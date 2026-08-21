@@ -18,11 +18,25 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CV_ROOT = REPO_ROOT / "data_find" / "generated_cv"
+HARD_CV_ROOT = REPO_ROOT / "evaluation" / "cv_hard"
 MANIFEST_PATH = Path(__file__).resolve().parent / "manifest.json"
 
 SEED = 20260821
 PER_GROUP = 2
 EXTRA_SPARSE_TARGET = 6
+
+# Real-world CVs (TopCV.vn exports etc.) with harder layouts than the synthetic set:
+# multi-column, out-of-order sections after PDF text extraction, some pages needing OCR.
+# No frontmatter, so candidate_name is hand-verified once from the raw parsed text (see
+# conversation) rather than re-derived from the pipeline itself, to keep it an independent
+# ground truth for the name-leak check -- same role frontmatter plays for the synthetic set.
+HARD_CV_NAMES = {
+    "CV Dương Hồng Đức - CV1_Backend_DuongHongDuc-TopCV.vn (3).pdf": "Dương Hồng Đức",
+    "CV_LeVanSy_Backend_Intern.pdf": "Le Van Sy",
+    "Mobile Developer Intern - Android.pdf": "Nguyễn Tiến Khang Huy",
+    "Nguyen-Anh-Tuan-TopCV.vn-040925.195058.pdf": "Nguyễn Anh Tuấn",
+    "PHI-NGOC-THIEN-TopCV.vn-lan1.pdf": "Phí Ngọc Thiện",
+}
 
 
 def _read_frontmatter(md_path: Path) -> dict:
@@ -113,8 +127,26 @@ def build_sample() -> list[dict]:
     return selected
 
 
+def build_hard_sample() -> list[dict]:
+    entries = []
+    for pdf_path in sorted(HARD_CV_ROOT.glob("*.pdf")):
+        entries.append(
+            {
+                "cv_id": f"HARD-{pdf_path.stem[:24]}",
+                "group_name": "CV Hard (thực tế)",
+                "subgroup": "real_world_topcv",
+                "candidate_name": HARD_CV_NAMES.get(pdf_path.name, ""),
+                "quality_profile": "hard_real_world",
+                "seniority": "",
+                "md_path": None,
+                "pdf_path": str(pdf_path.relative_to(REPO_ROOT)).replace("\\", "/"),
+            }
+        )
+    return entries
+
+
 def main() -> None:
-    sample = build_sample()
+    sample = build_sample() + build_hard_sample()
     MANIFEST_PATH.write_text(json.dumps(sample, ensure_ascii=False, indent=2), encoding="utf-8")
     profiles: dict[str, int] = {}
     for e in sample:

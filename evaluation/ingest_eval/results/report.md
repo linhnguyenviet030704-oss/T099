@@ -1,7 +1,7 @@
 # Báo cáo đánh giá Ingest Agent
 
 - Ngày chạy: 2026-08-21
-- Mẫu: 36 CV lấy từ `data_find/generated_cv/` (xem `manifest.json`)
+- Mẫu: 41 CV (xem `manifest.json`) — 36 CV tổng hợp từ `data_find/generated_cv/` + 5 CV thật cấu trúc khó từ `evaluation/cv_hard/`
 - Chat model: `gpt-4o-mini` (OpenAI) — LLM-judge cũng dùng model này
 - Embedding model: `text-embedding-3-small` (OpenAI, dim=1536)
 - Pipeline: chạy `build_ingest_graph()` thật từ `backend/app/agents/ingest/graph.py`, qua `graph.astream(..., stream_mode="values")`, inject `complete`/`encode` bằng OpenAI (production dùng Qwen; cùng điểm inject mà `tests/unit/test_matching_ingest.py` đang dùng, không sửa code backend).
@@ -10,28 +10,28 @@
 
 | Metric | Giá trị |
 |---|---|
-| Tỷ lệ parse thành công | 36/36 |
-| CV còn PII (regex) trong text lưu cuối cùng | 0/36 |
-| CV bị lộ token tên ứng viên trong text cuối | 2/36 |
-| CV bị LLM-judge gắn cờ còn PII | 2/36 |
-| CV có `summary` rỗng | 0/36 |
-| CV có embedding lỗi (sai dim / vector rỗng) | 0/36 |
+| Tỷ lệ parse thành công | 41/41 |
+| CV còn PII (regex) trong text lưu cuối cùng | 0/41 |
+| CV bị lộ token tên ứng viên trong text cuối | 4/41 |
+| CV bị LLM-judge gắn cờ còn PII | 2/41 |
+| CV có `summary` rỗng | 0/41 |
+| CV có embedding lỗi (sai dim / vector rỗng) | 0/41 |
 | Faithfulness trung bình của `summarize` (kiểu RAGAS, tỷ lệ claim được support) | 1.00 |
 | Precision trích skill trung bình (ước lượng bằng LLM-judge) | 1.00 |
 | Recall trích skill trung bình (ước lượng bằng LLM-judge) | 0.11 |
-| Recall skill trung bình so với text đầy đủ trước summarize (đo bằng code, không qua LLM) | 0.78 |
-| Tổng số skill bị mất do summarization trong cả mẫu (đo bằng code) | 18 |
-| Latency trung bình toàn pipeline | 11395.59 ms |
+| Recall skill trung bình so với text đầy đủ trước summarize (đo bằng code, không qua LLM) | 0.77 |
+| Tổng số skill bị mất do summarization trong cả mẫu (đo bằng code) | 20 |
+| Latency trung bình toàn pipeline | 10744.20 ms |
 
 ## 2. Latency theo từng node (ms)
 
 | Node | Trung bình | Trung vị | Max |
 |---|---|---|---|
-| parse | 1847.17 | 1974.20 | 3355.60 |
-| clean | 8.28 | 7.90 | 21.40 |
-| summarize | 8524.47 | 8043.10 | 16191.70 |
-| extract | 1.39 | 1.20 | 4.30 |
-| embed | 1014.28 | 915.60 | 3070.50 |
+| parse | 1718.09 | 1806.20 | 3355.60 |
+| clean | 7.38 | 7.60 | 21.40 |
+| summarize | 8025.04 | 7694.40 | 16191.70 |
+| extract | 1.33 | 1.20 | 4.30 |
+| embed | 992.36 | 913.90 | 3070.50 |
 
 ## 3. Nguyên nhân gốc của recall trích skill thấp: taxonomy chỉ có 10 skill
 
@@ -48,11 +48,11 @@
 | G4-MA-03 | 2 | PostgreSQL, SQL | 4 |
 | G10-VOI-03 | 1 | PostgreSQL, Python | 3 |
 | G3-SA-03 | 4 | Docker, Python | 6 |
+| HARD-Nguyen-Anh-Tuan-TopCV.vn | 0 | React, SQL | 2 |
 | G9-SWA-03 | 0 | Python | 1 |
 | G11-CSA-03 | 1 | SQL | 2 |
 | G11-CSE-01 | 1 | Python | 2 |
 | G14-SF-03 | 1 | SQL | 2 |
-| G15-ROB-03 | 0 | Python | 1 |
 
 ## 5. Faithfulness (summarize) — các case tệ nhất
 
@@ -83,8 +83,8 @@ Score = số claim được support / tổng số claim, LLM-judge chấm từng
 | G8-PDM-01 | — | 0.00 | — | Google Analytics Individual Qualification, Scrum Alliance, Firebase, Excel, Sheets |
 | G3-NA-02 | — | 0.00 | — | CCNA, IC3 Digital Literacy, Packet Tracer |
 | G13-UX-02 | — | 0.00 | — | HTML, CSS |
-| G14-SF-03 | 1.00 | 0.04 | — | LWC, Marketing Cloud Connect, Apex, SOQL, Flows, Experience Cloud APIs, AMPscript, SQL query activities in Marketing Cloud, Campaign Influence configuration, REST API integration in both directions, Platform Events, Kafka, BigQuery modelling and scheduled queries, dbt, identity resolution, subscriber key design, GA4 event schemas, server-side tagging, lead scoring design, email deliverability basics, PHP, Laravel, Vue.js |
-| G2-SA-06 | 1.00 | 0.04 | — | Veeam, VMware vSphere, Hyper-V, Microsoft 365, Ansible, Zabbix, PRTG, FortiGate, Bash, PowerShell, RHEL, CentOS, Ubuntu Server, Active Directory, Group Policy, DNS, DHCP, Failover Clustering, iSCSI, NFS, Dell EMC, Synology storage |
+| HARD-Mobile Developer Intern  | — | 0.00 | — | FireBase, Genymotion, Architectures and Development Models, Basic English level, able to listen and read English texts. |
+| HARD-Nguyen-Anh-Tuan-TopCV.vn | — | 0.00 | — | ASP.NET MVC Core 6.x, entity framework, view, models, viewcomponent, dependency injection, JQUERY AJAX, REACT, WEB API |
 
 ## 7. Các case rò rỉ PII
 
@@ -94,6 +94,8 @@ Score = số claim được support / tổng số claim, LLM-judge chấm từng
 |---|---|---|---|
 | G8-PDM-01 | 0 ({'email': 0, 'phone': 0, 'url': 0, 'dob': 0, 'labeled_line': 0}) | Minh | — |
 | G3-SA-05 | 0 ({'email': 0, 'phone': 0, 'url': 0, 'dob': 0, 'labeled_line': 0}) | Hai | — |
+| HARD-Mobile Developer Intern  | 0 ({'email': 0, 'phone': 0, 'url': 0, 'dob': 0, 'labeled_line': 0}) | Huy | — |
+| HARD-Nguyen-Anh-Tuan-TopCV.vn | 0 ({'email': 0, 'phone': 0, 'url': 0, 'dob': 0, 'labeled_line': 0}) | Anh | — |
 | G6-NLP-02 | 0 ({'email': 0, 'phone': 0, 'url': 0, 'dob': 0, 'labeled_line': 0}) | — | BUI VAN THO; Thu Duc, Ho Chi Minh City |
 | G12-SC-01 | 0 ({'email': 0, 'phone': 0, 'url': 0, 'dob': 0, 'labeled_line': 0}) | — | VU MINH KHOI; District 7, Ho Chi Minh City; twitter.com/khoi_sol |
 
@@ -137,3 +139,26 @@ Score = số claim được support / tổng số claim, LLM-judge chấm từng
 | G8-PDM-03 | Project/Product Management | cross_domain | 5124 | 1.00 | 1.00/0.14 | 0 | 0 | 11035.80 |
 | G9-CA-04 | Architecture | polished | 2728 | 1.00 | 1.00/0.20 | 0 | 0 | 9790.10 |
 | G9-SWA-03 | Architecture | cross_domain | 6377 | 1.00 | —/0.00 | 1 | 0 | 10787.10 |
+| HARD-CV Dương Hồng Đức - CV1_ | CV Hard (thực tế) | hard_real_world | 2798 | 1.00 | 1.00/0.25 | 0 | 0 | 7623.90 |
+| HARD-CV_LeVanSy_Backend_Inter | CV Hard (thực tế) | hard_real_world | 2143 | 1.00 | 1.00/0.29 | 0 | 0 | 7265.60 |
+| HARD-Mobile Developer Intern  | CV Hard (thực tế) | hard_real_world | 2281 | 1.00 | —/0.00 | 0 | 0 | 4715.00 |
+| HARD-Nguyen-Anh-Tuan-TopCV.vn | CV Hard (thực tế) | hard_real_world | 3850 | 1.00 | —/0.00 | 2 | 0 | 6557.60 |
+| HARD-PHI-NGOC-THIEN-TopCV.vn- | CV Hard (thực tế) | hard_real_world | 710 | 1.00 | —/— | 0 | 0 | 4109.00 |
+
+## 9. Bộ CV Hard (cấu trúc khó, dữ liệu thật từ TopCV.vn)
+
+5 CV thật (export từ TopCV.vn, không có frontmatter/markdown gốc — lấy trực tiếp `evaluation/cv_hard/*.pdf`), layout nhiều cột và có icon/khối màu thay vì text CV tổng hợp một cột. Ground truth `candidate_name` cho các CV này được xác nhận thủ công một lần từ text PDF gốc (chưa qua redact), dùng riêng cho việc đo rò rỉ PII, tương tự vai trò của frontmatter YAML với bộ CV tổng hợp.
+
+**Parse yield thấp hơn hẳn**: trung bình `parse` chỉ ra **2356.40 ký tự** cho bộ CV Hard, so với **4470.92 ký tự** ở bộ CV tổng hợp (36 CV còn lại) — khoảng một nửa, dù CV thật thường không kém phần nội dung hơn CV tổng hợp. Trường hợp cực đoan nhất là `HARD-PHI-NGOC-THIEN-TopCV.vn-`: file PDF nặng 541KB nhưng `parse` chỉ trích được 710 ký tự — dấu hiệu rõ của một layout nhiều icon/khối đồ hoạ mà `pymupdf4llm` + OCR fallback không phục hồi được phần lớn nội dung.
+
+**OCR fallback được kích hoạt thật** (`force_ocr=True` sau khi `_looks_corrupted()` phát hiện text layer gốc không tin cậy — `backend/app/services/matching/parse.py:340-358`) cho ít nhất 4/5 CV trong bộ này, trong khi hầu như không CV tổng hợp nào cần đến nhánh này (PDF tổng hợp render bằng `render_cv_pdf.py` có text layer sạch). Đây đúng là loại "cấu trúc khó" mà bộ CV tổng hợp không test được.
+
+| CV | Số ký tự parse | Faithfulness | Skill P/R | PII hits (regex/LLM-judge) |
+|---|---|---|---|---|
+| Phí Ngọc Thiện | 710 | 1.00 | —/— | 0/không |
+| Le Van Sy | 2143 | 1.00 | 1.00/0.29 | 0/không |
+| Nguyễn Tiến Khang Huy | 2281 | 1.00 | —/0.00 | 0/không |
+| Dương Hồng Đức | 2798 | 1.00 | 1.00/0.25 | 0/không |
+| Nguyễn Anh Tuấn | 3850 | 1.00 | —/0.00 | 0/không |
+
+Faithfulness và PII-leak trên bộ Hard không tệ hơn bộ tổng hợp — vấn đề chính của layout khó nằm ở tầng `parse` (mất nội dung trước khi tới `summarize`/`extract` chứ không phải hai node đó hoạt động sai).

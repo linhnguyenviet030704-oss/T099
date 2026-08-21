@@ -358,5 +358,55 @@
     "seniority": "senior",
     "md_path": "data_find/generated_cv/group-13-ui-ux-design/02-ux-designer/g13-ux-03-hoang-anh-kiet.md",
     "pdf_path": "data_find/generated_cv/group-13-ui-ux-design/02-ux-designer/g13-ux-03-hoang-anh-kiet.pdf"
+  },
+  {
+    "cv_id": "HARD-CV Dương Hồng Đức - CV1_",
+    "group_name": "CV Hard (thực tế)",
+    "subgroup": "real_world_topcv",
+    "candidate_name": "Dương Hồng Đức",
+    "quality_profile": "hard_real_world",
+    "seniority": "",
+    "md_path": null,
+    "pdf_path": "evaluation/cv_hard/CV Dương Hồng Đức - CV1_Backend_DuongHongDuc-TopCV.vn (3).pdf"
+  },
+  {
+    "cv_id": "HARD-CV_LeVanSy_Backend_Inter",
+    "group_name": "CV Hard (thực tế)",
+    "subgroup": "real_world_topcv",
+    "candidate_name": "Le Van Sy",
+    "quality_profile": "hard_real_world",
+    "seniority": "",
+    "md_path": null,
+    "pdf_path": "evaluation/cv_hard/CV_LeVanSy_Backend_Intern.pdf"
+  },
+  {
+    "cv_id": "HARD-Mobile Developer Intern ",
+    "group_name": "CV Hard (thực tế)",
+    "subgroup": "real_world_topcv",
+    "candidate_name": "Nguyễn Tiến Khang Huy",
+    "quality_profile": "hard_real_world",
+    "seniority": "",
+    "md_path": null,
+    "pdf_path": "evaluation/cv_hard/Mobile Developer Intern - Android.pdf"
+  },
+  {
+    "cv_id": "HARD-Nguyen-Anh-Tuan-TopCV.vn",
+    "group_name": "CV Hard (thực tế)",
+    "subgroup": "real_world_topcv",
+    "candidate_name": "Nguyễn Anh Tuấn",
+    "quality_profile": "hard_real_world",
+    "seniority": "",
+    "md_path": null,
+    "pdf_path": "evaluation/cv_hard/Nguyen-Anh-Tuan-TopCV.vn-040925.195058.pdf"
+  },
+  {
+    "cv_id": "HARD-PHI-NGOC-THIEN-TopCV.vn-",
+    "group_name": "CV Hard (thực tế)",
+    "subgroup": "real_world_topcv",
+    "candidate_name": "Phí Ngọc Thiện",
+    "quality_profile": "hard_real_world",
+    "seniority": "",
+    "md_path": null,
+    "pdf_path": "evaluation/cv_hard/PHI-NGOC-THIEN-TopCV.vn-lan1.pdf"
   }
 ]

@@ -11,8 +11,13 @@ SECTION_NAMES = {
     "skills": "Skills",
     "technical skill": "Skills",
     "technical skills": "Skills",
+    "professional skills": "Skills",
+    "specialized skills": "Skills",
     "kỹ năng": "Skills",
     "kĩ năng": "Skills",
+    "kỹ năng chuyên môn": "Skills",
+    "skills and knowledge": "Skills",
+    "skill and knowledge": "Skills",
 
     # Experience
     "experience": "Experience",
@@ -22,6 +27,8 @@ SECTION_NAMES = {
     "kinh nghiệm": "Experience",
     "kinh nghiệm làm việc": "Experience",
     "kinh nghiệp làm việc": "Experience",
+    "kinh nghiệm dự án": "Projects",
+    "kinh nghiệm khác": "Experience",
 
     # Education
     "education": "Education",
@@ -43,6 +50,7 @@ SECTION_NAMES = {
     "certifications & awards": "Certifications",
     "awards": "Certifications",
     "chứng chỉ": "Certifications",
+    "chứng chỉ & giải thưởng": "Certifications",
     "giải thưởng": "Certifications",
 
     # Languages
@@ -57,11 +65,18 @@ SECTION_NAMES = {
     "objective": "Summary",
     "career objective": "Summary",
     "mục tiêu nghề nghiệp": "Summary",
+    "profile summary": "Summary",
+    "target": "Summary",
+    "giới thiệu": "Summary",
+    "tự giới thiệu": "Summary",
+    "about me": "Summary",
 
     # Contact
     "contact": "Contact",
     "personal information": "Contact",
     "thông tin cá nhân": "Contact",
+    "personal details": "Contact",
+    "thông tin liên hệ": "Contact",
 
     # Other
     "additional information": "Additional Information",
@@ -69,6 +84,12 @@ SECTION_NAMES = {
     "interests": "Interests",
     "hobbies": "Interests",
     "sở thích": "Interests",
+    "activities": "Additional Information",
+    "activity": "Additional Information",
+    "hoạt động": "Additional Information",
+    "highlights": "Additional Information",
+    "additional": "Additional Information",
+    "other": "Additional Information",
 }
 
 
@@ -122,20 +143,18 @@ _JOB_WORDS = {
 
 def _normalize_section_key(text: str) -> str:
     text = text.strip()
-
-    # Existing markdown
     text = re.sub(r"^#{1,6}\s*", "", text)
-
-    # Existing bullets / numbering
     text = BULLET_RE.sub("", text)
-
+    text = re.sub(r"^[\W_\d]+", "", text, flags=re.UNICODE)
+    text = text.replace("/", " ").replace("|", " ")
     text = text.rstrip(":").strip()
     text = re.sub(r"\s+", " ", text)
-
     return text.casefold()
 
 
 def _detect_section(text: str) -> str | None:
+    if len(text.strip()) > 80:
+        return None
     return SECTION_NAMES.get(_normalize_section_key(text))
 
 
@@ -325,80 +344,78 @@ def _ensure_cv_title(markdown: str) -> str:
     return f"# CV\n\n{markdown.strip()}"
 
 
-def _parse_pdf(data: bytes) -> str:
-    """
-    Normal extraction first. Full OCR only when the result clearly
-    appears corrupted.
-    """
-    markdown = _pdf_to_markdown(
-        data,
-        force_ocr=False,
+def _blocks_reading_order(page) -> str:
+    blocks = [b for b in page.get_text("blocks") if b[6] == 0 and str(b[4]).strip()]
+    if not blocks:
+        return page.get_text()
+    width = float(page.rect.width) or 1.0
+    mid = width * 0.42
+    left = [b for b in blocks if (b[0] + b[2]) / 2 < mid]
+    right = [b for b in blocks if (b[0] + b[2]) / 2 >= mid]
+    left_width = max((b[2] - b[0] for b in left), default=width)
+    sidebar = (
+        len(left) >= 3
+        and len(right) >= 3
+        and left_width < width * 0.48
     )
+    if sidebar:
+        ordered = sorted(left, key=lambda b: (b[1], b[0])) + sorted(right, key=lambda b: (b[1], b[0]))
+    else:
+        ordered = sorted(blocks, key=lambda b: (round(b[1] / 6), b[0]))
+    return "\n".join(str(b[4]).strip() for b in ordered)
 
-    if _looks_corrupted(markdown):
+
+def _score_extract(text: str) -> float:
+    if not text or not text.strip():
+        return -1.0
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    n = max(len(lines), 1)
+    sections = sum(1 for line in lines if _detect_section(re.sub(r"^#{1,6}\s*", "", line)))
+    empty_headings = sum(1 for line in lines if re.fullmatch(r"#{1,6}", line))
+    picture = text.lower().count("start of picture")
+    replacement = text.count("\ufffd") + text.count("�")
+    tiny = sum(1 for line in lines if len(line) <= 2 and not re.fullmatch(r"\d+", line))
+    letters = sum(ch.isalpha() for ch in text)
+    score = sections * 6.0 + min(len(text), 12_000) / 500.0
+    score -= empty_headings * 2.5
+    score -= picture * 4.0
+    score -= replacement * 2.0
+    score -= (tiny / n) * 12.0
+    if letters < 80:
+        score -= 25.0
+    return score
+
+
+def _parse_pdf(data: bytes) -> str:
+    """Native text, column blocks, then markdown. Pick the least-garbled extract."""
+    candidates: list[str] = []
+    with pymupdf.open(stream=data, filetype="pdf") as doc:
+        native = "\n".join(page.get_text() for page in doc)
+        candidates.append(_clean_text_artifacts(native))
+        candidates.append(_clean_text_artifacts("\n\n".join(_blocks_reading_order(page) for page in doc)))
         try:
-            ocr_markdown = _pdf_to_markdown(
-                data,
-                force_ocr=True,
+            markdown = pymupdf4llm.to_markdown(
+                doc,
+                header=False,
+                footer=False,
+                use_ocr=True,
+                force_ocr=False,
+                ocr_language="vie+eng",
+                show_progress=False,
             )
-
-            # Do not replace usable native extraction with empty /
-            # obviously worse OCR.
-            if (
-                ocr_markdown.strip()
-                and not _looks_corrupted(ocr_markdown)
-            ):
-                markdown = ocr_markdown
-
+            candidates.append(_clean_text_artifacts(markdown))
         except Exception:
-            # OCR engine/language pack may not be installed.
-            # Keep the native extraction instead of failing the parser.
             pass
 
-    return markdown
-
-
-def _text_to_markdown(text: str) -> str:
-    """
-    Plain-text resume fallback.
-
-    This is intentionally less aggressive than the old implementation:
-    arbitrary lines are NOT automatically converted into bullets.
-    """
-    text = _clean_text_artifacts(text)
-
-    lines = [
-        line.strip()
-        for line in text.splitlines()
-    ]
-
-    output: list[str] = []
-
-    for line in lines:
-        if not line:
-            if output and output[-1] != "":
-                output.append("")
-            continue
-
-        section = _detect_section(line)
-
-        if section:
-            if output and output[-1] != "":
-                output.append("")
-
-            output.append(f"## {section}")
-            output.append("")
-            continue
-
-        if BULLET_RE.match(line):
-            content = BULLET_RE.sub("", line).strip()
-            if content:
-                output.append(f"- {content}")
-            continue
-
-        output.append(line)
-
-    return "\n".join(output).strip()
+    best = max(candidates, key=_score_extract) if candidates else ""
+    if _looks_corrupted(best):
+        try:
+            ocr_markdown = _pdf_to_markdown(data, force_ocr=True)
+            if ocr_markdown.strip() and _score_extract(ocr_markdown) > _score_extract(best):
+                best = ocr_markdown
+        except Exception:
+            pass
+    return best
 
 
 def _name_token(word: str) -> bool:
@@ -443,7 +460,7 @@ def redact_pii(markdown: str) -> str:
             continue
         if not seen_section and _looks_like_person_name(raw):
             continue
-        if raw.startswith("#") and _looks_like_person_name(raw):
+        if raw.startswith("# ") and _looks_like_person_name(raw):
             continue
         lines_out.append(raw)
 
@@ -471,28 +488,22 @@ def clean_markdown(markdown: str) -> str:
 def parse_resume_bytes(
     data: bytes,
     mime_type: str = "",
+    source_name: str = "",
 ) -> dict:
-    """PDF or text bytes -> PII-stripped Markdown. Skills are extracted after summarize."""
+    """PDF or text bytes -> structured PII-stripped Markdown + metadata. No LLM."""
+    from backend.app.services.matching.structure import structure_resume
+
     if not data:
         return {"markdown": "", "metadata": {}}
 
-    # Do NOT lstrip PDF bytes before parsing.
-    # Whitespace before %PDF is unusual but stripping arbitrary binary
-    # data is unnecessary.
     is_pdf = (
         mime_type.casefold() == "application/pdf"
         or data.lstrip()[:4] == b"%PDF"
     )
 
     if is_pdf:
-        markdown = _parse_pdf(data)
+        text = _parse_pdf(data)
     else:
-        text = data.decode(
-            "utf-8",
-            errors="replace",
-        )
-        markdown = _text_to_markdown(text)
+        text = data.decode("utf-8", errors="replace")
 
-    markdown = redact_pii(clean_markdown(markdown))
-
-    return {"markdown": markdown, "metadata": {}}
+    return structure_resume(text, source_name=source_name)

@@ -6,7 +6,7 @@ def test_parse_plain_text_keeps_professional_content():
     parsed = parse_resume_bytes(raw, mime_type="text/plain")
     assert "Python" in parsed["markdown"]
     assert "FastAPI" in parsed["markdown"]
-    assert parsed["metadata"].get("skills") in (None, [])
+    assert "python" in parsed["metadata"].get("skills", [])
 
 
 def test_parse_empty_bytes():

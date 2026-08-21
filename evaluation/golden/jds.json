@@ -1,0 +1,143 @@
+[
+  {
+    "title": "Nhà phát triển .NET cao cấp (AI)",
+    "location": "hồ chí minh",
+    "experience_required": "5 năm",
+    "qualifications": "['Đại Học trở lên']",
+    "technical_skills": "['.NET Core', 'C#', 'PostgreSQL', 'SQL', 'Docker', 'CI/CD', 'RESTful API']",
+    "description": "Thiết kế, phát triển và duy trì API bằng cách sử dụng .NET Core và C# trong kiến ​​trúc microservice để hỗ trợ các quy trình hậu cần, kho và kho. Làm việc với cơ sở dữ liệu PostgreSQL và viết các truy vấn SQL hiệu quả. Thiết lập và tối ưu hóa các đường ống CI/CD để tự động triển khai ứng dụng. Sử dụng Docker để đóng gói, triển khai và quản lý các ứng dụng trong môi trường container hóa. Thỉnh thoảng đóng góp cho sự phát triển giao diện người dùng (UI) bằng cách sử dụng Frontend Technologies (khi cần thiết). Tối ưu hóa hiệu suất hệ thống phụ trợ, đảm bảo tính ổn định và khả năng mở rộng. Phối hợp với nhóm để phân tích các yêu cầu, giải pháp thiết kế và thực hiện các tính năng mới. Đảm bảo chất lượng mã thông qua kiểm tra, đánh giá mã và tuân thủ các tiêu chuẩn mã hóa.",
+    "requirements_text": "At least 05 years of experience in developing applications using .NET Core and C#. Have experience working with AI tools: Chat GPT, Copilot, DallE, Hugging Face, AI Service, Vetex AI, AWS,... Proficient in SQL and experienced with PostgreSQL or other relational databases. Integrate AI models and APIs into existing systems to enhance functionality. Stay updated on emerging technologies, particularly in AI and software development. Preferred Qualifications: Experience with AI-driven development tools. Knowledge of microservices architecture and designing distributed systems. Experience with CI/CD tools (e.g., GitLab CI, Jenkins) and automated deployment processes. Proficient in using Docker for packaging and deploying applications. Familiarity with RESTful API architecture, design, and implementation. Experience with Golang is a plus. Basic understanding of frontend development (HTML, CSS, JavaScript). Strong problem-solving skills, with the ability to work independently and collaborate effectively in a team. Experience in logistics, warehouse, or inventory management domains is a plus. Logical thinking, attention to detail, and a strong sense of responsibility for work quality.",
+    "jd_id": "JD-01",
+    "taxonomy_skills": [
+      "PostgreSQL",
+      "Docker",
+      "SQL"
+    ]
+  },
+  {
+    "title": "DevOps Engineer - Vận Hành ERP Odoo, FastApi",
+    "location": "hà nội",
+    "experience_required": "2 năm",
+    "qualifications": "['Tốt nghiệp các chuyên ngành Công nghệ thông tin', 'Khoa học máy tính hoặc các ngành liên quan']",
+    "technical_skills": "['ERP Odoo', 'Python', 'FastApi', 'PostgreSQL', 'CI/CD', 'GitOps', 'Kubernetes', 'Linux', 'Docker']",
+    "description": "Triển khai, cấu hình, vận hành và giám sát hệ thống ERP Odoo, Python FastApi. Quản lý cơ sở dữ liệu PostgreSQL cho Odoo và Data Warehouse. Thiết lập và duy trì quy trình CDC giữa database Odoo và kho dữ liệu. Phối hợp với team Data Engineering để xây dựng pipeline dữ liệu tự động. Triển khai CI/CD, GitOps, tối ưu hóa hiệu suất và độ tin cậy hệ thống. Quản lý, vận hành hệ thống trên K8S. Vận hành cụm PostgreSQL với Patroni để đảm bảo High Availability. Backup/Restore dữ liệu sử dụng pgBackRest và pg_dump, đảm bảo tính sẵn sàng và an toàn dữ liệu. Hỗ trợ vận hành hệ thống Data Warehouse và team Data Engineering bao gồm: ClickHouse, PostgreSQL, Superset và Kafka Stream. Quản trị và vận hành hệ thống VPN (Pritunl), GitLab và LLDAP (Lightweight LDAP).",
+    "requirements_text": "Tốt nghiệp các chuyên ngành Công nghệ thông tin, Khoa học máy tính hoặc các ngành liên quan. Sinh năm 1996 - 2002. Ứng viên vui lòng gửi CV bằng Tiếng Anh. Kinh nghiệm vận hành ERP Odoo, hiểu biết về Odoo backend (Python, XML, PostgreSQL), FastApi. Hiểu biết PostgreSQL, các mệnh lệnh SQL nâng cao, tuning performance. Kinh nghiệm thiết lập và vận hành giải pháp CDC như Debezium, Apache Kafka, hoặc logical replication. Quen thuộc CI/CD pipelines (GitLab CI, Jenkins, etc.) và GitOps. Kinh nghiệm làm việc với Kubernetes, ưu tiên đã dùng RKE2, FPT Kubernetes Engine. Kinh nghiệm vận hành cụm PostgreSQL sử dụng Patroni, hiểu biết về các mô hình High Availability. Kinh nghiệm sử dụng pgBackRest và pg_dump cho backup và restore PostgreSQL. Kinh nghiệm vận hành hoặc hỗ trợ các hệ thống ClickHouse, Superset, Kafka Stream là một lợi thế lớn. Kinh nghiệm vận hành hệ thống VPN (Pritunl), GitLab self-hosted và LLDAP (Lightweight LDAP). Sử dụng thành thạo Linux, Docker, và OS server. Kỹ năng giải quyết vấn đề, làm việc nhóm.",
+    "jd_id": "JD-02",
+    "taxonomy_skills": [
+      "PostgreSQL",
+      "FastAPI",
+      "Python"
+    ]
+  },
+  {
+    "title": "Nhà phát triển Frontend (ReactJS, NextJS)",
+    "location": "hà nội",
+    "experience_required": "6 năm",
+    "qualifications": "['Đại Học trở lên']",
+    "technical_skills": "['HTML', 'CSS', 'JavaScript', 'TypeScript', 'ReactJS', 'NextJS']",
+    "description": "Hợp tác với các thành viên khác trong các dự án. Phát triển và duy trì các dịch vụ và giao diện web. Xây dựng các ứng dụng web với các thực tiễn tốt nhất phát triển web. Làm việc với các nhà phát triển back-end để tích hợp các thành phần UI với API và cơ sở dữ liệu. Thu thập và tinh chỉnh các thông số kỹ thuật và yêu cầu dựa trên các yêu cầu kỹ thuật hoặc thiết kế UX. Chuyển đổi các thiết kế ứng dụng thành mã mặt trước bằng cách sử dụng HTML, CSS, JavaScript và React JS với Framework CSS (TailWind hoặc Bootstrap). Phát triển và quản lý cơ sở dữ liệu và ứng dụng hoạt động tốt. Thực hiện các bài kiểm tra, khắc phục sự cố và khắc phục lỗi hoặc các vấn đề mã hóa khác. Tài liệu kỹ thuật: Tạo và duy trì tài liệu kỹ thuật toàn diện để phát triển, triển khai và quy trình vận hành.",
+    "requirements_text": "● At least 6 years in front-end development, in which 4 years with NextJS. ● Knowledge of HTML, CSS, JavaScript, and TypeScript to develop modern, responsive, and cross-browser-compatible websites. ● Ability to read and understand PHP code (nice to have). ● Ability to write clean, proper coding. ● English skills: able to speak, and with good reading and writing abilities. ● Ability to collaborate with teams and stakeholders to derive options and solutions to various problems. ● Ability to plan, prioritize, and effectively manage multiple tasks to achieve objectives. ● Ability to stay proactive, updated, and adapt to the latest technological advances, innovations, and changes. ● Demonstrated ability to work effectively both independently and as a collaborative member of a team. ● Excellent communication, problem-solving, and logical thinking skills. ● Proactive, open-minded with a “can-do” attitude.",
+    "jd_id": "JD-03",
+    "taxonomy_skills": [
+      "JavaScript",
+      "React"
+    ]
+  },
+  {
+    "title": "Hệ thống quản trị viên Junior/Middle",
+    "location": "hà nội",
+    "experience_required": "1 năm",
+    "qualifications": "['Tốt nghiệp đại học trong lĩnh vực công nghệ thông tin', 'Kỹ thuật mạng', 'Ngành liên quan']",
+    "technical_skills": "['Linux', 'DNS', 'DHCP', 'Nginx', 'Samba', 'PostgreSQL', 'Linux CLI', 'Proxmox', 'HAProxy', 'Docker']",
+    "description": "Tìm hiểu và triển khai các dịch vụ hệ thống trên Linux như DNS, DHCP, Nginx, Samba, PostgreSQL,... Phân tích, thiết lập và vận hành hạ tầng mạng nội bộ (LAN), chia VLAN, đảm bảo tối ưu bảo mật và hiệu năng. Cấu hình router và switch managed (được đào tạo chuyên sâu nếu chưa biết). Làm việc với các công nghệ ảo hóa và hệ thống như Proxmox, HAProxy, Docker là lợi thế. Tham gia vào quá trình xây dựng, quản trị và giám sát các dịch vụ hệ thống cho hạ tầng công ty. Hỗ trợ vận hành và xử lý sự cố liên quan đến mạng, máy chủ, dịch vụ nội bộ.",
+    "requirements_text": "Tốt nghiệp đại học trong lĩnh vực công nghệ thông tin, kỹ thuật mạng, hoặc ngành liên quan. Có niềm đam mê với lĩnh vực hệ thống và mạng máy tính. Hiểu cơ bản về cấu trúc mạng, chia VLAN, nguyên lý hoạt động của switch/router. Ưu tiên các bạn có kiến thức hoặc từng sử dụng các công cụ: Linux CLI, Proxmox, HAProxy, Docker. Tư duy logic và cẩn thận, kỹ tính là yếu tố bắt buộc vì liên quan đến cấu hình hệ thống. Có khả năng tự học, tiếp thu nhanh, và sẵn sàng tham gia các khóa học chuyên sâu được công ty hỗ trợ.",
+    "jd_id": "JD-04",
+    "taxonomy_skills": [
+      "Docker",
+      "Linux"
+    ]
+  },
+  {
+    "title": "Lập Trình Nhúng",
+    "location": "thái nguyên",
+    "experience_required": "3 năm",
+    "qualifications": "['Cao Đẳng trở lên']",
+    "technical_skills": "['C/C++', 'Hệ Điều Hành Thời Gian Thực (rtos)', 'Kiến Trúc Hệ Thống Nhúng', 'Kiến Thức Về Phần Cứng', 'Lập Trình Trình Điều Khiển Thiết Bị']",
+    "description": "- Phát triển và duy trì phần mềm nhúng hoặc trình điều khiển thiết bị Android.\n- Phân tích và gỡ lỗi các vấn đề hệ thống bằng các nhật ký Android và Linux khác nhau (ví dụ: logcat, nhật ký kernel, UART).\n- Viết và thực hiện các tập lệnh tự động hóa bằng cách sử dụng kịch bản shell, python hoặc batch.\n- Hỗ trợ kiểm tra dây chuyền sản xuất và phân tích lỗi ban đầu.\n- Hợp tác với các nhóm R & D để hỗ trợ gỡ lỗi, kiểm tra căng thẳng và xác minh hiệu suất.\n- Đóng góp để cải tiến liên tục trong phát triển và thử nghiệm quy trình làm việc.",
+    "requirements_text": "- Experience in embedded software development or Android driver development.\n- Familiarity with Linux systems and common Linux commands.\n- Experience with automation scripting using Shell, Python, or Batch scripts.\n- Proficiency in capturing and analyzing Android system logs (logcat, kernel logs, UART, etc.).\n- Understanding of production line testing processes and ability to perform basic issue analysis.\n- Ability to communicate in either Mandarin Chinese or English for daily work.",
+    "jd_id": "JD-05",
+    "taxonomy_skills": [
+      "Python",
+      "Linux"
+    ]
+  },
+  {
+    "title": "Lãnh đạo kỹ thuật (BPM)",
+    "location": "hà nội",
+    "experience_required": "2 năm",
+    "qualifications": "['Tốt nghiệp đại học trở lên chuyên ngành CNTT, Tin học, Điện tử Viễn thông hoặc tương đương']",
+    "technical_skills": "['Phát triển phần mềm', 'BPM (IBM BPM, Camunda hoặc tương tự)', 'Phân tích, thiết kế phần mềm', 'Cơ sở dữ liệu (PostgreSQL, MongoDB, Kafka)', 'Backend với Spring Boot 3.x (Java 17/21)', 'Frontend với Angular (TypeScript)', 'Microservices', 'API Gateway', 'Backend for Frontend (BFF)', 'HTTP/1.1, HTTP/2, SFTP, Messaging', 'Restful, JMS (IBM MQ), Kafka', 'Message broker (Kafka, IBM MQ, RabbitMQ)', 'Distributed cache (Redis)', 'Authentication/Authorization (Keycloak)', 'Central Configuration (Vault, Spring Cloud Config Server)', 'Container platform Openshift', 'Container tools Docker Desktop', 'Observability (ELK, Prometheus, Grafana)', 'DevSecOps: Gitlab, Jenkins, SonarQube, Nexus Artifact Repo, JIRA, Confluence', 'Unit/integration test (JUnit)', 'Performance test (K6, JMeter)', 'Tối ưu truy vấn dữ liệu lớn', 'Caching', 'Framework JavaScript (Angular 2+, ReactJS, VueJS)']",
+    "description": "Quản lý nhóm phát triển phần mềm BPM, đảm bảo tiến độ và chất lượng dự án. Phân tích, thiết kế và triển khai giải pháp BPM trên nền tảng microservices, backend Spring Boot và frontend Angular. Phối hợp với Product Owner và các bên liên quan để làm rõ yêu cầu và giải pháp kỹ thuật. Review code, áp dụng design patterns, refactoring và tối ưu hiệu suất hệ thống. Quản lý kế hoạch, phân công công việc và giám sát tiến độ dự án. Đảm bảo áp dụng các công cụ DevSecOps, container (Openshift, Docker), observability (ELK, Prometheus).",
+    "requirements_text": "Tốt nghiệp đại học trở lên chuyên ngành CNTT, Tin học, Điện tử Viễn thông hoặc tương đương. Tối thiểu 2 năm kinh nghiệm phát triển phần mềm, trong đó có ít nhất 1 năm kinh nghiệm làm việc với các dự án BPM (IBM BPM, Camunda hoặc tương tự). Có kinh nghiệm làm Team Lead, quản lý đội nhóm Software Engineer ít nhất 1 dự án. Thành thạo phân tích, thiết kế phần mềm và cơ sở dữ liệu (PostgreSQL, MongoDB, Kafka). Kinh nghiệm phát triển backend với Spring Boot 3.x (Java 17/21) và frontend với Angular (TypeScript). Hiểu biết sâu về microservices, API Gateway, Backend for Frontend (BFF). Kinh nghiệm sử dụng các giao thức HTTP/1.1, HTTP/2, SFTP, Messaging; chuẩn kết nối Restful, JMS (IBM MQ), Kafka. Kinh nghiệm với message broker (Kafka, IBM MQ, RabbitMQ), distributed cache (Redis). Am hiểu về Authentication/Authorization (Keycloak), Central Configuration (Vault, Spring Cloud Config Server). Sử dụng thành thạo container platform Openshift, container tools Docker Desktop. Kinh nghiệm triển khai observability (ELK, Prometheus, Grafana). Sử dụng thành thạo các công cụ DevSecOps: Gitlab, Jenkins, SonarQube, Nexus Artifact Repo, JIRA, Confluence. Kinh nghiệm viết unit/integration test (JUnit) và performance test (K6, JMeter). Có kinh nghiệm tối ưu truy vấn dữ liệu lớn, caching. Thành thạo các framework JavaScript (Angular 2+, ReactJS, VueJS). Kỹ năng giao tiếp, làm việc nhóm và quản lý nhóm tốt. Có khả năng lập kế hoạch, phân bổ nhân sự và quản lý tiến độ dự án.",
+    "jd_id": "JD-06",
+    "taxonomy_skills": [
+      "JavaScript",
+      "Docker"
+    ]
+  },
+  {
+    "title": "React JS Developer (Tiếng Anh Fluency)",
+    "location": "hà nội",
+    "experience_required": "3 năm",
+    "qualifications": "['Bachelor’s degree in Computer Science', 'Software Engineering', 'or a related field']",
+    "technical_skills": "['ReactJS', 'HTML', 'CSS', 'JavaScript (ES6+)', 'Redux', 'MobX', 'RESTful APIs']",
+    "description": "Phát triển và duy trì các ứng dụng web chất lượng cao bằng cách sử dụng ReactJS và các công nghệ hiện đại khác. Phối hợp với các nhà thiết kế UI/UX để dịch các thiết kế và khung dây thành mã chất lượng cao. Tối ưu hóa các ứng dụng cho tốc độ và khả năng mở rộng tối đa. Tiến hành đánh giá mã và cung cấp phản hồi mang tính xây dựng cho các nhà phát triển cơ sở. Khắc phục các ứng dụng và gỡ lỗi để đảm bảo hiệu suất tối ưu. Luôn cập nhật với các công nghệ mới nổi và xu hướng ngành để liên tục cải thiện kỹ năng và kiến ​​thức.",
+    "requirements_text": "Bachelor’s degree in Computer Science, Software Engineering, or a related field. 3+ years of experience in frontend development with a strong focus on modern JavaScript frameworks, particularly ReactJS. Proficient in HTML, CSS, and JavaScript (ES6+), with a solid understanding of responsive design principles. Experience with state management libraries such as Redux or MobX. Familiarity with RESTful APIs and asynchronous request handling. Strong problem-solving skills and ability to work under pressure. Excellent communication skills and a collaborative mindset. Good in English speaking and reading.",
+    "jd_id": "JD-07",
+    "taxonomy_skills": [
+      "React",
+      "JavaScript"
+    ]
+  },
+  {
+    "title": "Nhà phát triển phụ trợ (Python/Django)",
+    "location": "hà nội",
+    "experience_required": "4 năm",
+    "qualifications": "['Đại Học trở lên']",
+    "technical_skills": "['Python', 'Django', 'PostgreSQL', 'Docker', 'RESTful APIs', 'WebSockets', 'Redis']",
+    "description": "Thiết kế, phát triển và duy trì các hệ thống phụ trợ bằng Python Django. Phát triển và triển khai API RESTful để hỗ trợ các ứng dụng web và di động. Phối hợp chặt chẽ với các nhóm chức năng chéo, bao gồm các nhà thiết kế UX/UI, nhà phân tích kinh doanh và QA, để cung cấp các tính năng chất lượng cao. Tham gia tích cực vào các đánh giá mã, cung cấp phản hồi mang tính xây dựng cho các thành viên trong nhóm. Làm việc với các công nghệ container hóa như Docker để đảm bảo triển khai có thể mở rộng.",
+    "requirements_text": "Proven experience developing backend applications with Python Django. Strong knowledge of PostgreSQL database management. Experience with Docker and Docker Compose or equivalent containerization technologies. Solid understanding of RESTful API design and implementation. Familiarity with microservices-based architecture. Strong knowledge of cryptography and security best practices. Experience working with WebSockets and Redis. Excellent communication skills and the ability to collaborate effectively with both technical and non-technical team members. Good command of English in both speaking and reading.",
+    "jd_id": "JD-08",
+    "taxonomy_skills": [
+      "Python",
+      "Docker"
+    ]
+  },
+  {
+    "title": "Python Developer (Odoo Developer)",
+    "location": "hà nội",
+    "experience_required": "1 năm",
+    "qualifications": "['Tốt nghiệp ĐH chuyên ngành CNTT và ĐTVT hoặc tương đương']",
+    "technical_skills": "['Python 3.x', 'Odoo v13 trở lên', 'JavaScript', 'HTML', 'CSS', 'Git']",
+    "description": "Phát triển các ứng dụng nội bộ hoặc sản phẩm thương mại trên nền tảng Python/Odoo/flask. Tùy biến và phát triển các mô-đun trong Odoo: Model, View, Business Logic, Report. Xây dựng và chỉnh sửa giao diện bằng HTML, CSS, JavaScript (XML View/Odoo OWL). Tối ưu hệ thống, xử lý dữ liệu, viết API hoặc kết nối hệ thống qua RPC/XML-RPC/REST. Phối hợp với các thành viên trong team BA, tester, PM để triển khai tính năng. Tham gia bảo trì, fix bug, nâng cấp các hệ thống Odoo đang vận hành.",
+    "requirements_text": "Yêu cầu chung: Tốt nghiệp ĐH chuyên ngành CNTT và ĐTVT hoặc tương đương, Có ít nhất 1,5 năm kinh nghiệm. Thành thạo ngôn ngữ lập trình Python 3.x. Có kinh nghiệm thực tế với Odoo từ v13 trở lên (ưu tiên v16 – v18). Có kỹ năng làm việc với JavaScript, HTML, CSS để chỉnh sửa UI và xử lý logic client. Hiểu rõ về mô hình MVC, ORM, và cấu trúc module của Odoo. Biết sử dụng Git, hiểu quy trình làm việc nhóm (Scrum, Agile là lợi thế). Có tư duy logic khả năng xử lý tình huống tốt, cẩn thận, trách nhiệm cao trong công việc. Có khả năng làm việc độc lập, làm việc nhóm.Có thể đọc hiểu tài liệu tiếng Anh là một lợi thế. Sử dụng công cụ quản lý mã nguồn Git. Sẵn sàng học tập các ngôn ngữ, framework mới.",
+    "jd_id": "JD-09",
+    "taxonomy_skills": [
+      "JavaScript",
+      "Python"
+    ]
+  },
+  {
+    "title": "Lập Trình Viên Fresher/Middle C#, .Net Kiêm BA",
+    "location": "bình thạnh",
+    "experience_required": "6 tháng",
+    "qualifications": "['Cao Đẳng/Đại Học chuyên ngành Công Nghệ Thông Tin hoặc liên quan đến công nghệ phần mềm']",
+    "technical_skills": "['C#', 'ASP.NET MVC core', 'Jquery', 'JavaScript', 'HTML', 'CSS', 'SQL (MsSQL/MySQL)']",
+    "description": "Tham gia nghiên cứu và phát triển các dự án tại các công ty con, công ty thành viên của Tập Đoàn như module HRM, module quản lý công việc, module quản lý khách sạn, website, .... Đọc và phân tích tài liệu yêu cầu chức năng từ khách hàng (là các phòng ban/bộ phận/công ty con/thành viên của Tập Đoàn) để đảm bảo hiểu rõ và đáp ứng chính xác. Viết tài liệu thiết kế chi tiết, thực hiện coding và unit test với các dự án công nghệ. Đã làm việc với: .NET MVC Core, C#, Entity Framework, LINQ, Web API. Đã làm việc với: HTML, CSS, Javascript, JQuery, Bootstrap, ... Đã từng làm với ít nhất một Database: SQL Server, MySQL, Oracle... Biết thiết kế CSDL theo các dạng chuẩn (SQL) hoặc NoSQL. Sử dụng được tool quản lý source code như: Git, ... Đọc hiểu tài liệu tiếng Anh chuyên ngành. Không ngừng nghiên cứu và học hỏi công nghệ mới để nâng cao kỹ năng và năng suất làm việc. Được hỗ trợ và hướng dẫn bởi các thành viên khác trong nhóm phát triển. Tham gia nhiều dự án khác theo yêu cầu của quản lý và Project Manager (PM). Phối hợp với các bộ phận BA, Tester, UI/UX để phân tích yêu cầu và triển khai tính năng mới. Xây dựng, cải tiến các module trong hệ thống ERP như: HRM, CRM, Account, DMS, ... và các module nghiệp vụ khác theo định hướng phát triển của Tập Đoàn; Đã nghiên cứu việc xử lý dữ liệu lớn, tối ưu truy vấn SQL và hiệu năng hệ thống là một lợi thế. Làm việc theo mô hình Agile/Scrum, đảm bảo tiến độ và chất lượng phần mềm. Soạn thảo và cập nhật tài liệu kỹ thuật, bao gồm tài liệu thiết kế và hướng dẫn sử dụng. Phân tích và làm rõ các yêu cầu về phần mềm của đơn vị sử dụng. Phân tích và đưa ra mô hình lược đồ dựa trên yêu cầu đã thu thập được. Viết các tài liệu đặc tả yêu cầu nghiệp vụ phần mềm, tài liệu đặc tả trường hợp sử dụng (usecase); thiết kế giao diện mẫu (prototype), kiểm thử phần mềm (testcase). Tư vấn trên góc độ nghiệp vụ dựa vào các phân tích và nghiên cứu của mình. Truyền đạt thông tin nội dung, kiểm tra, giám sát, kiểm thử nghiệm thu chất lượng, tính năng phần mềm. Tài liệu hóa hướng dẫn hệ thống, quy trình, tác vụ. Tổ chức hướng dẫn, hỗ trợ cho người dùng sử dụng sản phẩm và xử lý sự cố khi vấn đề xảy ra. Quản lý thay đổi theo yêu cầu và đảm bảo rằng yêu cầu được cập nhật theo thay đổi.",
+    "requirements_text": "Tốt nghiệp Cao Đẳng/Đại Học chuyên ngành Công Nghệ Thông Tin hoặc liên quan đến công nghệ phần mềm. Có ít nhất 6 tháng - 1 năm kinh nghiệm (hoặc đã từng làm việc khi còn đi học) với C#, ASP.NET MVC core, Jquery, JavaScript, HTML/CSS, SQL (MsSQL/MySQL). Nếu cần sẽ được đào tạo thêm trong quá trình thử việc. Ứng viên phải có kỹ năng giao tiếp tốt với thái độ tích cực. Nhanh nhẹn, ham học hỏi, tinh thần trách nhiệm cao. Yêu cầu khác: Trung thực, có trách nhiệm, và chịu trách nhiệm trong công việc.",
+    "jd_id": "JD-10",
+    "taxonomy_skills": [
+      "SQL"
+    ]
+  }
+]

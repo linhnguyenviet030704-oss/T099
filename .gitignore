@@ -60,3 +60,4 @@ out/
 .ai-log/archive/
 /data_find
 /evaluation/.cache
+/evaluation/golden/.cache

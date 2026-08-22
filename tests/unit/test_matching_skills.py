@@ -3,9 +3,12 @@ from backend.app.services.matching.skills import (
     expand_query,
     extract_skills,
     jaccard_score,
+    load_major_groups,
     load_taxonomy_index,
+    major_for_skills,
     normalize_skill,
     related_skills,
+    taxonomy_version,
 )
 
 
@@ -92,3 +95,42 @@ def test_extract_skills_does_not_fuzzy_match_unrelated_short_words():
     # short words don't turn into false matches.
     found = extract_skills("The team went to the store for coffee")
     assert "Go" not in found
+
+
+def test_major_for_skills_picks_largest_overlap():
+    # cloud_devops wins on 2 markers (Kubernetes + Terraform) vs data on 1.
+    assert major_for_skills({"Kubernetes", "Terraform", "Pandas"}) == "cloud_devops"
+
+
+def test_major_for_skills_returns_empty_when_no_overlap():
+    assert major_for_skills({"Python", "FastAPI"}) == ""
+    assert major_for_skills([]) == ""
+
+
+def test_load_major_groups_is_driven_by_skill_graph_asset():
+    groups = load_major_groups()
+    assert list(groups["ai_ml"]) == ["TensorFlow", "PyTorch", "Keras"]
+    assert "data" in groups and "Kafka" in groups["data"]
+
+
+def test_taxonomy_version_changes_when_major_groups_change(tmp_path, monkeypatch):
+    """Adding a major_groups entry must change the version hash since the
+    asset bytes change — downstream caches that key on it invalidate."""
+    import json
+    import shutil
+
+    from backend.app.services.matching import skills as skills_mod
+
+    real_path = skills_mod._GRAPH_PATH
+    fake_path = tmp_path / "skill_graph.json"
+    shutil.copy(real_path, fake_path)
+
+    base = json.loads(fake_path.read_text(encoding="utf-8"))
+    monkeypatch.setattr(skills_mod, "_GRAPH_PATH", fake_path)
+    before = skills_mod.taxonomy_version()
+
+    base["major_groups"] = {**base.get("major_groups", {}), "test_only": ["Python"]}
+    fake_path.write_text(json.dumps(base), encoding="utf-8")
+    after = skills_mod.taxonomy_version()
+
+    assert after != before

@@ -153,3 +153,86 @@ def expand_query(text: str, *, depth: int = 2) -> str:
     if not extra:
         return text
     return f"{text}\n{' '.join(extra)}"
+
+
+@lru_cache(maxsize=1)
+def load_major_groups() -> dict[str, tuple[str, ...]]:
+    """Major-field mapping declared in skill_graph.json. Demo2 keeps it in
+    the taxonomy asset so the source of truth stays next to skills/relations."""
+    graph = load_skill_graph()
+    return {major: tuple(skills) for major, skills in (graph.get("major_groups") or {}).items()}
+
+
+def major_for_skills(skills: Iterable[str]) -> str:
+    """Pick the major whose markers overlap the candidate skills most. Ties
+    resolve to first-encountered major in skill_graph.json. Empty input
+    yields empty string so callers can store it without special-casing."""
+    skill_set = {s for s in skills if s}
+    if not skill_set:
+        return ""
+    best_major = ""
+    best_overlap = 0
+    for major, markers in load_major_groups().items():
+        overlap = len(skill_set.intersection(markers))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_major = major
+    return best_major
+
+
+def taxonomy_version() -> str:
+    """Stable short hash of the taxonomy asset. Recomputed when skills,
+    relations, or major_groups change so downstream caches invalidate."""
+    import hashlib
+
+    return hashlib.sha256(_GRAPH_PATH.read_bytes()).hexdigest()[:12]
+
+
+def categories_for(skill_id: str) -> list[str]:
+    """Group memberships for a canonical skill. Demo2's skill_graph doesn't
+    encode groups, so the skill maps to itself; matching callers treat this
+    as a stable opaque token."""
+    return [skill_id] if skill_id in load_skill_graph().get("skills", {}) else []
+
+
+def _skill_in_text(skill_id: str, text: str) -> bool:
+    """Loose presence check used to verify whether an extract-found skill
+    survived LLM rewriting into the final body. Uses the same normalized
+    scan as extract_skills so aliases count."""
+    if not text:
+        return False
+    haystack = f" {_normalize_text(text)} "
+    index = load_taxonomy_index()
+    canonical = index.get(_normalize_text(skill_id))
+    if canonical and f" {_normalize_text(canonical)} " in haystack:
+        return True
+    for alias in (load_skill_graph().get("skills", {}).get(skill_id, {}) or {}).get("aliases") or []:
+        if f" {_normalize_text(alias)} " in haystack:
+            return True
+    return False
+
+
+def merge_skill_records(
+    extract_skills_: list[str],
+    body: str,
+    *,
+    taxonomy_index: dict[str, str] | None = None,
+) -> tuple[list[dict], list[str], list[str]]:
+    """Split extract-first skills into "verified" (still present in the LLM
+    body) and "inferred" (dropped by summarization but known to taxonomy).
+    Returns (records, verified, inferred). Caller owns the final skill list
+    ordering; this function never throws."""
+    records: list[dict] = []
+    verified: list[str] = []
+    inferred: list[str] = []
+    seen: set[str] = set()
+    for raw in extract_skills_:
+        canonical = normalize_skill(raw, taxonomy_index or load_taxonomy_index())
+        if not canonical or canonical in seen:
+            continue
+        seen.add(canonical)
+        present = _skill_in_text(canonical, body)
+        record = {"skill": canonical, "source": "verified" if present else "inferred"}
+        records.append(record)
+        (verified if present else inferred).append(canonical)
+    return records, verified, inferred

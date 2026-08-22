@@ -14,6 +14,7 @@ CompleteFn = Callable[..., str]
 
 _PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system" / "summarize.txt"
 SUMMARIZE_PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
+SUMMARIZE_PROMPT_VERSION = "2026-08-22.v1"
 
 _TITLE_NOISE = {
     "role",

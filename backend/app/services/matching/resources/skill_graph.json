@@ -1029,6 +1029,76 @@
       ]
     }
   },
+  "major_groups": {
+    "data": [
+      "Pandas",
+      "NumPy",
+      "Spark",
+      "Hadoop",
+      "Kafka",
+      "Flink",
+      "Airflow",
+      "dbt",
+      "Snowflake",
+      "BigQuery",
+      "Tableau"
+    ],
+    "ai_ml": [
+      "TensorFlow",
+      "PyTorch",
+      "Keras"
+    ],
+    "cloud_devops": [
+      "AWS",
+      "Azure",
+      "GCP",
+      "Kubernetes",
+      "Docker",
+      "Terraform",
+      "Ansible",
+      "Helm",
+      "Prometheus"
+    ],
+    "mobile": [
+      "Swift",
+      "Kotlin",
+      "Flutter",
+      "React Native",
+      "Dart"
+    ],
+    "web": [
+      "JavaScript",
+      "TypeScript",
+      "React",
+      "Angular",
+      "Next.js",
+      "Svelte",
+      "HTML",
+      "CSS"
+    ],
+    "qa_testing": [
+      "Selenium",
+      "Cypress",
+      "TestNG",
+      "JUnit",
+      "Postman"
+    ],
+    "cybersecurity": [
+      "OWASP"
+    ],
+    "embedded_iot": [
+      "Embedded C",
+      "FreeRTOS",
+      "Arduino",
+      "Raspberry Pi",
+      "STM32"
+    ],
+    "infrastructure_network": [
+      "Cisco",
+      "CCNA",
+      "VPN"
+    ]
+  },
   "relations": [
     {
       "from": "Python",

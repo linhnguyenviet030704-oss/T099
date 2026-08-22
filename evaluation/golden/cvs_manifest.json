@@ -1,0 +1,520 @@
+[
+  {
+    "jd_id": "JD-01",
+    "jd_title": "Nhà phát triển .NET cao cấp (AI)",
+    "jd_taxonomy_skills": [
+      "PostgreSQL",
+      "Docker",
+      "SQL"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-01-A",
+        "target_jd_id": "JD-01",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "PostgreSQL",
+          "Docker",
+          "SQL"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "PostgreSQL",
+          "Docker",
+          "SQL"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-01-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-01-B",
+        "target_jd_id": "JD-01",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Docker",
+          "SQL"
+        ],
+        "intended_omit_skills": [
+          "PostgreSQL"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "JavaScript",
+          "Docker",
+          "SQL"
+        ],
+        "actual_coverage_pct": 66.7,
+        "md_path": "cvs/jd-01-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-02",
+    "jd_title": "DevOps Engineer - Vận Hành ERP Odoo, FastApi",
+    "jd_taxonomy_skills": [
+      "PostgreSQL",
+      "FastAPI",
+      "Python"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-02-A",
+        "target_jd_id": "JD-02",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "PostgreSQL",
+          "FastAPI",
+          "Python"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "PostgreSQL",
+          "FastAPI",
+          "Python",
+          "Docker",
+          "Linux"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-02-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-02-B",
+        "target_jd_id": "JD-02",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "FastAPI",
+          "Python"
+        ],
+        "intended_omit_skills": [
+          "PostgreSQL"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "FastAPI",
+          "Python",
+          "Linux"
+        ],
+        "actual_coverage_pct": 66.7,
+        "md_path": "cvs/jd-02-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-03",
+    "jd_title": "Nhà phát triển Frontend (ReactJS, NextJS)",
+    "jd_taxonomy_skills": [
+      "JavaScript",
+      "React"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-03-A",
+        "target_jd_id": "JD-03",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "JavaScript",
+          "React"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "JavaScript",
+          "TypeScript",
+          "React"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-03-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-03-B",
+        "target_jd_id": "JD-03",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "React"
+        ],
+        "intended_omit_skills": [
+          "JavaScript"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "TypeScript",
+          "React"
+        ],
+        "actual_coverage_pct": 50.0,
+        "md_path": "cvs/jd-03-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-04",
+    "jd_title": "Hệ thống quản trị viên Junior/Middle",
+    "jd_taxonomy_skills": [
+      "Docker",
+      "Linux"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-04-A",
+        "target_jd_id": "JD-04",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Docker",
+          "Linux"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "Docker",
+          "Linux"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-04-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-04-B",
+        "target_jd_id": "JD-04",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Linux"
+        ],
+        "intended_omit_skills": [
+          "Docker"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "PostgreSQL",
+          "Python",
+          "Linux"
+        ],
+        "actual_coverage_pct": 50.0,
+        "md_path": "cvs/jd-04-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-05",
+    "jd_title": "Lập Trình Nhúng",
+    "jd_taxonomy_skills": [
+      "Python",
+      "Linux"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-05-A",
+        "target_jd_id": "JD-05",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Python",
+          "Linux"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "Python",
+          "Linux"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-05-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-05-B",
+        "target_jd_id": "JD-05",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Linux"
+        ],
+        "intended_omit_skills": [
+          "Python"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "Linux"
+        ],
+        "actual_coverage_pct": 50.0,
+        "md_path": "cvs/jd-05-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-06",
+    "jd_title": "Lãnh đạo kỹ thuật (BPM)",
+    "jd_taxonomy_skills": [
+      "JavaScript",
+      "Docker"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-06-A",
+        "target_jd_id": "JD-06",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "JavaScript",
+          "Docker"
+        ],
+        "intended_omit_skills": [],
+        "verified": false,
+        "actual_taxonomy_skills": [
+          "TypeScript"
+        ],
+        "actual_coverage_pct": 0.0,
+        "md_path": "cvs/jd-06-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-06-B",
+        "target_jd_id": "JD-06",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Docker"
+        ],
+        "intended_omit_skills": [
+          "JavaScript"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "TypeScript",
+          "Docker"
+        ],
+        "actual_coverage_pct": 50.0,
+        "md_path": "cvs/jd-06-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-07",
+    "jd_title": "React JS Developer (Tiếng Anh Fluency)",
+    "jd_taxonomy_skills": [
+      "React",
+      "JavaScript"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-07-A",
+        "target_jd_id": "JD-07",
+        "variant": "a",
+        "candidate_name": "Nguyen Minh Tuan",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "React",
+          "JavaScript"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "JavaScript",
+          "React"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-07-a-nguyen-minh-tuan.md"
+      },
+      {
+        "cv_id": "JD-07-B",
+        "target_jd_id": "JD-07",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "JavaScript"
+        ],
+        "intended_omit_skills": [
+          "React"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "JavaScript"
+        ],
+        "actual_coverage_pct": 50.0,
+        "md_path": "cvs/jd-07-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-08",
+    "jd_title": "Nhà phát triển phụ trợ (Python/Django)",
+    "jd_taxonomy_skills": [
+      "Python",
+      "Docker"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-08-A",
+        "target_jd_id": "JD-08",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Python",
+          "Docker"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "Python",
+          "Docker",
+          "Git"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-08-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-08-B",
+        "target_jd_id": "JD-08",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Docker"
+        ],
+        "intended_omit_skills": [
+          "Python"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "Docker",
+          "SQL"
+        ],
+        "actual_coverage_pct": 50.0,
+        "md_path": "cvs/jd-08-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-09",
+    "jd_title": "Python Developer (Odoo Developer)",
+    "jd_taxonomy_skills": [
+      "JavaScript",
+      "Python"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-09-A",
+        "target_jd_id": "JD-09",
+        "variant": "a",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "JavaScript",
+          "Python"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "JavaScript",
+          "Python",
+          "Git"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-09-a-nguyen-van-an.md"
+      },
+      {
+        "cv_id": "JD-09-B",
+        "target_jd_id": "JD-09",
+        "variant": "b",
+        "candidate_name": "Nguyen Van An",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "Python"
+        ],
+        "intended_omit_skills": [
+          "JavaScript"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "Python",
+          "Git"
+        ],
+        "actual_coverage_pct": 50.0,
+        "md_path": "cvs/jd-09-b-nguyen-van-an.md"
+      }
+    ]
+  },
+  {
+    "jd_id": "JD-10",
+    "jd_title": "Lập Trình Viên Fresher/Middle C#, .Net Kiêm BA",
+    "jd_taxonomy_skills": [
+      "SQL"
+    ],
+    "cvs": [
+      {
+        "cv_id": "JD-10-A",
+        "target_jd_id": "JD-10",
+        "variant": "a",
+        "candidate_name": "Nguyen Van A",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [
+          "SQL"
+        ],
+        "intended_omit_skills": [],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "SQL",
+          "Git"
+        ],
+        "actual_coverage_pct": 100.0,
+        "md_path": "cvs/jd-10-a-nguyen-van-a.md"
+      },
+      {
+        "cv_id": "JD-10-B",
+        "target_jd_id": "JD-10",
+        "variant": "b",
+        "candidate_name": "Nguyen Van A",
+        "language": "en",
+        "source": "synthetic_llm",
+        "intended_keep_skills": [],
+        "intended_omit_skills": [
+          "SQL"
+        ],
+        "verified": true,
+        "actual_taxonomy_skills": [
+          "Git"
+        ],
+        "actual_coverage_pct": 0.0,
+        "md_path": "cvs/jd-10-b-nguyen-van-a.md"
+      }
+    ]
+  }
+]

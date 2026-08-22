@@ -60,3 +60,7 @@ out/
 .ai-log/archive/
 
 docs/superpowers/
+
+/data_find
+/evaluation/.cache
+/evaluation/golden/.cache

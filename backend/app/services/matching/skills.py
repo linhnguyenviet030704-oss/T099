@@ -11,26 +11,41 @@ from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 
-_SKILLS_PATH = Path(__file__).resolve().parent / "resources" / "skills.json"
-_MAJOR_PATH = Path(__file__).resolve().parent / "resources" / "major_group.json"
+"""Deterministic skill normalize + Jaccard/coverage from skill_graph.json."""
+
+from __future__ import annotations
+
+import re
+import unicodedata
+from collections.abc import Iterable
+from functools import lru_cache
+from pathlib import Path
+
+from rapidfuzz import fuzz, process
+
 _GRAPH_PATH = Path(__file__).resolve().parent / "resources" / "skill_graph.json"
 
-SPECIAL_ALIASES: dict[str, tuple[str, ...]] = {
-    "c_plus_plus": ("c++", "cpp", "c plus plus"),
-    "c_sharp": ("c#", "csharp", "c sharp"),
-    "dotnet": (".net", "dotnet", "dot net"),
-    "nodejs": ("node.js", "node js", "nodejs"),
-    "spring_boot": ("spring-boot", "spring boot", "springboot"),
-    "postgresql": ("postgres", "postgresql", "psql"),
-    "golang": ("go", "golang", "golang"),
-}
+# Fuzzy fallback only kicks in for aliases/candidates long enough that a
+# high similarity ratio is meaningful (short strings like "R" or "Go"
+# would otherwise fuzzy-match all kinds of unrelated words).
+_FUZZY_MIN_LEN = 4
+_FUZZY_SCORE_CUTOFF = 88
+
+# Sentence-ending punctuation glued to the previous word ("...and Flink.")
+# must not block a substring match; strip it when it precedes whitespace
+# or end-of-string. Deliberately narrow so it never touches punctuation
+# that's part of a skill name itself (C++, C#, Node.js, .NET).
+_TRAILING_PUNCT_RE = re.compile(r"[.,;:!?)\]]+(?=\s|$)")
+
+
 
 
 def _normalize_text(text: str) -> str:
     normalized = unicodedata.normalize("NFD", text)
     without_marks = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
     without_marks = without_marks.replace("Đ", "D").replace("đ", "d")
-    return " ".join(without_marks.lower().split())
+    folded = _TRAILING_PUNCT_RE.sub(" ", without_marks.lower())
+    return " ".join(folded.split())
 
 
 @lru_cache(maxsize=1)
@@ -130,10 +145,14 @@ def coverage_score(cv_skills: Iterable[str], jd_must_have: Iterable[str], taxono
 
 
 def extract_skills(text: str, taxonomy_index: dict[str, str] | None = None) -> list[str]:
+    """Scan text for known taxonomy terms (longest synonym first), then a
+    bounded fuzzy pass for near-miss spellings not covered by any alias
+    (e.g. "Kuberentes" typo, "Postgre SQL" spacing)."""
     index = taxonomy_index or load_taxonomy_index()
-    stripped = re.sub(r"[,;:!?]+", " ", text)
-    stripped = re.sub(r"\.(?:\s|$)", " ", stripped)
-    haystack = f" {_normalize_text(stripped)} "
+    normalized = _normalize_text(text)
+    haystack = f" {normalized} "
+
+
     found: list[str] = []
     seen: set[str] = set()
     terms = sorted(index.items(), key=lambda item: len(item[0]), reverse=True)
@@ -142,6 +161,23 @@ def extract_skills(text: str, taxonomy_index: dict[str, str] | None = None) -> l
         if needle in haystack and canonical not in seen:
             found.append(canonical)
             seen.add(canonical)
+
+    remaining = [(variant, canonical) for variant, canonical in terms if canonical not in seen and len(variant) >= _FUZZY_MIN_LEN]
+    if remaining:
+        variant_strings = [variant for variant, _ in remaining]
+        words = normalized.split()
+        candidates = {w for w in words if len(w) >= _FUZZY_MIN_LEN}
+        candidates.update(f"{words[i]} {words[i + 1]}" for i in range(len(words) - 1))
+        for candidate in candidates:
+            match = process.extractOne(candidate, variant_strings, scorer=fuzz.ratio, score_cutoff=_FUZZY_SCORE_CUTOFF)
+            if match is None:
+                continue
+            _matched_variant, _score, idx = match
+            canonical = remaining[idx][1]
+            if canonical not in seen:
+                found.append(canonical)
+                seen.add(canonical)
+
     return found
 
 
@@ -170,53 +206,97 @@ def expand_query(text: str, *, depth: int = 2) -> str:
     found = extract_skills(text)
     if not found:
         return text
-    labels = [skill_id.replace("_", " ") for skill_id in found]
-    cats: list[str] = []
-    by_skill = _categories_by_skill()
-    for skill_id in found:
-        for cat in by_skill.get(skill_id, ()):
-            display = cat.replace("_", " ")
-            if display not in cats:
-                cats.append(display)
-            if len(cats) >= 3:
-                break
-        if len(cats) >= 3:
-            break
-    extra = " ".join([*labels, *cats])
-    return f"{text}\n{extra}"
+    return f"{text}\n{' '.join(extra)}"
+
+
+@functools.lru_cache(maxsize=1)
+def load_major_groups() -> dict[str, tuple[str, ...]]:
+    """Major-field mapping declared in skill_graph.json. Demo2 keeps it in
+    the taxonomy asset so the source of truth stays next to skills/relations."""
+    graph = load_skill_graph()
+    return {major: tuple(skills) for major, skills in (graph.get("major_groups") or {}).items()}
+
+
+def major_for_skills(skills: Iterable[str]) -> str:
+    """Pick the major whose markers overlap the candidate skills most. Ties
+    resolve to first-encountered major in skill_graph.json. Empty input
+    yields empty string so callers can store it without special-casing."""
+    skill_set = {s for s in skills if s}
+    if not skill_set:
+        return ""
+    best_major = ""
+    best_overlap = 0
+    for major, markers in load_major_groups().items():
+        overlap = len(skill_set.intersection(markers))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_major = major
+    return best_major
+
+
+def taxonomy_version() -> str:
+    """Stable short hash of the taxonomy asset. Recomputed when skills,
+    relations, or major_groups change so downstream caches invalidate."""
+    import hashlib
+
+    return hashlib.sha256(_GRAPH_PATH.read_bytes()).hexdigest()[:12]
+
+
+def categories_for(skill_id: str) -> str | None:
+    """Group memberships for a canonical skill. Demo2's skill_graph doesn't
+    encode groups, so the skill maps to itself; matching callers treat this
+    as a stable opaque token."""
+    if skill_id in load_skill_graph().get("skills", {}):
+        return skill_id
+    return None
+
+
+def _skill_in_text(skill_id: str, text: str) -> bool:
+    """Loose presence check used to verify whether an extract-found skill
+    survived LLM rewriting into the final body. Uses the same normalized
+    scan as extract_skills so aliases count."""
+    if not text:
+        return False
+    haystack = f" {_normalize_text(text)} "
+    index = load_taxonomy_index()
+    canonical = index.get(_normalize_text(skill_id))
+    if canonical and f" {_normalize_text(canonical)} " in haystack:
+        return True
+    for alias in (load_skill_graph().get("skills", {}).get(skill_id, {}) or {}).get("aliases") or []:
+        if f" {_normalize_text(alias)} " in haystack:
+            return True
+    return False
 
 
 def merge_skill_records(
-    clean: str,
-    llm_skills: list[str],
-    summary_body: str,
+    extract_skills_: list[str],
+    body: str,
+    *,
+    taxonomy_index: dict[str, str] | None = None,
 ) -> tuple[list[dict], list[str], list[str]]:
+    """Split extract-first skills into "verified" (still present in the LLM
+    body) and "inferred" (dropped by summarization but known to taxonomy).
+    Returns (records, verified, inferred). Caller owns the final skill list
+    ordering; this function never throws."""
+
+
     records: list[dict] = []
     verified: list[str] = []
     inferred: list[str] = []
     seen: set[str] = set()
-    for skill_id in extract_skills(clean):
-        quote = skill_quote(clean, skill_id)
-        if not quote:
+    records: list[dict] = []
+    verified: list[str] = []
+    inferred: list[str] = []
+    seen: set[str] = set()
+    for raw in extract_skills_:
+        canonical = normalize_skill(raw, taxonomy_index or load_taxonomy_index())
+        if not canonical or canonical in seen:
             continue
-        seen.add(skill_id)
-        verified.append(skill_id)
-        records.append({"id": skill_id, "status": "verified", "origin": "clean", "quote": quote[:160]})
-    llm_canonical: list[str] = []
-    for raw in llm_skills:
-        canonical = allowlist_token(str(raw))
-        if canonical and canonical not in llm_canonical:
-            llm_canonical.append(canonical)
-    for skill_id in llm_canonical:
-        if skill_id in seen:
-            continue
-        seen.add(skill_id)
-        inferred.append(skill_id)
-        records.append({"id": skill_id, "status": "inferred", "origin": "llm", "quote": ""})
-    for skill_id in extract_skills(summary_body):
-        if skill_id in seen:
-            continue
-        seen.add(skill_id)
-        inferred.append(skill_id)
-        records.append({"id": skill_id, "status": "inferred", "origin": "summary", "quote": ""})
+        seen.add(canonical)
+        present = _skill_in_text(canonical, body)
+        record = {"skill": canonical, "source": "verified" if present else "inferred"}
+        records.append(record)
+        (verified if present else inferred).append(canonical)
+
+
     return records, verified, inferred

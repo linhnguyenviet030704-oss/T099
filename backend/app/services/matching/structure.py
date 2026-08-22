@@ -12,11 +12,17 @@ from backend.app.services.matching.parse import (
     PHONE_RE,
     URL_RE,
     _clean_text_artifacts,
-    _detect_section,
+    _detect_section as _detect_section_tuple,
     _looks_like_person_name,
     redact_pii,
 )
 from backend.app.services.matching.skills import categories_for, extract_skills
+
+
+def _detect_section(text: str):
+    """Adapter for callers that only need the canonical name (drops remainder)."""
+    result = _detect_section_tuple(text)
+    return result[0] if result else None
 
 OUTPUT_SECTIONS = {
     "Summary": "Profile",

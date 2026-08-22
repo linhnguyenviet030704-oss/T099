@@ -21,16 +21,19 @@ def build_ingest_graph(
     graph = StateGraph(AgentState)
     graph.add_node("parse", parse_node)
     graph.add_node("clean", clean_node)
-    graph.add_node("summarize", make_summarize_node(complete=complete, api_key=api_key, base_url=base_url))
     graph.add_node("extract", extract_skills_node)
+    graph.add_node("summarize", make_summarize_node(complete=complete, api_key=api_key, base_url=base_url))
     graph.set_entry_point("parse")
     graph.add_edge("parse", "clean")
-    graph.add_edge("clean", "summarize")
-    graph.add_edge("summarize", "extract")
+    # Skills are extracted from the full parsed CV *before* summarize
+    # rewrites/shortens it, so no skill is lost just because the LLM
+    # summary dropped it from the narrative body.
+    graph.add_edge("clean", "extract")
+    graph.add_edge("extract", "summarize")
     if embed:
         graph.add_node("embed", make_embed_node(encode=encode, api_key=api_key, base_url=base_url))
-        graph.add_edge("extract", "embed")
+        graph.add_edge("summarize", "embed")
         graph.add_edge("embed", END)
     else:
-        graph.add_edge("extract", END)
+        graph.add_edge("summarize", END)
     return graph.compile()

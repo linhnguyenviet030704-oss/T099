@@ -3,20 +3,36 @@
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 from collections import defaultdict, deque
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 
+from rapidfuzz import fuzz, process
+
 _GRAPH_PATH = Path(__file__).resolve().parent / "resources" / "skill_graph.json"
+
+# Fuzzy fallback only kicks in for aliases/candidates long enough that a
+# high similarity ratio is meaningful (short strings like "R" or "Go"
+# would otherwise fuzzy-match all kinds of unrelated words).
+_FUZZY_MIN_LEN = 4
+_FUZZY_SCORE_CUTOFF = 88
+
+# Sentence-ending punctuation glued to the previous word ("...and Flink.")
+# must not block a substring match; strip it when it precedes whitespace
+# or end-of-string. Deliberately narrow so it never touches punctuation
+# that's part of a skill name itself (C++, C#, Node.js, .NET).
+_TRAILING_PUNCT_RE = re.compile(r"[.,;:!?)\]]+(?=\s|$)")
 
 
 def _normalize_text(text: str) -> str:
     normalized = unicodedata.normalize("NFD", text)
     without_marks = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
     without_marks = without_marks.replace("Đ", "D").replace("đ", "d")
-    return " ".join(without_marks.lower().split())
+    folded = _TRAILING_PUNCT_RE.sub(" ", without_marks.lower())
+    return " ".join(folded.split())
 
 
 @lru_cache(maxsize=1)
@@ -90,9 +106,12 @@ def coverage_score(cv_skills: Iterable[str], jd_must_have: Iterable[str], taxono
 
 
 def extract_skills(text: str, taxonomy_index: dict[str, str] | None = None) -> list[str]:
-    """Scan text for known taxonomy terms (longest synonym first)."""
+    """Scan text for known taxonomy terms (longest synonym first), then a
+    bounded fuzzy pass for near-miss spellings not covered by any alias
+    (e.g. "Kuberentes" typo, "Postgre SQL" spacing)."""
     index = taxonomy_index or load_taxonomy_index()
-    haystack = f" {_normalize_text(text)} "
+    normalized = _normalize_text(text)
+    haystack = f" {normalized} "
     found: list[str] = []
     seen: set[str] = set()
     terms = sorted(index.items(), key=lambda item: len(item[0]), reverse=True)
@@ -101,6 +120,23 @@ def extract_skills(text: str, taxonomy_index: dict[str, str] | None = None) -> l
         if needle in haystack and canonical not in seen:
             found.append(canonical)
             seen.add(canonical)
+
+    remaining = [(variant, canonical) for variant, canonical in terms if canonical not in seen and len(variant) >= _FUZZY_MIN_LEN]
+    if remaining:
+        variant_strings = [variant for variant, _ in remaining]
+        words = normalized.split()
+        candidates = {w for w in words if len(w) >= _FUZZY_MIN_LEN}
+        candidates.update(f"{words[i]} {words[i + 1]}" for i in range(len(words) - 1))
+        for candidate in candidates:
+            match = process.extractOne(candidate, variant_strings, scorer=fuzz.ratio, score_cutoff=_FUZZY_SCORE_CUTOFF)
+            if match is None:
+                continue
+            _matched_variant, _score, idx = match
+            canonical = remaining[idx][1]
+            if canonical not in seen:
+                found.append(canonical)
+                seen.add(canonical)
+
     return found
 
 

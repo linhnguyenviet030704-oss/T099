@@ -58,7 +58,7 @@ async def test_ingest_parses_and_saves_first_time():
     assert status == "indexed"
     assert store.saved is not None
     assert store.saved["content_hash"] == sha256(blob).hexdigest()
-    assert store.saved["parsed"]["metadata"]["skills"] == ["FastAPI"]
+    assert set(store.saved["parsed"]["metadata"]["skills"]) == {"Python", "FastAPI"}
     assert store.saved["parsed"]["metadata"]["summary"] == "Python API engineer."
     assert "summary:" not in store.saved["parsed"]["markdown"]
     assert "Built FastAPI services." in store.saved["parsed"]["markdown"]

@@ -1,26 +1,1682 @@
 {
   "skills": {
-    "Python": { "aliases": ["python", "py"] },
-    "FastAPI": { "aliases": ["fastapi", "fast api"] },
-    "PostgreSQL": { "aliases": ["postgresql", "postgres", "psql"] },
-    "Docker": { "aliases": ["docker"] },
-    "JavaScript": { "aliases": ["javascript", "js"] },
-    "TypeScript": { "aliases": ["typescript", "ts"] },
-    "React": { "aliases": ["react", "reactjs"] },
-    "SQL": { "aliases": ["sql"] },
-    "Git": { "aliases": ["git"] },
-    "Linux": { "aliases": ["linux"] }
+    "Python": {
+      "aliases": [
+        "python",
+        "py"
+      ]
+    },
+    "FastAPI": {
+      "aliases": [
+        "fastapi",
+        "fast api"
+      ]
+    },
+    "PostgreSQL": {
+      "aliases": [
+        "postgresql",
+        "postgres",
+        "psql"
+      ]
+    },
+    "Docker": {
+      "aliases": [
+        "docker"
+      ]
+    },
+    "JavaScript": {
+      "aliases": [
+        "javascript",
+        "js"
+      ]
+    },
+    "TypeScript": {
+      "aliases": [
+        "typescript",
+        "ts"
+      ]
+    },
+    "React": {
+      "aliases": [
+        "react",
+        "reactjs",
+        "react.js",
+        "react js"
+      ]
+    },
+    "SQL": {
+      "aliases": [
+        "sql"
+      ]
+    },
+    "Git": {
+      "aliases": [
+        "git"
+      ]
+    },
+    "Linux": {
+      "aliases": [
+        "linux"
+      ]
+    },
+    "Java": {
+      "aliases": [
+        "java"
+      ]
+    },
+    "C++": {
+      "aliases": [
+        "c++",
+        "cpp"
+      ]
+    },
+    "C#": {
+      "aliases": [
+        "c sharp",
+        "c#",
+        "csharp"
+      ]
+    },
+    "Go": {
+      "aliases": [
+        "golang"
+      ]
+    },
+    "Rust": {
+      "aliases": [
+        "rust"
+      ]
+    },
+    "Kotlin": {
+      "aliases": [
+        "kotlin"
+      ]
+    },
+    "Swift": {
+      "aliases": [
+        "swift"
+      ]
+    },
+    "Ruby": {
+      "aliases": [
+        "ruby"
+      ]
+    },
+    "PHP": {
+      "aliases": [
+        "php"
+      ]
+    },
+    "Scala": {
+      "aliases": [
+        "scala"
+      ]
+    },
+    "MATLAB": {
+      "aliases": [
+        "matlab"
+      ]
+    },
+    "Perl": {
+      "aliases": [
+        "perl"
+      ]
+    },
+    "Dart": {
+      "aliases": [
+        "dart"
+      ]
+    },
+    "Objective-C": {
+      "aliases": [
+        "objc",
+        "objective c",
+        "objective-c"
+      ]
+    },
+    "Bash": {
+      "aliases": [
+        "bash",
+        "shell script",
+        "shell scripting"
+      ]
+    },
+    "PowerShell": {
+      "aliases": [
+        "powershell"
+      ]
+    },
+    "Solidity": {
+      "aliases": [
+        "solidity"
+      ]
+    },
+    "Yul": {
+      "aliases": [
+        "yul"
+      ]
+    },
+    "Lua": {
+      "aliases": [
+        "lua"
+      ]
+    },
+    "Elixir": {
+      "aliases": [
+        "elixir"
+      ]
+    },
+    "Haskell": {
+      "aliases": [
+        "haskell"
+      ]
+    },
+    "Clojure": {
+      "aliases": [
+        "clojure"
+      ]
+    },
+    "VBA": {
+      "aliases": [
+        "vba",
+        "visual basic for applications"
+      ]
+    },
+    "Django": {
+      "aliases": [
+        "django"
+      ]
+    },
+    "Flask": {
+      "aliases": [
+        "flask"
+      ]
+    },
+    "Express.js": {
+      "aliases": [
+        "express",
+        "express js",
+        "express.js",
+        "expressjs"
+      ]
+    },
+    "NestJS": {
+      "aliases": [
+        "nest.js",
+        "nestjs"
+      ]
+    },
+    "Spring": {
+      "aliases": [
+        "spring framework"
+      ]
+    },
+    "Spring Boot": {
+      "aliases": [
+        "spring boot",
+        "springboot"
+      ]
+    },
+    "ASP.NET": {
+      "aliases": [
+        ".net",
+        "asp net",
+        "asp.net",
+        "dotnet"
+      ]
+    },
+    "Ruby on Rails": {
+      "aliases": [
+        "rails",
+        "ruby on rails"
+      ]
+    },
+    "Laravel": {
+      "aliases": [
+        "laravel"
+      ]
+    },
+    "Odoo": {
+      "aliases": [
+        "odoo"
+      ]
+    },
+    "GraphQL": {
+      "aliases": [
+        "graphql"
+      ]
+    },
+    "RESTful API": {
+      "aliases": [
+        "rest api",
+        "rest apis",
+        "restful api",
+        "restful apis"
+      ]
+    },
+    "WebSocket": {
+      "aliases": [
+        "websocket",
+        "websockets"
+      ]
+    },
+    "gRPC": {
+      "aliases": [
+        "grpc"
+      ]
+    },
+    "Node.js": {
+      "aliases": [
+        "node",
+        "node js",
+        "node.js",
+        "nodejs"
+      ]
+    },
+    "Next.js": {
+      "aliases": [
+        "next.js",
+        "nextjs"
+      ]
+    },
+    "Nuxt.js": {
+      "aliases": [
+        "nuxt.js",
+        "nuxtjs"
+      ]
+    },
+    "Vue.js": {
+      "aliases": [
+        "vue",
+        "vue.js",
+        "vuejs"
+      ]
+    },
+    "Angular": {
+      "aliases": [
+        "angular",
+        "angularjs"
+      ]
+    },
+    "Svelte": {
+      "aliases": [
+        "svelte"
+      ]
+    },
+    "jQuery": {
+      "aliases": [
+        "jquery"
+      ]
+    },
+    "HTML": {
+      "aliases": [
+        "html",
+        "html5"
+      ]
+    },
+    "CSS": {
+      "aliases": [
+        "css",
+        "css3"
+      ]
+    },
+    "Sass": {
+      "aliases": [
+        "sass",
+        "scss"
+      ]
+    },
+    "Tailwind CSS": {
+      "aliases": [
+        "tailwind",
+        "tailwind css",
+        "tailwindcss"
+      ]
+    },
+    "Bootstrap": {
+      "aliases": [
+        "bootstrap"
+      ]
+    },
+    "Redux": {
+      "aliases": [
+        "redux"
+      ]
+    },
+    "Webpack": {
+      "aliases": [
+        "webpack"
+      ]
+    },
+    "Vite": {
+      "aliases": [
+        "vite"
+      ]
+    },
+    "Android": {
+      "aliases": [
+        "android",
+        "android development"
+      ]
+    },
+    "iOS": {
+      "aliases": [
+        "ios",
+        "ios development"
+      ]
+    },
+    "Flutter": {
+      "aliases": [
+        "flutter"
+      ]
+    },
+    "React Native": {
+      "aliases": [
+        "react native"
+      ]
+    },
+    "Xamarin": {
+      "aliases": [
+        "xamarin"
+      ]
+    },
+    "SwiftUI": {
+      "aliases": [
+        "swiftui"
+      ]
+    },
+    "Jetpack Compose": {
+      "aliases": [
+        "jetpack compose"
+      ]
+    },
+    "MySQL": {
+      "aliases": [
+        "mysql"
+      ]
+    },
+    "MongoDB": {
+      "aliases": [
+        "mongo",
+        "mongodb"
+      ]
+    },
+    "Redis": {
+      "aliases": [
+        "redis"
+      ]
+    },
+    "Elasticsearch": {
+      "aliases": [
+        "elastic search",
+        "elasticsearch"
+      ]
+    },
+    "Oracle Database": {
+      "aliases": [
+        "oracle",
+        "oracle database",
+        "oracle db",
+        "oracle sql"
+      ]
+    },
+    "SQL Server": {
+      "aliases": [
+        "microsoft sql server",
+        "mssql",
+        "sql server"
+      ]
+    },
+    "SQLite": {
+      "aliases": [
+        "sqlite"
+      ]
+    },
+    "Cassandra": {
+      "aliases": [
+        "cassandra"
+      ]
+    },
+    "DynamoDB": {
+      "aliases": [
+        "dynamodb"
+      ]
+    },
+    "Neo4j": {
+      "aliases": [
+        "neo4j"
+      ]
+    },
+    "MariaDB": {
+      "aliases": [
+        "mariadb"
+      ]
+    },
+    "Firebase": {
+      "aliases": [
+        "firebase"
+      ]
+    },
+    "Machine Learning": {
+      "aliases": [
+        "machine learning",
+        "ml"
+      ]
+    },
+    "Deep Learning": {
+      "aliases": [
+        "deep learning",
+        "dl"
+      ]
+    },
+    "TensorFlow": {
+      "aliases": [
+        "tensor flow",
+        "tensorflow"
+      ]
+    },
+    "PyTorch": {
+      "aliases": [
+        "pytorch",
+        "torch"
+      ]
+    },
+    "Keras": {
+      "aliases": [
+        "keras"
+      ]
+    },
+    "scikit-learn": {
+      "aliases": [
+        "scikit learn",
+        "scikit-learn",
+        "sklearn"
+      ]
+    },
+    "ONNX": {
+      "aliases": [
+        "onnx"
+      ]
+    },
+    "TFLite": {
+      "aliases": [
+        "tensorflow lite",
+        "tflite"
+      ]
+    },
+    "OpenCV": {
+      "aliases": [
+        "opencv"
+      ]
+    },
+    "NLP": {
+      "aliases": [
+        "natural language processing",
+        "nlp"
+      ]
+    },
+    "Computer Vision": {
+      "aliases": [
+        "computer vision"
+      ]
+    },
+    "Pandas": {
+      "aliases": [
+        "pandas"
+      ]
+    },
+    "NumPy": {
+      "aliases": [
+        "numpy"
+      ]
+    },
+    "Apache Spark": {
+      "aliases": [
+        "apache spark",
+        "pyspark",
+        "spark"
+      ]
+    },
+    "Hadoop": {
+      "aliases": [
+        "hadoop"
+      ]
+    },
+    "Kafka": {
+      "aliases": [
+        "apache kafka",
+        "kafka"
+      ]
+    },
+    "Airflow": {
+      "aliases": [
+        "airflow",
+        "apache airflow"
+      ]
+    },
+    "Flink": {
+      "aliases": [
+        "apache flink",
+        "flink"
+      ]
+    },
+    "Debezium": {
+      "aliases": [
+        "debezium"
+      ]
+    },
+    "dbt": {
+      "aliases": [
+        "dbt"
+      ]
+    },
+    "Snowflake": {
+      "aliases": [
+        "snowflake"
+      ]
+    },
+    "BigQuery": {
+      "aliases": [
+        "bigquery",
+        "google bigquery"
+      ]
+    },
+    "Tableau": {
+      "aliases": [
+        "tableau"
+      ]
+    },
+    "Power BI": {
+      "aliases": [
+        "power bi",
+        "powerbi"
+      ]
+    },
+    "MLflow": {
+      "aliases": [
+        "mlflow"
+      ]
+    },
+    "ETL": {
+      "aliases": [
+        "etl"
+      ]
+    },
+    "AWS": {
+      "aliases": [
+        "amazon web services",
+        "aws"
+      ]
+    },
+    "Azure": {
+      "aliases": [
+        "azure",
+        "microsoft azure"
+      ]
+    },
+    "GCP": {
+      "aliases": [
+        "gcp",
+        "google cloud",
+        "google cloud platform"
+      ]
+    },
+    "Kubernetes": {
+      "aliases": [
+        "k8s",
+        "kubernetes"
+      ]
+    },
+    "Terraform": {
+      "aliases": [
+        "terraform"
+      ]
+    },
+    "Ansible": {
+      "aliases": [
+        "ansible"
+      ]
+    },
+    "Jenkins": {
+      "aliases": [
+        "jenkins"
+      ]
+    },
+    "CI/CD": {
+      "aliases": [
+        "ci cd",
+        "ci/cd",
+        "cicd",
+        "continuous deployment",
+        "continuous integration"
+      ]
+    },
+    "GitHub Actions": {
+      "aliases": [
+        "github actions"
+      ]
+    },
+    "GitLab CI": {
+      "aliases": [
+        "gitlab ci",
+        "gitlab ci/cd"
+      ]
+    },
+    "Prometheus": {
+      "aliases": [
+        "prometheus"
+      ]
+    },
+    "Grafana": {
+      "aliases": [
+        "grafana"
+      ]
+    },
+    "Nginx": {
+      "aliases": [
+        "nginx"
+      ]
+    },
+    "Apache HTTP Server": {
+      "aliases": [
+        "apache http server",
+        "apache web server"
+      ]
+    },
+    "Helm": {
+      "aliases": [
+        "helm"
+      ]
+    },
+    "Chef": {
+      "aliases": [
+        "chef"
+      ]
+    },
+    "Puppet": {
+      "aliases": [
+        "puppet"
+      ]
+    },
+    "JUnit": {
+      "aliases": [
+        "junit"
+      ]
+    },
+    "PyTest": {
+      "aliases": [
+        "pytest"
+      ]
+    },
+    "Selenium": {
+      "aliases": [
+        "selenium"
+      ]
+    },
+    "Cypress": {
+      "aliases": [
+        "cypress"
+      ]
+    },
+    "JMeter": {
+      "aliases": [
+        "jmeter"
+      ]
+    },
+    "K6": {
+      "aliases": [
+        "k6"
+      ]
+    },
+    "Postman": {
+      "aliases": [
+        "postman"
+      ]
+    },
+    "TestNG": {
+      "aliases": [
+        "testng"
+      ]
+    },
+    "Mocha": {
+      "aliases": [
+        "mocha"
+      ]
+    },
+    "Jest": {
+      "aliases": [
+        "jest"
+      ]
+    },
+    "Embedded C": {
+      "aliases": [
+        "embedded c"
+      ]
+    },
+    "MISRA C": {
+      "aliases": [
+        "misra",
+        "misra c"
+      ]
+    },
+    "FreeRTOS": {
+      "aliases": [
+        "freertos"
+      ]
+    },
+    "RTOS": {
+      "aliases": [
+        "rtos"
+      ]
+    },
+    "UDS": {
+      "aliases": [
+        "uds",
+        "unified diagnostic services"
+      ]
+    },
+    "CAN Bus": {
+      "aliases": [
+        "can bus",
+        "can protocol",
+        "controller area network"
+      ]
+    },
+    "ARM": {
+      "aliases": [
+        "arm",
+        "arm cortex"
+      ]
+    },
+    "STM32": {
+      "aliases": [
+        "stm32"
+      ]
+    },
+    "Arduino": {
+      "aliases": [
+        "arduino"
+      ]
+    },
+    "Raspberry Pi": {
+      "aliases": [
+        "raspberry pi"
+      ]
+    },
+    "I2C": {
+      "aliases": [
+        "i2c"
+      ]
+    },
+    "SPI": {
+      "aliases": [
+        "spi"
+      ]
+    },
+    "UART": {
+      "aliases": [
+        "uart"
+      ]
+    },
+    "TCP/IP": {
+      "aliases": [
+        "tcp/ip",
+        "tcpip"
+      ]
+    },
+    "CCNA": {
+      "aliases": [
+        "ccna"
+      ]
+    },
+    "Cisco": {
+      "aliases": [
+        "cisco"
+      ]
+    },
+    "Packet Tracer": {
+      "aliases": [
+        "cisco packet tracer",
+        "packet tracer"
+      ]
+    },
+    "VPN": {
+      "aliases": [
+        "vpn"
+      ]
+    },
+    "Firewall": {
+      "aliases": [
+        "firewall"
+      ]
+    },
+    "OWASP": {
+      "aliases": [
+        "owasp"
+      ]
+    },
+    "Penetration Testing": {
+      "aliases": [
+        "penetration testing",
+        "pentest",
+        "pentesting"
+      ]
+    },
+    "OAuth": {
+      "aliases": [
+        "oauth",
+        "oauth2"
+      ]
+    },
+    "JWT": {
+      "aliases": [
+        "json web token",
+        "jwt"
+      ]
+    },
+    "SSL/TLS": {
+      "aliases": [
+        "ssl",
+        "ssl/tls",
+        "tls"
+      ]
+    },
+    "Ethereum": {
+      "aliases": [
+        "ethereum"
+      ]
+    },
+    "Web3": {
+      "aliases": [
+        "web3",
+        "web3.js"
+      ]
+    },
+    "EVM": {
+      "aliases": [
+        "ethereum virtual machine",
+        "evm"
+      ]
+    },
+    "Smart Contracts": {
+      "aliases": [
+        "smart contract",
+        "smart contracts"
+      ]
+    },
+    "Hardhat": {
+      "aliases": [
+        "hardhat"
+      ]
+    },
+    "Truffle": {
+      "aliases": [
+        "truffle"
+      ]
+    },
+    "ROS": {
+      "aliases": [
+        "robot operating system",
+        "ros"
+      ]
+    },
+    "Jetson": {
+      "aliases": [
+        "jetson",
+        "nvidia jetson"
+      ]
+    },
+    "SLAM": {
+      "aliases": [
+        "slam"
+      ]
+    },
+    "PLC": {
+      "aliases": [
+        "plc",
+        "programmable logic controller"
+      ]
+    },
+    "SCADA": {
+      "aliases": [
+        "scada"
+      ]
+    },
+    "Agile": {
+      "aliases": [
+        "agile"
+      ]
+    },
+    "Scrum": {
+      "aliases": [
+        "scrum"
+      ]
+    },
+    "Kanban": {
+      "aliases": [
+        "kanban"
+      ]
+    },
+    "Jira": {
+      "aliases": [
+        "jira"
+      ]
+    },
+    "Confluence": {
+      "aliases": [
+        "confluence"
+      ]
+    },
+    "SVN": {
+      "aliases": [
+        "subversion",
+        "svn"
+      ]
+    },
+    "Bitbucket": {
+      "aliases": [
+        "bitbucket"
+      ]
+    },
+    "Figma": {
+      "aliases": [
+        "figma"
+      ]
+    },
+    "Adobe XD": {
+      "aliases": [
+        "adobe xd"
+      ]
+    },
+    "Photoshop": {
+      "aliases": [
+        "adobe photoshop",
+        "photoshop"
+      ]
+    },
+    "Illustrator": {
+      "aliases": [
+        "adobe illustrator",
+        "illustrator"
+      ]
+    },
+    "Excel": {
+      "aliases": [
+        "excel",
+        "microsoft excel"
+      ]
+    },
+    "PowerPoint": {
+      "aliases": [
+        "microsoft powerpoint",
+        "powerpoint"
+      ]
+    },
+    "Microsoft Word": {
+      "aliases": [
+        "microsoft word",
+        "ms word"
+      ]
+    },
+    "SAP": {
+      "aliases": [
+        "sap"
+      ]
+    },
+    "Salesforce": {
+      "aliases": [
+        "salesforce"
+      ]
+    }
   },
   "relations": [
-    { "from": "Python", "to": "FastAPI", "type": "commonly_used_with", "weight": 1.0 },
-    { "from": "Python", "to": "PostgreSQL", "type": "commonly_used_with", "weight": 0.9 },
-    { "from": "FastAPI", "to": "PostgreSQL", "type": "commonly_used_with", "weight": 0.8 },
-    { "from": "FastAPI", "to": "Docker", "type": "commonly_used_with", "weight": 0.7 },
-    { "from": "JavaScript", "to": "TypeScript", "type": "similar_to", "weight": 0.9 },
-    { "from": "TypeScript", "to": "React", "type": "commonly_used_with", "weight": 0.9 },
-    { "from": "JavaScript", "to": "React", "type": "commonly_used_with", "weight": 0.85 },
-    { "from": "PostgreSQL", "to": "SQL", "type": "parent_of", "weight": 1.0 },
-    { "from": "Docker", "to": "Linux", "type": "commonly_used_with", "weight": 0.6 },
-    { "from": "Git", "to": "Linux", "type": "commonly_used_with", "weight": 0.4 }
+    {
+      "from": "Python",
+      "to": "FastAPI",
+      "type": "commonly_used_with",
+      "weight": 1.0
+    },
+    {
+      "from": "Python",
+      "to": "PostgreSQL",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "FastAPI",
+      "to": "PostgreSQL",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "FastAPI",
+      "to": "Docker",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "JavaScript",
+      "to": "TypeScript",
+      "type": "similar_to",
+      "weight": 0.9
+    },
+    {
+      "from": "TypeScript",
+      "to": "React",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "JavaScript",
+      "to": "React",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "PostgreSQL",
+      "to": "SQL",
+      "type": "parent_of",
+      "weight": 1.0
+    },
+    {
+      "from": "Docker",
+      "to": "Linux",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Git",
+      "to": "Linux",
+      "type": "commonly_used_with",
+      "weight": 0.4
+    },
+    {
+      "from": "Python",
+      "to": "Django",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Python",
+      "to": "Flask",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "Django",
+      "to": "PostgreSQL",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Flask",
+      "to": "PostgreSQL",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Python",
+      "to": "Pandas",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Python",
+      "to": "NumPy",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "Pandas",
+      "to": "NumPy",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "JavaScript",
+      "to": "Node.js",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Node.js",
+      "to": "Express.js",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "TypeScript",
+      "to": "Next.js",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "React",
+      "to": "Next.js",
+      "type": "parent_of",
+      "weight": 0.9
+    },
+    {
+      "from": "React",
+      "to": "Redux",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "Vue.js",
+      "to": "Nuxt.js",
+      "type": "parent_of",
+      "weight": 0.9
+    },
+    {
+      "from": "JavaScript",
+      "to": "Vue.js",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "JavaScript",
+      "to": "Angular",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "HTML",
+      "to": "CSS",
+      "type": "commonly_used_with",
+      "weight": 0.95
+    },
+    {
+      "from": "CSS",
+      "to": "Tailwind CSS",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "CSS",
+      "to": "Sass",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Kotlin",
+      "to": "Android",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Swift",
+      "to": "iOS",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Swift",
+      "to": "SwiftUI",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "Kotlin",
+      "to": "Jetpack Compose",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "JavaScript",
+      "to": "React Native",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "React",
+      "to": "React Native",
+      "type": "similar_to",
+      "weight": 0.7
+    },
+    {
+      "from": "Dart",
+      "to": "Flutter",
+      "type": "commonly_used_with",
+      "weight": 0.95
+    },
+    {
+      "from": "SQL",
+      "to": "MySQL",
+      "type": "parent_of",
+      "weight": 0.9
+    },
+    {
+      "from": "SQL",
+      "to": "SQL Server",
+      "type": "parent_of",
+      "weight": 0.8
+    },
+    {
+      "from": "SQL",
+      "to": "Oracle Database",
+      "type": "parent_of",
+      "weight": 0.8
+    },
+    {
+      "from": "SQL",
+      "to": "SQLite",
+      "type": "parent_of",
+      "weight": 0.8
+    },
+    {
+      "from": "Machine Learning",
+      "to": "TensorFlow",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Machine Learning",
+      "to": "PyTorch",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Machine Learning",
+      "to": "scikit-learn",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "Deep Learning",
+      "to": "TensorFlow",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "Deep Learning",
+      "to": "PyTorch",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "Deep Learning",
+      "to": "Keras",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "TensorFlow",
+      "to": "Keras",
+      "type": "parent_of",
+      "weight": 0.9
+    },
+    {
+      "from": "TensorFlow",
+      "to": "TFLite",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "TensorFlow",
+      "to": "ONNX",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "PyTorch",
+      "to": "ONNX",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Computer Vision",
+      "to": "OpenCV",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Computer Vision",
+      "to": "TensorFlow",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "NLP",
+      "to": "Machine Learning",
+      "type": "parent_of",
+      "weight": 0.7
+    },
+    {
+      "from": "Machine Learning",
+      "to": "MLflow",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Python",
+      "to": "Machine Learning",
+      "type": "commonly_used_with",
+      "weight": 0.85
+    },
+    {
+      "from": "Kafka",
+      "to": "Flink",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Kafka",
+      "to": "Debezium",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Apache Spark",
+      "to": "Hadoop",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Airflow",
+      "to": "ETL",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "dbt",
+      "to": "Snowflake",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "dbt",
+      "to": "BigQuery",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Docker",
+      "to": "Kubernetes",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Kubernetes",
+      "to": "Helm",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "Terraform",
+      "to": "AWS",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "Terraform",
+      "to": "Azure",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Terraform",
+      "to": "GCP",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Terraform",
+      "to": "Ansible",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "CI/CD",
+      "to": "Jenkins",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "CI/CD",
+      "to": "GitHub Actions",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "CI/CD",
+      "to": "GitLab CI",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "Docker",
+      "to": "CI/CD",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Prometheus",
+      "to": "Grafana",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Kubernetes",
+      "to": "Prometheus",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Java",
+      "to": "JUnit",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Python",
+      "to": "PyTest",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "JavaScript",
+      "to": "Jest",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "JavaScript",
+      "to": "Mocha",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Selenium",
+      "to": "Cypress",
+      "type": "similar_to",
+      "weight": 0.5
+    },
+    {
+      "from": "JMeter",
+      "to": "K6",
+      "type": "similar_to",
+      "weight": 0.6
+    },
+    {
+      "from": "Embedded C",
+      "to": "MISRA C",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "Embedded C",
+      "to": "FreeRTOS",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "FreeRTOS",
+      "to": "RTOS",
+      "type": "parent_of",
+      "weight": 0.9
+    },
+    {
+      "from": "Embedded C",
+      "to": "STM32",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "STM32",
+      "to": "ARM",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Embedded C",
+      "to": "UDS",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Embedded C",
+      "to": "CAN Bus",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Arduino",
+      "to": "Raspberry Pi",
+      "type": "similar_to",
+      "weight": 0.5
+    },
+    {
+      "from": "I2C",
+      "to": "SPI",
+      "type": "similar_to",
+      "weight": 0.6
+    },
+    {
+      "from": "SPI",
+      "to": "UART",
+      "type": "similar_to",
+      "weight": 0.5
+    },
+    {
+      "from": "TCP/IP",
+      "to": "CCNA",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "CCNA",
+      "to": "Cisco",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Cisco",
+      "to": "Packet Tracer",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "OWASP",
+      "to": "Penetration Testing",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "OAuth",
+      "to": "JWT",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Solidity",
+      "to": "Ethereum",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Solidity",
+      "to": "Smart Contracts",
+      "type": "commonly_used_with",
+      "weight": 0.9
+    },
+    {
+      "from": "Solidity",
+      "to": "Yul",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Ethereum",
+      "to": "EVM",
+      "type": "commonly_used_with",
+      "weight": 0.8
+    },
+    {
+      "from": "Smart Contracts",
+      "to": "Hardhat",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Smart Contracts",
+      "to": "Truffle",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Web3",
+      "to": "Ethereum",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "ROS",
+      "to": "Jetson",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "ROS",
+      "to": "SLAM",
+      "type": "commonly_used_with",
+      "weight": 0.6
+    },
+    {
+      "from": "Python",
+      "to": "ROS",
+      "type": "commonly_used_with",
+      "weight": 0.5
+    },
+    {
+      "from": "PLC",
+      "to": "SCADA",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Agile",
+      "to": "Scrum",
+      "type": "parent_of",
+      "weight": 0.9
+    },
+    {
+      "from": "Scrum",
+      "to": "Kanban",
+      "type": "similar_to",
+      "weight": 0.6
+    },
+    {
+      "from": "Scrum",
+      "to": "Jira",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    },
+    {
+      "from": "Jira",
+      "to": "Confluence",
+      "type": "commonly_used_with",
+      "weight": 0.7
+    }
   ]
 }

@@ -1,12 +1,10 @@
-"""Orchestrator: run the real Ingest Agent graph over the sampled CVs, score it with
-deterministic metrics + LLM-as-judge, and write evaluation/ingest_eval/results/report.md.
+"""Orchestrator: run the real Ingest Agent graph over a 41-CV sample (generated_cv + cv_hard),
+score it, and write evaluation/ingest_eval_v2/results/report.md.
 
 Usage (from repo root, venv active):
-    python -m evaluation.ingest_eval.run_eval [--limit N]
+    python -m evaluation.ingest_eval_v2.run_eval [--limit N]
 
-Requires OPENAI_API_KEY in .env (see evaluation/ingest_eval/llm_openai.py -- this eval uses
-OpenAI, not the production Qwen client, via the same complete/encode injection points
-backend/app/agents/ingest/graph.py already exposes).
+Requires OPENAI_API_KEY in .env (see evaluation/ingest_eval_v2/llm_openai.py).
 """
 
 from __future__ import annotations
@@ -28,22 +26,22 @@ try:
 except (AttributeError, ValueError):
     pass
 
-from evaluation.ingest_eval.cache import cached_call, content_hash  # noqa: E402
-from evaluation.ingest_eval.judge import judge_faithfulness, judge_skills_and_pii  # noqa: E402
-from evaluation.ingest_eval.llm_openai import CHAT_MODEL, EMBED_MODEL  # noqa: E402
-from evaluation.ingest_eval.metrics import compute_metrics, taxonomy_canonical_skills  # noqa: E402
-from evaluation.ingest_eval.pipeline import run_ingest_pipeline  # noqa: E402
+from evaluation.ingest_eval_v2.cache import cached_call, content_hash  # noqa: E402
+from evaluation.ingest_eval_v2.judge import judge_faithfulness, judge_skills_and_pii  # noqa: E402
+from evaluation.ingest_eval_v2.llm_openai import CHAT_MODEL, EMBED_MODEL  # noqa: E402
+from evaluation.ingest_eval_v2.metrics import compute_metrics, taxonomy_canonical_skills  # noqa: E402
+from evaluation.ingest_eval_v2.pipeline import run_ingest_pipeline  # noqa: E402
 
 MANIFEST_PATH = Path(__file__).resolve().parent / "manifest.json"
 REPORT_PATH = Path(__file__).resolve().parent / "results" / "report.md"
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2-redesign"
 
 
 def _run_pipeline_cached(cv_entry: dict) -> dict:
     pdf_path = REPO_ROOT / cv_entry["pdf_path"]
     pdf_bytes = pdf_path.read_bytes()
     key = content_hash(PROMPT_VERSION, CHAT_MODEL, EMBED_MODEL, str(len(pdf_bytes)), cv_entry["cv_id"])
-    return cached_call("runs", key, lambda: run_ingest_pipeline(pdf_path))
+    return cached_call("runs_v2", key, lambda: run_ingest_pipeline(pdf_path))
 
 
 def evaluate_one(cv_entry: dict) -> dict[str, Any]:
@@ -91,6 +89,7 @@ def build_report(results: list[dict]) -> str:
     judge_pii_leak_cvs = [r for r in results if r["skills_pii"]["pii_leak_found"]]
     empty_summary_cvs = [r for r in results if r["metrics"]["summary"]["empty"]]
     embed_bad_cvs = [r for r in results if not r["metrics"]["embedding"]["dim_ok"] or not r["metrics"]["embedding"]["nonzero"]]
+    low_content_cvs = [r for r in results if r["run"]["metadata"].get("low_content")]
 
     faith_scores = [r["faithfulness"]["score"] for r in results]
     precisions = [r["skills_pii"]["precision_est"] for r in results]
@@ -106,19 +105,21 @@ def build_report(results: list[dict]) -> str:
     lines: list[str] = []
     lines.append("# Báo cáo đánh giá Ingest Agent")
     lines.append("")
-    lines.append(f"- Ngày chạy: 2026-08-21")
+    lines.append("- Ngày chạy: 2026-08-22")
     n_hard = sum(1 for r in results if r["cv"]["quality_profile"] == "hard_real_world")
     lines.append(
-        f"- Mẫu: {n} CV (xem `manifest.json`) — {n - n_hard} CV tổng hợp từ `data_find/generated_cv/` "
-        f"+ {n_hard} CV thật cấu trúc khó từ `evaluation/cv_hard/`"
+        f"- Mẫu: {n} CV (xem `evaluation/ingest_eval_v2/manifest.json`) — "
+        f"{n - n_hard} CV tổng hợp từ `data_find/generated_cv/` + {n_hard} CV thật cấu trúc khó từ "
+        "`evaluation/cv_hard/`"
     )
     lines.append(f"- Chat model: `{CHAT_MODEL}` (OpenAI) — LLM-judge cũng dùng model này")
     lines.append(f"- Embedding model: `{EMBED_MODEL}` (OpenAI, dim=1536)")
     lines.append(
-        "- Pipeline: chạy `build_ingest_graph()` thật từ `backend/app/agents/ingest/graph.py`, "
+        "- Pipeline: chạy `build_ingest_graph()` thật (đã redesign) từ "
+        "`backend/app/agents/ingest/graph.py`, thứ tự node hiện tại là "
+        "`parse -> clean -> extract -> summarize -> embed` (extract chuyển lên trước summarize), "
         "qua `graph.astream(..., stream_mode=\"values\")`, inject `complete`/`encode` bằng OpenAI "
-        "(production dùng Qwen; cùng điểm inject mà `tests/unit/test_matching_ingest.py` đang dùng, "
-        "không sửa code backend)."
+        "(production dùng Qwen)."
     )
     lines.append("")
 
@@ -127,6 +128,7 @@ def build_report(results: list[dict]) -> str:
     lines.append("| Metric | Giá trị |")
     lines.append("|---|---|")
     lines.append(f"| Tỷ lệ parse thành công | {parse_success}/{n} |")
+    lines.append(f"| CV bị gắn cờ `low_content` (parse quá ít nội dung) | {len(low_content_cvs)}/{n} |")
     lines.append(f"| CV còn PII (regex) trong text lưu cuối cùng | {len(pii_hit_cvs)}/{n} |")
     lines.append(f"| CV bị lộ token tên ứng viên trong text cuối | {len(name_leak_cvs)}/{n} |")
     lines.append(f"| CV bị LLM-judge gắn cờ còn PII | {len(judge_pii_leak_cvs)}/{n} |")
@@ -138,7 +140,9 @@ def build_report(results: list[dict]) -> str:
     lines.append(
         f"| Recall skill trung bình so với text đầy đủ trước summarize (đo bằng code, không qua LLM) | {_fmt(_mean(skill_recall_vs_full))} |"
     )
-    lines.append(f"| Tổng số skill bị mất do summarization trong cả mẫu (đo bằng code) | {total_lost_skills} |")
+    lines.append(
+        f"| Tổng số skill bị mất do summarization trong cả mẫu (đo bằng code — kỳ vọng ~0 sau khi đổi thứ tự node) | {total_lost_skills} |"
+    )
     lines.append(f"| Latency trung bình toàn pipeline | {_fmt(_mean(total_ms))} ms |")
     lines.append("")
 
@@ -146,7 +150,7 @@ def build_report(results: list[dict]) -> str:
     lines.append("")
     lines.append("| Node | Trung bình | Trung vị | Max |")
     lines.append("|---|---|---|---|")
-    for node in ["parse", "clean", "summarize", "extract", "embed"]:
+    for node in ["parse", "clean", "extract", "summarize", "embed"]:
         vals = node_ms.get(node, [])
         if not vals:
             continue
@@ -154,54 +158,54 @@ def build_report(results: list[dict]) -> str:
     lines.append("")
 
     taxonomy = taxonomy_canonical_skills()
-    lines.append("## 3. Nguyên nhân gốc của recall trích skill thấp: taxonomy chỉ có 10 skill")
+    lines.append("## 3. Độ phủ taxonomy skill")
     lines.append("")
     lines.append(
-        f"`extract_skills()` chỉ có thể trả về các từ khoá có trong "
-        f"`backend/app/services/matching/resources/skill_graph.json`, hiện file này định nghĩa "
-        f"**{len(taxonomy)} skill chuẩn hoá**: {', '.join(taxonomy)} (kèm alias cho mỗi skill). "
-        "Nó không thể nhận diện bất kỳ skill nào ngoài danh sách này — không phải lỗi logic "
-        "matching/normalize, mà là taxonomy tĩnh quá hẹp. Đây là lý do recall của LLM-judge gần "
-        "như bằng 0 với mọi CV ngoài stack web ở mục 6 bên dưới: judge so sánh với những gì con "
-        "người gọi là \"skill có trong CV\" (TensorFlow, Docker, Kotlin, ONNX, ...), trong khi "
-        "`extract_skills()` chỉ có thể khớp 10 từ khoá trên. Bất kỳ CV nào có stack không phải "
-        "Python/FastAPI/PostgreSQL/Docker/JS/TS/React/SQL/Git/Linux đều sẽ cho recall thấp một "
-        "cách giả tạo ở đây, bất kể `summarize` hay `extract_skills()` tự thân hoạt động tốt đến đâu."
+        f"`extract_skills()` hiện nhận diện **{len(taxonomy)} skill chuẩn hoá** trong "
+        "`backend/app/services/matching/resources/skill_graph.json`, "
+        "cộng thêm một lớp fuzzy-match (rapidfuzz, ngưỡng 88) cho lỗi chính tả/spacing nhẹ. Phủ thêm "
+        "các domain trước đây bị bỏ sót: ML/AI, embedded/firmware, data infra, "
+        "blockchain, robotics, networking, mobile, DevOps. Bảng mục 6 bên dưới cho recall/precision "
+        "thực đo trên từng CV."
     )
     lines.append("")
 
-    lines.append("## 4. Mất skill do summarization (khác với vấn đề taxonomy hẹp)")
+    lines.append("## 4. Thứ tự extract/summarize (bug đã sửa, đo lại ở đây)")
     lines.append("")
     lines.append(
-        "`extract_skills()` (rule-based, deterministic) chạy trên `state[\"markdown\"]` **sau khi** "
-        "node `summarize` đã ghi đè key này bằng `body` do LLM viết lại "
-        "(`backend/app/agents/ingest/nodes/summarize.py:19-20`), không chạy trên toàn bộ text CV "
-        "đã parse. Nếu bản `body` LLM viết lại bỏ sót một skill có trong CV gốc, `extract_skills()` "
-        "sẽ không bao giờ thấy skill đó. Bảng dưới so sánh skill trích được từ `body` thực tế trong "
-        "production với cùng hàm `extract_skills()` thật chạy trực tiếp trên markdown đầy đủ trước "
-        "summarize, cho các trường hợp mất nhiều nhất trong mẫu."
+        "Trước redesign, `extract_skills()` chạy trên `state[\"markdown\"]` **sau khi** node "
+        "`summarize` ghi đè key này bằng bản LLM viết lại, nên skill bị bản tóm tắt bỏ sót sẽ mất "
+        "vĩnh viễn. Từ redesign này, graph chạy `extract` **trước** `summarize` "
+        "(`backend/app/agents/ingest/graph.py`), nên `lost_to_summarization` ở mục 1 kỳ vọng gần 0 "
+        "cho toàn bộ mẫu. Bảng dưới liệt kê case nào (nếu có) vẫn còn mất skill, để soi lại nếu số "
+        "khác 0."
     )
     lines.append("")
     worst_loss = sorted(
         results, key=lambda r: len(r["metrics"]["skills"]["lost_to_summarization"]), reverse=True
     )[:10]
-    lines.append("| CV | Skill trong production | Mất do summarization | Skill từ text đầy đủ |")
-    lines.append("|---|---|---|---|")
-    for r in worst_loss:
-        m = r["metrics"]["skills"]
-        if not m["lost_to_summarization"]:
-            continue
-        lines.append(
-            f"| {r['cv']['cv_id']} | {m['production_count']} | "
-            f"{', '.join(m['lost_to_summarization'])} | {m['full_text_count']} |"
-        )
+    has_loss = any(r["metrics"]["skills"]["lost_to_summarization"] for r in worst_loss)
+    if not has_loss:
+        lines.append("Không có CV nào trong mẫu bị mất skill do summarization — đúng như kỳ vọng sau khi đổi thứ tự node.")
+    else:
+        lines.append("| CV | Skill trong production | Mất do summarization | Skill từ text đầy đủ |")
+        lines.append("|---|---|---|---|")
+        for r in worst_loss:
+            m = r["metrics"]["skills"]
+            if not m["lost_to_summarization"]:
+                continue
+            lines.append(
+                f"| {r['cv']['cv_id']} | {m['production_count']} | "
+                f"{', '.join(m['lost_to_summarization'])} | {m['full_text_count']} |"
+            )
     lines.append("")
 
     lines.append("## 5. Faithfulness (summarize) — các case tệ nhất")
     lines.append("")
     lines.append(
         "Score = số claim được support / tổng số claim, LLM-judge chấm từng claim so với text "
-        "gốc trước summarize, sau đó tổng hợp bằng code (không lấy điểm tự chấm của model)."
+        "gốc trước summarize, sau đó tổng hợp bằng code (không lấy điểm tự chấm của model). Prompt "
+        "`summarize.txt` có chỉ dẫn chống bịa đặt (anti-hallucination)."
     )
     lines.append("")
     worst_faith = sorted(
@@ -238,11 +242,8 @@ def build_report(results: list[dict]) -> str:
     lines.append("## 7. Các case rò rỉ PII")
     lines.append("")
     lines.append(
-        "`URL_RE` trong `redact_pii()` (`backend/app/services/matching/parse.py:85-88`) chỉ khớp "
-        "`github.com`, `linkedin.com`, `facebook.com` và link `http(s)://`/`www.` trần — một mention "
-        "dạng `twitter.com/...` (không có scheme, không có `www.`) không được bắt và sống sót qua "
-        "redact 2 lần (một lần trong `parse_resume_bytes`, một lần nữa sau `summarize`). Case "
-        "G12-SC-01 bên dưới đúng vào trường hợp này."
+        "`redact_pii()` có pattern domain/path tổng quát (bắt được mention kiểu "
+        "`twitter.com/handle` không có scheme) và phát hiện tên bị \"wrap\" xuống dòng."
     )
     lines.append("")
     if not pii_hit_cvs and not name_leak_cvs and not judge_pii_leak_cvs:
@@ -263,17 +264,18 @@ def build_report(results: list[dict]) -> str:
     lines.append("## 8. Chi tiết từng CV")
     lines.append("")
     lines.append(
-        "| CV | Nhóm ngành | Chất lượng | Số ký tự parse | Faithfulness | Skill P/R | Skill mất | PII hits | Total ms |"
+        "| CV | Nhóm ngành | Chất lượng | Số ký tự parse | low_content | Faithfulness | Skill P/R | Skill mất | PII hits | Total ms |"
     )
-    lines.append("|---|---|---|---|---|---|---|---|---|")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|")
     for r in sorted(results, key=lambda r: r["cv"]["cv_id"]):
         cv = r["cv"]
         m = r["metrics"]
         f = r["faithfulness"]
         sp = r["skills_pii"]
+        low_content = r["run"]["metadata"].get("low_content")
         lines.append(
             f"| {cv['cv_id']} | {cv['group_name']} | {cv['quality_profile']} | "
-            f"{m['parse']['chars']} | {_fmt(f['score'])} | "
+            f"{m['parse']['chars']} | {'có' if low_content else 'không'} | {_fmt(f['score'])} | "
             f"{_fmt(sp['precision_est'])}/{_fmt(sp['recall_est'])} | "
             f"{len(m['skills']['lost_to_summarization'])} | {m['pii']['regex_hits_total']} | "
             f"{_fmt(m['total_ms'])} |"
@@ -288,45 +290,28 @@ def build_report(results: list[dict]) -> str:
         lines.append("## 9. Bộ CV Hard (cấu trúc khó, dữ liệu thật từ TopCV.vn)")
         lines.append("")
         lines.append(
-            f"{len(hard_results)} CV thật (export từ TopCV.vn, không có frontmatter/markdown gốc — "
-            "lấy trực tiếp `evaluation/cv_hard/*.pdf`), layout nhiều cột và có icon/khối màu thay vì "
-            "text CV tổng hợp một cột. Ground truth `candidate_name` cho các CV này được xác nhận thủ "
-            "công một lần từ text PDF gốc (chưa qua redact), dùng riêng cho việc đo rò rỉ PII, tương "
-            "tự vai trò của frontmatter YAML với bộ CV tổng hợp."
+            f"{len(hard_results)} CV thật (export từ TopCV.vn), layout nhiều cột/icon. Parser có "
+            "fallback `pdfplumber` (tách cột theo vị trí x) khi `pymupdf4llm`+OCR vẫn cho nội "
+            "dung dưới ngưỡng `LOW_CONTENT_CHAR_THRESHOLD` (600 ký tự)."
         )
         lines.append("")
         lines.append(
-            f"**Parse yield thấp hơn hẳn**: trung bình `parse` chỉ ra **{_fmt(_mean(hard_chars))} ký tự** "
-            f"cho bộ CV Hard, so với **{_fmt(_mean(rest_chars))} ký tự** ở bộ CV tổng hợp (36 CV còn lại) "
-            "— khoảng một nửa, dù CV thật thường không kém phần nội dung hơn CV tổng hợp. Trường hợp cực "
-            "đoan nhất là `HARD-PHI-NGOC-THIEN-TopCV.vn-`: file PDF nặng 541KB nhưng `parse` chỉ trích "
-            "được 710 ký tự — dấu hiệu rõ của một layout nhiều icon/khối đồ hoạ mà `pymupdf4llm` + OCR "
-            "fallback không phục hồi được phần lớn nội dung."
+            f"Parse yield trung bình bộ Hard ở lần chạy này: **{_fmt(_mean(hard_chars))} ký tự**, "
+            f"so với **{_fmt(_mean(rest_chars))} ký tự** ở bộ CV tổng hợp ({len(rest_results)} CV còn "
+            "lại)."
         )
         lines.append("")
-        lines.append(
-            "**OCR fallback được kích hoạt thật** (`force_ocr=True` sau khi `_looks_corrupted()` phát "
-            "hiện text layer gốc không tin cậy — `backend/app/services/matching/parse.py:340-358`) cho "
-            "ít nhất 4/5 CV trong bộ này, trong khi hầu như không CV tổng hợp nào cần đến nhánh này (PDF "
-            "tổng hợp render bằng `render_cv_pdf.py` có text layer sạch). Đây đúng là loại \"cấu trúc "
-            "khó\" mà bộ CV tổng hợp không test được."
-        )
-        lines.append("")
-        lines.append("| CV | Số ký tự parse | Faithfulness | Skill P/R | PII hits (regex/LLM-judge) |")
-        lines.append("|---|---|---|---|---|")
+        lines.append("| CV | Số ký tự parse | low_content | Faithfulness | Skill P/R | PII hits (regex/LLM-judge) |")
+        lines.append("|---|---|---|---|---|---|")
         for r in sorted(hard_results, key=lambda r: r["metrics"]["parse"]["chars"]):
             cv, m, f, sp = r["cv"], r["metrics"], r["faithfulness"], r["skills_pii"]
+            low_content = r["run"]["metadata"].get("low_content")
             pii = f"{m['pii']['regex_hits_total']}/{'có' if sp['pii_leak_found'] else 'không'}"
             lines.append(
-                f"| {cv['candidate_name'] or cv['cv_id']} | {m['parse']['chars']} | {_fmt(f['score'])} | "
+                f"| {cv['candidate_name'] or cv['cv_id']} | {m['parse']['chars']} | "
+                f"{'có' if low_content else 'không'} | {_fmt(f['score'])} | "
                 f"{_fmt(sp['precision_est'])}/{_fmt(sp['recall_est'])} | {pii} |"
             )
-        lines.append("")
-        lines.append(
-            "Faithfulness và PII-leak trên bộ Hard không tệ hơn bộ tổng hợp — vấn đề chính của layout "
-            "khó nằm ở tầng `parse` (mất nội dung trước khi tới `summarize`/`extract` chứ không phải "
-            "hai node đó hoạt động sai)."
-        )
         lines.append("")
 
     return "\n".join(lines)

@@ -7,7 +7,8 @@ Return ONLY a JSON object with these keys:
 
 Rules:
 - Do not include names, emails, phones, addresses, URLs, dates of birth, national IDs, or social handles in any field.
-- Use only facts in the source. Do not invent employers, dates, or skills.
+- Use only facts explicitly stated in the source. Do not invent or infer employers, dates, skills, tools, frameworks, metrics, or certifications that are not written in the source, even if they are commonly used together with something that is.
+- If you are not certain a fact is in the source, leave it out rather than guessing.
 - Do not wrap the JSON in code fences.
 - Do not write the words "1-3 sentences".
 

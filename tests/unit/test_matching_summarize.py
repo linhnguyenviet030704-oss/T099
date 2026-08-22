@@ -1,6 +1,21 @@
 import json
 
-from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_TEMPLATE, summarize_resume
+from backend.app.services.matching.summarize import (
+    SUMMARIZE_PROMPT_TEMPLATE,
+    grounded_titles,
+    summarize_resume,
+)
+
+
+def test_grounded_titles_drops_fabricated_role():
+    source = "Worked as Backend Engineer building APIs with FastAPI."
+    titles = ["Backend Engineer", "Senior Data Scientist"]
+    assert grounded_titles(titles, source) == ["Backend Engineer"]
+
+
+def test_grounded_titles_keeps_titles_present_in_source():
+    source = "Machine Learning Engineer at a startup, trained models."
+    assert grounded_titles(["Machine Learning Engineer"], source) == ["Machine Learning Engineer"]
 
 
 def test_summarize_prompt_asks_for_json_metadata():

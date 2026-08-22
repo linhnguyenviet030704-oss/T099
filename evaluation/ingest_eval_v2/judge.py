@@ -15,8 +15,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from evaluation.ingest_eval.cache import cached_call, content_hash
-from evaluation.ingest_eval.llm_openai import CHAT_MODEL, openai_complete
+from evaluation.ingest_eval_v2.cache import cached_call, content_hash
+from evaluation.ingest_eval_v2.llm_openai import CHAT_MODEL, openai_complete
 
 PROMPT_VERSION = "v1"
 

@@ -60,23 +60,23 @@ Route không chứa business logic hay query Supabase trực tiếp; repository 
 
 ```mermaid
 graph LR
-    START --> parse[parse<br/>PDF/DOCX → markdown]
+    START --> parse[parse<br/>PDF/DOCX → markdown + quality flag]
     parse --> clean[clean<br/>chuẩn hoá markdown]
-    clean --> summarize[summarize<br/>LLM tóm tắt + redact PII]
-    summarize --> extract[extract<br/>trích skill từ text]
-    extract --> embed[embed<br/>tạo vector embedding]
+    clean --> extract[extract<br/>trích skill từ text gốc]
+    extract --> summarize[summarize<br/>LLM tóm tắt + redact PII]
+    summarize --> embed[embed<br/>tạo vector embedding]
     embed --> END
 ```
 
 | Node | Việc làm |
 |---|---|
-| `parse` | `pymupdf`/`pymupdf4llm` đọc PDF/DOCX → markdown thô |
+| `parse` | `pymupdf4llm` đọc PDF (fallback OCR khi nghi ngờ hỏng, fallback `pdfplumber` đọc theo cột khi nội dung vẫn quá ít), `python-docx` đọc DOCX thật → markdown + `metadata.content_chars`/`low_content` (cờ chất lượng parse) |
 | `clean` | chuẩn hoá whitespace/format markdown |
-| `summarize` | gọi LLM (Qwen, JSON mode) tóm tắt CV thành `summary` + `titles`, sau đó `redact_pii` xoá thông tin nhạy cảm khỏi body |
-| `extract` | trích danh sách skill từ markdown (rule-based, `services/matching/skills.py`) |
-| `embed` | gọi Qwen embedding API → vector, lưu vào `public.embedded_resumes` (pgvector) |
+| `extract` | trích skill từ markdown **gốc** (trước khi LLM tóm tắt) — deterministic, taxonomy ~185 skill + fuzzy fallback (`services/matching/skills.py`) |
+| `summarize` | gọi LLM (Qwen, JSON mode) tóm tắt CV thành `summary` + `titles` (lọc bỏ title LLM tự bịa không có trong nguồn), rồi `redact_pii` xoá thông tin nhạy cảm khỏi body; **không** đụng tới `metadata.skills` đã có từ bước `extract` |
+| `embed` | gọi Qwen embedding API (có retry/backoff) → vector, lưu vào `public.embedded_resumes` (pgvector) |
 
-Kết quả ghi vào `public.embedded_resumes` (embedding + markdown đã parse + metadata skills), phục vụ semantic search sau này. Bảng này **không** expose qua Supabase Data API — chỉ backend (service_role) đọc/ghi được.
+Skill được trích từ CV **trước** khi LLM tóm tắt (không phải từ bản tóm tắt), để tránh mất skill khi LLM cắt bớt nội dung. Kết quả ghi vào `public.embedded_resumes` (embedding + markdown đã parse + metadata skills), phục vụ semantic search sau này. Bảng này **không** expose qua Supabase Data API — chỉ backend (service_role) đọc/ghi được.
 
 ## 4. Matching Agent (LangGraph) — gợi ý ứng viên
 

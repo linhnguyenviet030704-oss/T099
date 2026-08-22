@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -44,6 +45,34 @@ def _post(post: PostFn | None):
     return post or httpx.post
 
 
+_MAX_ATTEMPTS = 3
+_BACKOFF_BASE_SECONDS = 0.5
+
+
+def _is_retryable(exc: Exception) -> bool:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return isinstance(exc, httpx.TransportError)
+
+
+def _call_with_retries(post: PostFn, url: str, **kwargs: Any):
+    """Retry transient network/5xx failures with exponential backoff.
+    Client errors (4xx) and non-HTTP exceptions from the fake/test
+    `post` fail immediately, unretried."""
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_ATTEMPTS):
+        try:
+            response = post(url, **kwargs)
+            response.raise_for_status()
+            return response
+        except Exception as exc:  # noqa: BLE001 - decide retry below
+            last_exc = exc
+            if not _is_retryable(exc) or attempt == _MAX_ATTEMPTS - 1:
+                raise
+            time.sleep(_BACKOFF_BASE_SECONDS * (2**attempt))
+    raise last_exc  # pragma: no cover - loop always returns or raises
+
+
 def chat_complete(
     prompt: str,
     *,
@@ -62,13 +91,13 @@ def chat_complete(
     }
     if json_object:
         payload["response_format"] = {"type": "json_object"}
-    response = _post(post)(
+    response = _call_with_retries(
+        _post(post),
         f"{_base_url(base_url)}/chat/completions",
         json=payload,
         headers=_headers(_api_key(api_key)),
         timeout=REQUEST_TIMEOUT,
     )
-    response.raise_for_status()
     content = response.json()["choices"][0]["message"]["content"]
     return str(content).strip()
 
@@ -88,13 +117,13 @@ def embed_query(
         "dimensions": dimensions if dimensions is not None else DEFAULT_EMBED_DIM,
         "encoding_format": "float",
     }
-    response = _post(post)(
+    response = _call_with_retries(
+        _post(post),
         f"{_base_url(base_url)}/embeddings",
         json=payload,
         headers=_headers(_api_key(api_key)),
         timeout=REQUEST_TIMEOUT,
     )
-    response.raise_for_status()
     return [float(x) for x in response.json()["data"][0]["embedding"]]
 
 

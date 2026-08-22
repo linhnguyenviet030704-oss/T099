@@ -1,7 +1,21 @@
 import json
 
-from backend.app.services.matching.skills import merge_skill_records
-from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_TEMPLATE, summarize_resume
+from backend.app.services.matching.summarize import (
+    SUMMARIZE_PROMPT_TEMPLATE,
+    grounded_titles,
+    summarize_resume,
+)
+
+
+def test_grounded_titles_drops_fabricated_role():
+    source = "Worked as Backend Engineer building APIs with FastAPI."
+    titles = ["Backend Engineer", "Senior Data Scientist"]
+    assert grounded_titles(titles, source) == ["Backend Engineer"]
+
+
+def test_grounded_titles_keeps_titles_present_in_source():
+    source = "Machine Learning Engineer at a startup, trained models."
+    assert grounded_titles(["Machine Learning Engineer"], source) == ["Machine Learning Engineer"]
 
 
 def test_summarize_prompt_is_factual_and_untrusted():
@@ -74,15 +88,76 @@ def test_placeholder_summary_is_dropped():
     assert "Built APIs." in meta["body"]
 
 
-def test_merge_verified_vs_inferred():
-    clean = "Developed REST APIs using FastAPI at a startup. Python daily."
-    records, verified, inferred = merge_skill_records(clean, ["fastapi", "cooking"], "Also mentions Docker.")
-    assert "fastapi" in verified
-    assert "python" in verified
-    assert "cooking" not in verified and "cooking" not in inferred
-    assert "docker" in inferred
-    by_id = {row["id"]: row for row in records}
-    assert by_id["fastapi"]["status"] == "verified"
-    assert "FastAPI" in by_id["fastapi"]["quote"]
-    assert by_id["docker"]["status"] == "inferred"
-    assert by_id["docker"]["quote"] == ""
+def test_summarize_node_keeps_extract_skills_and_adds_match_schema():
+    """Demo2 ingests skills from `extract` before summarize. Summarize must
+    not overwrite them; it only verifies them and attaches major/sub."""
+    import asyncio
+
+    from backend.app.agents.ingest.nodes.summarize import make_summarize_node
+
+    def complete(_prompt: str, **_kwargs) -> str:
+        return json.dumps(
+            {
+                "summary": "Backend engineer.",
+                "titles": ["Backend Engineer"],
+                "body": "## Experience\nBuilt APIs with FastAPI.",
+            }
+        )
+
+    state = {
+        "markdown": "Built APIs with FastAPI and PostgreSQL.",
+        "clean_markdown": "Built APIs with FastAPI and PostgreSQL.",
+        "skills": ["FastAPI", "PostgreSQL"],
+        "metadata": {"content_chars": 60},
+    }
+    node = make_summarize_node(complete=complete)
+    out = asyncio.run(node(state))
+    metadata = out["metadata"]
+
+    # Skills from extract are preserved, not replaced by LLM output.
+    assert set(metadata["skills"]) == {"FastAPI", "PostgreSQL"}
+    # LLM dropped PostgreSQL from the body, so it is "inferred" (came from
+    # extract / taxonomy, not confirmed by the rewrite). FastAPI survived.
+    assert metadata["verified_skills"] == ["FastAPI"]
+    assert metadata["inferred_skills"] == ["PostgreSQL"]
+    # Schema matching fields are populated for downstream matching.
+    assert isinstance(metadata["major_field"], str)
+    assert isinstance(metadata["sub_field"], list)
+    assert isinstance(metadata["skill_records"], list)
+    assert {rec["skill"] for rec in metadata["skill_records"]} == {"FastAPI", "PostgreSQL"}
+    sources = {rec["skill"]: rec["source"] for rec in metadata["skill_records"]}
+    assert sources == {"FastAPI": "verified", "PostgreSQL": "inferred"}
+    assert metadata["taxonomy_version"]
+
+
+def test_summarize_node_marks_extract_skills_inferred_when_absent_from_body():
+    import asyncio
+
+    from backend.app.agents.ingest.nodes.summarize import make_summarize_node
+
+    def complete(_prompt: str, **_kwargs) -> str:
+        return json.dumps(
+            {
+                "summary": "Engineer.",
+                "titles": [],
+                "body": "## Experience\nWorked at Acme.",
+            }
+        )
+
+    # extract found Python + FastAPI, but summarize stripped body down to
+    # generic prose — those skills came from extract only, so they're
+    # "inferred" (taxonomy-aware, not LLM-confirmed).
+    state = {
+        "markdown": "Built APIs with FastAPI and Python.",
+        "clean_markdown": "Built APIs with FastAPI and Python.",
+        "skills": ["Python", "FastAPI"],
+        "metadata": {},
+    }
+    node = make_summarize_node(complete=complete)
+    out = asyncio.run(node(state))
+    metadata = out["metadata"]
+    assert set(metadata["skills"]) == {"Python", "FastAPI"}
+    assert metadata["verified_skills"] == []
+    assert set(metadata["inferred_skills"]) == {"Python", "FastAPI"}
+    sources = {rec["source"] for rec in metadata["skill_records"]}
+    assert sources == {"inferred"}

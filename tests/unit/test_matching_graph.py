@@ -159,10 +159,9 @@ async def test_ingest_extracts_skills_from_summary_not_raw_cv():
     result = await graph.ainvoke(
         {"raw_bytes": b"Python FastAPI Docker intern", "mime_type": "text/plain"}
     )
-    assert "fastapi" in result["metadata"]["skills"]
-    assert "python" in result["metadata"]["verified_skills"]
-    assert "cooking" not in result["metadata"]["skills"]
-    assert result["metadata"]["titles"] == []
+    assert set(result["metadata"]["skills"]) == {"Python", "FastAPI", "Docker"}
+    assert result["metadata"]["summary"] == "API intern."
+    assert result["metadata"]["titles"] == ["Intern"]
     assert not result["markdown"].startswith("---")
     assert "summary:" not in result["markdown"]
     assert "Used FastAPI" in result["markdown"]
@@ -201,3 +200,17 @@ async def test_ingest_does_not_embed_pii_even_if_llm_echoes_it():
     assert "0912345678" not in blob
     assert "Nguyen Van A" not in blob
     assert "FastAPI" in result["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_ingest_flags_low_content_through_to_final_metadata():
+    """The parse-stage quality gate flag must survive extract/summarize
+    overwriting other metadata keys, since it's how downstream systems can
+    tell a thin/failed extraction from a genuinely short CV."""
+
+    def encode(_text: str) -> list[float]:
+        return [0.1] * EMBED_DIM
+
+    graph = build_ingest_graph(encode=encode, complete=_complete)
+    result = await graph.ainvoke({"raw_bytes": b"Hi", "mime_type": "text/plain"})
+    assert result["metadata"]["low_content"] is True

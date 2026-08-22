@@ -105,6 +105,22 @@ def _clean_titles(titles: list) -> list[str]:
     return cleaned
 
 
+def grounded_titles(titles: list[str], source: str) -> list[str]:
+    """Drop titles the LLM did not actually see in the source CV.
+
+    Cheap guard against fabrication (e.g. inventing "Senior Data Scientist"
+    for a CV that never uses that title): keep only titles whose words all
+    appear in the source text, case-insensitively.
+    """
+    haystack = source.casefold()
+    kept: list[str] = []
+    for title in titles:
+        words = [w for w in re.findall(r"[^\W_]+", title.casefold()) if w]
+        if words and all(word in haystack for word in words):
+            kept.append(title)
+    return kept
+
+
 def _looks_like_markdown(text: str) -> bool:
     stripped = text.strip()
     return stripped.startswith("#") or "\n## " in stripped

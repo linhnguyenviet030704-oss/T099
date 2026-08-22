@@ -5,7 +5,7 @@ for most entries) instead of generating a new golden set -- that pool already ha
 variety (roles, seniority, "polished" vs "sparse" vs "cross_domain" formatting) needed to
 stress the parse/clean/summarize/extract/embed pipeline.
 
-Output: evaluation/ingest_eval/manifest.json
+Output: evaluation/ingest_eval_v2/manifest.json
 """
 
 from __future__ import annotations

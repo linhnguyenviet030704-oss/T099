@@ -1,6 +1,7 @@
 from backend.app.services.matching.skills import (
     coverage_score,
     expand_query,
+    extract_skills,
     jaccard_score,
     load_taxonomy_index,
     normalize_skill,
@@ -52,3 +53,42 @@ def test_expand_query_appends_related_taxonomy_terms():
 def test_expand_query_without_known_skills_is_unchanged():
     text = "Looking for a kind teammate"
     assert expand_query(text) == text
+
+
+def test_extract_skills_covers_expanded_taxonomy_domains():
+    """Guards against the eval-report finding that only a 10-skill
+    taxonomy meant entire domains (ML, embedded, data infra, blockchain,
+    networking) were invisible to skill extraction."""
+    text = (
+        "Built models with TensorFlow and PyTorch, deployed on Kubernetes "
+        "with Terraform. Embedded firmware in Embedded C with FreeRTOS. "
+        "Streamed events through Kafka and Flink. Wrote Solidity smart "
+        "contracts. CCNA certified, worked with Cisco gear."
+    )
+    found = set(extract_skills(text))
+    assert {
+        "TensorFlow",
+        "PyTorch",
+        "Kubernetes",
+        "Terraform",
+        "Embedded C",
+        "FreeRTOS",
+        "Kafka",
+        "Flink",
+        "Solidity",
+        "CCNA",
+        "Cisco",
+    } <= found
+
+
+def test_extract_skills_fuzzy_matches_minor_spelling_variant():
+    found = extract_skills("Deployed apps on Postgre SQL and Kuberentes clusters")
+    assert "PostgreSQL" in found
+    assert "Kubernetes" in found
+
+
+def test_extract_skills_does_not_fuzzy_match_unrelated_short_words():
+    # The fuzzy pass is guarded to len>=4 candidates/aliases so common
+    # short words don't turn into false matches.
+    found = extract_skills("The team went to the store for coffee")
+    assert "Go" not in found

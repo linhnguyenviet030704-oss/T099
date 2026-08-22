@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from typing import Any, Protocol
 from uuid import UUID
@@ -56,6 +57,10 @@ async def ingest_resume(
     return "indexed"
 
 
+_MAX_ATTEMPTS = 3
+_BACKOFF_BASE_SECONDS = 0.2
+
+
 async def try_ingest_resume(
     store: ResumeStore,
     resume_id: UUID,
@@ -65,15 +70,39 @@ async def try_ingest_resume(
     api_key: str | None = None,
     base_url: str | None = None,
 ) -> str | None:
-    try:
-        return await ingest_resume(
-            store,
-            resume_id,
-            encode=encode,
-            complete=complete,
-            api_key=api_key,
-            base_url=base_url,
-        )
-    except Exception:
-        logger.exception("ingest skipped resume_id=%s", resume_id)
-        return None
+    """Retries transient failures (LLM/embedding/storage hiccups) before
+    giving up. A missing resume is not transient, so it fails fast."""
+    last_exc: Exception | None = None
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            return await ingest_resume(
+                store,
+                resume_id,
+                encode=encode,
+                complete=complete,
+                api_key=api_key,
+                base_url=base_url,
+            )
+        except NotFoundError:
+            logger.warning("ingest skipped resume_id=%s reason=not_found", resume_id)
+            return None
+        except Exception as exc:  # noqa: BLE001 - retry loop decides fate
+            last_exc = exc
+            if attempt == _MAX_ATTEMPTS:
+                break
+            logger.warning(
+                "ingest attempt %s/%s failed resume_id=%s error=%s; retrying",
+                attempt,
+                _MAX_ATTEMPTS,
+                resume_id,
+                exc,
+            )
+            await asyncio.sleep(_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)))
+
+    logger.exception(
+        "ingest failed after %s attempts resume_id=%s",
+        _MAX_ATTEMPTS,
+        resume_id,
+        exc_info=last_exc,
+    )
+    return None

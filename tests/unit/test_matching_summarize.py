@@ -107,7 +107,7 @@ def test_summarize_node_keeps_extract_skills_and_adds_match_schema():
     state = {
         "markdown": "Built APIs with FastAPI and PostgreSQL.",
         "clean_markdown": "Built APIs with FastAPI and PostgreSQL.",
-        "skills": ["FastAPI", "PostgreSQL"],
+        "skills": ["fastapi", "postgresql"],
         "metadata": {"content_chars": 60},
     }
     node = make_summarize_node(complete=complete)
@@ -115,18 +115,18 @@ def test_summarize_node_keeps_extract_skills_and_adds_match_schema():
     metadata = out["metadata"]
 
     # Skills from extract are preserved, not replaced by LLM output.
-    assert set(metadata["skills"]) == {"FastAPI", "PostgreSQL"}
+    assert set(metadata["skills"]) == {"fastapi", "postgresql"}
     # LLM dropped PostgreSQL from the body, so it is "inferred" (came from
     # extract / taxonomy, not confirmed by the rewrite). FastAPI survived.
-    assert metadata["verified_skills"] == ["FastAPI"]
-    assert metadata["inferred_skills"] == ["PostgreSQL"]
+    assert metadata["verified_skills"] == ["fastapi"]
+    assert metadata["inferred_skills"] == ["postgresql"]
     # Schema matching fields are populated for downstream matching.
     assert isinstance(metadata["major_field"], str)
     assert isinstance(metadata["sub_field"], list)
     assert isinstance(metadata["skill_records"], list)
-    assert {rec["skill"] for rec in metadata["skill_records"]} == {"FastAPI", "PostgreSQL"}
+    assert {rec["skill"] for rec in metadata["skill_records"]} == {"fastapi", "postgresql"}
     sources = {rec["skill"]: rec["source"] for rec in metadata["skill_records"]}
-    assert sources == {"FastAPI": "verified", "PostgreSQL": "inferred"}
+    assert sources == {"fastapi": "verified", "postgresql": "inferred"}
     assert metadata["taxonomy_version"]
 
 
@@ -150,14 +150,14 @@ def test_summarize_node_marks_extract_skills_inferred_when_absent_from_body():
     state = {
         "markdown": "Built APIs with FastAPI and Python.",
         "clean_markdown": "Built APIs with FastAPI and Python.",
-        "skills": ["Python", "FastAPI"],
+        "skills": ["python", "fastapi"],
         "metadata": {},
     }
     node = make_summarize_node(complete=complete)
     out = asyncio.run(node(state))
     metadata = out["metadata"]
-    assert set(metadata["skills"]) == {"Python", "FastAPI"}
+    assert set(metadata["skills"]) == {"python", "fastapi"}
     assert metadata["verified_skills"] == []
-    assert set(metadata["inferred_skills"]) == {"Python", "FastAPI"}
+    assert set(metadata["inferred_skills"]) == {"python", "fastapi"}
     sources = {rec["source"] for rec in metadata["skill_records"]}
     assert sources == {"inferred"}

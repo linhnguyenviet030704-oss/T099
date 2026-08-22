@@ -159,7 +159,7 @@ async def test_ingest_extracts_skills_from_summary_not_raw_cv():
     result = await graph.ainvoke(
         {"raw_bytes": b"Python FastAPI Docker intern", "mime_type": "text/plain"}
     )
-    assert set(result["metadata"]["skills"]) == {"Python", "FastAPI", "Docker"}
+    assert set(result["metadata"]["skills"]) == {"python", "fastapi", "docker"}
     assert result["metadata"]["summary"] == "API intern."
     assert result["metadata"]["titles"] == ["Intern"]
     assert not result["markdown"].startswith("---")

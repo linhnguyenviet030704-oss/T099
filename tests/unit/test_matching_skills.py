@@ -76,7 +76,8 @@ def test_expand_query_without_known_skills_is_unchanged():
 def test_extract_skills_covers_expanded_taxonomy_domains():
     """Guards against the eval-report finding that only a 10-skill
     taxonomy meant entire domains (ML, embedded, data infra, blockchain,
-    networking) were invisible to skill extraction."""
+    networking) were invisible to skill extraction. Canonical IDs are
+    slugs (snake_case for special chars, lowercase for the rest)."""
     text = (
         "Built models with TensorFlow and PyTorch, deployed on Kubernetes "
         "with Terraform. Embedded firmware in Embedded C with FreeRTOS. "
@@ -85,36 +86,36 @@ def test_extract_skills_covers_expanded_taxonomy_domains():
     )
     found = set(extract_skills(text))
     assert {
-        "TensorFlow",
-        "PyTorch",
-        "Kubernetes",
-        "Terraform",
-        "Embedded C",
-        "FreeRTOS",
-        "Kafka",
-        "Flink",
-        "Solidity",
-        "CCNA",
-        "Cisco",
+        "tensorflow",
+        "pytorch",
+        "kubernetes",
+        "terraform",
+        "embedded_c",
+        "freertos",
+        "kafka",
+        "flink",
+        "solidity",
+        "ccna",
+        "cisco",
     } <= found
 
 
 def test_extract_skills_fuzzy_matches_minor_spelling_variant():
     found = extract_skills("Deployed apps on Postgre SQL and Kuberentes clusters")
-    assert "PostgreSQL" in found
-    assert "Kubernetes" in found
+    assert "postgresql" in found
+    assert "kubernetes" in found
 
 
 def test_extract_skills_does_not_fuzzy_match_unrelated_short_words():
     # The fuzzy pass is guarded to len>=4 candidates/aliases so common
     # short words don't turn into false matches.
     found = extract_skills("The team went to the store for coffee")
-    assert "Go" not in found
+    assert "golang" not in found
 
 
 def test_major_for_skills_picks_largest_overlap():
     # cloud_devops wins on 2 markers (Kubernetes + Terraform) vs data on 1.
-    assert major_for_skills({"Kubernetes", "Terraform", "Pandas"}) == "cloud_devops"
+    assert major_for_skills({"kubernetes", "terraform", "pandas"}) == "cloud_devops"
 
 
 def test_major_for_skills_returns_empty_when_no_overlap():
@@ -124,8 +125,8 @@ def test_major_for_skills_returns_empty_when_no_overlap():
 
 def test_load_major_groups_is_driven_by_skill_graph_asset():
     groups = load_major_groups()
-    assert list(groups["ai_ml"]) == ["TensorFlow", "PyTorch", "Keras"]
-    assert "data" in groups and "Kafka" in groups["data"]
+    assert list(groups["ai_ml"]) == ["tensorflow", "pytorch", "keras"]
+    assert "data" in groups and "kafka" in groups["data"]
 
 
 def test_taxonomy_version_changes_when_major_groups_change(tmp_path, monkeypatch):

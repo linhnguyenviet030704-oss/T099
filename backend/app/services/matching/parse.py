@@ -154,6 +154,36 @@ _JOB_WORDS = {
     "master",
     "cv",
     "resume",
+    # Words that turn a phrase into "looks like a CV section, not a person
+    # name" for _looks_like_person_name: presence of any of these in a
+    # candidate line makes it a heading, never a person's full name.
+    "experience",
+    "skills",
+    "education",
+    "summary",
+    "objective",
+    "profile",
+    "background",
+    "information",
+    "projects",
+    "certifications",
+    "languages",
+    "hobbies",
+    "interests",
+    "học",
+    "vấn",
+    "kinh",
+    "nghiệm",
+    "kỹ",
+    "năng",
+    "dự",
+    "án",
+    "chứng",
+    "chỉ",
+    "mục",
+    "tiêu",
+    "giới",
+    "thiệu",
 }
 
 
@@ -459,16 +489,21 @@ def _pdfplumber_to_markdown(data: bytes) -> str:
 
 
 def _parse_pdf(data: bytes) -> str:
-    """
-    Normal extraction first. Full OCR only when the result clearly
+    """Normal extraction first. Full OCR only when the result clearly
     appears corrupted. If content is still thin after that, try a
-    column-aware fallback for multi-column/icon-heavy real-world layouts.
-    """
+    column-aware fallback for multi-column/icon-heavy real-world layouts."""
     markdown = _pdf_to_markdown(
         data,
         force_ocr=False,
-
     )
+    # ponytail: if the primary reader returned almost nothing, the page is
+    # probably a multi-column/icon-heavy real-world PDF that interleaves
+    # sidebar + main column mid-sentence. The column-aware reader reads
+    # each column top-to-bottom and recovers the content.
+    if len(markdown.strip()) < LOW_CONTENT_CHAR_THRESHOLD:
+        fallback = _pdfplumber_to_markdown(data)
+        if len(fallback.strip()) > len(markdown.strip()):
+            return fallback
     return markdown
 
 
@@ -673,8 +708,9 @@ def parse_resume_bytes(
 ) -> dict:
     """PDF/DOCX/text bytes -> PII-stripped Markdown + parse-quality metadata.
 
-    Skills are extracted from this markdown before summarize (see the
-    ingest graph), not from the LLM-rewritten body.
+    Skills come from the structured parsing (structure_resume) over the same
+    bytes so the metadata block has skills, seniority, and field labels — the
+    ingest graph then only needs to verify and merge, not re-extract.
     """
     if not data:
         return {"markdown": "", "metadata": {}}
@@ -704,4 +740,34 @@ def parse_resume_bytes(
         "low_content": content_chars < LOW_CONTENT_CHAR_THRESHOLD,
     }
 
+    # ponytail: layered fall-back: real structure if it parses, otherwise
+    # skill scrape + heuristic majors so the metadata block is never empty.
+    structured_meta = _structured_metadata(cleaned, source_name)
+    if structured_meta:
+        metadata.update(structured_meta)
+
     return {"markdown": redact_pii(cleaned), "metadata": metadata}
+
+
+def _structured_metadata(markdown: str, source_name: str) -> dict:
+    """Run structure_resume on the parsed markdown to get the field/seniority/
+    skills metadata, but fall back to a direct extract+snapshot if
+    structure_resume can't split the text into a recognisable CV (e.g. very
+    short input that has no headings)."""
+    try:
+        from backend.app.services.matching.structure import structure_resume
+
+        result = structure_resume(markdown, source_name=source_name or "")
+        meta = dict(result.get("metadata") or {})
+        body = result.get("markdown") or ""
+        if body and len(body.strip()) >= 200:
+            return meta
+        # Real CV but too thin to trust structure_resume — fall back to
+        # extract-only metadata so callers still get a sensible skill list
+        # and a default seniority.
+    except Exception:
+        pass
+    from backend.app.services.matching.skills import extract_skills
+
+    skills = extract_skills(re.sub(r"https?://\S+|\S+@\S+", " ", markdown))
+    return {"skills": skills, "seniority": "", "major_field": "", "sub_field": "", "years_experience": 0}

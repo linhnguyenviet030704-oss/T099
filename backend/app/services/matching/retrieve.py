@@ -26,6 +26,7 @@ from backend.app.services.recommend import assert_recruiter_job_access
 from supabase import Client
 
 POOL_WARN_N = 500
+INGEST_CONCURRENCY_LIMIT = 8
 
 
 def job_query_text(job: dict[str, Any]) -> str:
@@ -102,17 +103,26 @@ def _as_embedding(raw: Any) -> list[float] | None:
     return vector
 
 
+_EMBEDDED_BATCH_CHUNK_SIZE = 100
+
+
 def _embedded_batch(client: Client, resume_ids: list[str]) -> dict[str, dict[str, Any]]:
     if not resume_ids:
         return {}
-    result = (
-        client.table("embedded_resumes")
-        .select("resume_id, metadata, markdown, clean_markdown, embedding, model")
-        .in_("resume_id", resume_ids)
-        .execute()
-    )
-    rows = result.data or []
-    return {str(row["resume_id"]): row for row in rows if row.get("resume_id")}
+    merged: dict[str, dict[str, Any]] = {}
+    for i in range(0, len(resume_ids), _EMBEDDED_BATCH_CHUNK_SIZE):
+        chunk = resume_ids[i : i + _EMBEDDED_BATCH_CHUNK_SIZE]
+        result = (
+            client.table("embedded_resumes")
+            .select("resume_id, metadata, markdown, clean_markdown, embedding, model")
+            .in_("resume_id", chunk)
+            .execute()
+        )
+        rows = result.data or []
+        for row in rows:
+            if row.get("resume_id"):
+                merged[str(row["resume_id"])] = row
+    return merged
 
 
 async def persist_match_resume_rows(
@@ -229,9 +239,12 @@ async def retrieve_for_job(
 
     submits = await asyncio.to_thread(_submits)
     resume_uuids = [UUID(str(row["resume_id"])) for row in submits if row.get("resume_id")]
-    await asyncio.gather(
-        *(
-            try_ingest_resume(
+
+    ingest_semaphore = asyncio.Semaphore(INGEST_CONCURRENCY_LIMIT)
+
+    async def _ingest_bounded(resume_uuid: UUID) -> None:
+        async with ingest_semaphore:
+            await try_ingest_resume(
                 resume_store,
                 resume_uuid,
                 encode=encode,
@@ -239,9 +252,8 @@ async def retrieve_for_job(
                 api_key=api_key,
                 base_url=base_url,
             )
-            for resume_uuid in resume_uuids
-        )
-    )
+
+    await asyncio.gather(*(_ingest_bounded(resume_uuid) for resume_uuid in resume_uuids))
 
     constraints = _parse_constraints(job.get("skill_constraints"))
     confirmed = job.get("skill_constraints_confirmed_at") is not None

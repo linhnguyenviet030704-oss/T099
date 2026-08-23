@@ -4,6 +4,7 @@ import json
 
 from backend.app.services.matching.explain import (
     EXPLAIN_PROMPT_TEMPLATE,
+    RECOMMEND_EXPLAIN_PROMPT_TEMPLATE,
     _build_prompt,
     _parse_map,
     _strip_fence,
@@ -174,3 +175,38 @@ def test_deterministic_reason_uses_verified_skills_not_full_skill_list():
     reason = deterministic_reason(row=row, jd_skills=["python", "fastapi"], rank=1, total=1)
     assert "python" in reason
     assert "fastapi" not in reason
+
+
+def test_recommend_prompt_template_is_career_assistant_persona_not_recruiter():
+    assert "recruiter explaining" not in RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
+    assert "{job_description}" in RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
+    assert "{candidate_briefs}" in RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
+
+
+def test_explain_matches_uses_custom_prompt_template_when_given():
+    captured: dict = {}
+
+    def complete(prompt: str, **_kwargs):
+        captured["prompt"] = prompt
+        return '{"j1": "fits"}'
+
+    out = explain_matches(
+        jd_text="My CV",
+        candidates=[{"job_id": "j1", "skills": ["python"]}],
+        complete=complete,
+        prompt_template="CUSTOM {job_description} / {candidate_briefs}",
+    )
+    assert out == {"j1": "fits"}
+    assert captured["prompt"].startswith("CUSTOM My CV / ")
+
+
+def test_explain_matches_falls_back_to_job_id_when_application_id_absent():
+    def complete(_prompt: str, **_kwargs):
+        return '{"j1": "good fit"}'
+
+    out = explain_matches(
+        jd_text="My CV",
+        candidates=[{"job_id": "j1", "skills": ["python"]}],
+        complete=complete,
+    )
+    assert out == {"j1": "good fit"}

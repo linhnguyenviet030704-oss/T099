@@ -19,6 +19,10 @@ _PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system" / "exp
 EXPLAIN_PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
 EXPLAIN_PROMPT_VERSION = "2026-08-23.v1"
 
+_RECOMMEND_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system" / "explain_job_match.txt"
+RECOMMEND_EXPLAIN_PROMPT_TEMPLATE = _RECOMMEND_PROMPT_PATH.read_text(encoding="utf-8")
+RECOMMEND_EXPLAIN_PROMPT_VERSION = "2026-08-24.v1"
+
 _MAX_JD_CHARS = 4000
 _MAX_BRIEF_CHARS = 400
 _MAX_CANDIDATES = 10
@@ -38,7 +42,7 @@ def _brief(row: dict[str, Any]) -> tuple[str, str]:
     that are already extracted and known-safe (skill names, summary, body
     fragment) — never raw markdown that may contain PII. The markdown
     passed to retrieve() is already PII-redacted."""
-    cid = str(row.get("application_id") or "")
+    cid = str(row.get("application_id") or row.get("job_id") or "")
     parts: list[str] = []
     skills = row.get("skills") or []
     if skills:
@@ -57,7 +61,7 @@ def _brief(row: dict[str, Any]) -> tuple[str, str]:
     return cid, "; ".join(parts)
 
 
-def _build_prompt(jd_text: str, candidates: list[dict[str, Any]]) -> str:
+def _build_prompt(jd_text: str, candidates: list[dict[str, Any]], template: str = EXPLAIN_PROMPT_TEMPLATE) -> str:
     briefs: list[str] = []
     for row in candidates[:_MAX_CANDIDATES]:
         cid, brief = _brief(row)
@@ -65,7 +69,7 @@ def _build_prompt(jd_text: str, candidates: list[dict[str, Any]]) -> str:
             continue
         briefs.append(f"- id={cid}: {brief}")
     candidate_block = "\n".join(briefs) if briefs else "(no candidates)"
-    return EXPLAIN_PROMPT_TEMPLATE.replace(
+    return template.replace(
         "{job_description}", _truncate(jd_text, _MAX_JD_CHARS)
     ).replace("{candidate_briefs}", candidate_block)
 
@@ -147,6 +151,7 @@ def explain_matches(
     candidates: list[dict[str, Any]],
     complete: CompleteFn | None = None,
     jd_skills: list[str] | None = None,
+    prompt_template: str | None = None,
 ) -> dict[str, str]:
     """Return {application_id: reasoning} for the given candidates, or {} on failure.
 
@@ -161,10 +166,11 @@ def explain_matches(
     """
     if not candidates:
         return {}
-    allowed_ids = {str(row.get("application_id") or "") for row in candidates}
+    allowed_ids = {str(row.get("application_id") or row.get("job_id") or "") for row in candidates}
     allowed_ids.discard("")
     fn = complete or chat_complete
-    prompt = _build_prompt(jd_text, candidates)
+    template = prompt_template or EXPLAIN_PROMPT_TEMPLATE
+    prompt = _build_prompt(jd_text, candidates, template)
     parsed: dict[str, str] = {}
     try:
         raw = fn(prompt, json_object=True)
@@ -184,7 +190,7 @@ def explain_matches(
     total = len(allowed_ids)
     out: dict[str, str] = dict(llm_reasons)
     for rank, row in enumerate(candidates[:_MAX_CANDIDATES], start=1):
-        cid = str(row.get("application_id") or "")
+        cid = str(row.get("application_id") or row.get("job_id") or "")
         if not cid or cid in out:
             continue
         out[cid] = deterministic_reason(

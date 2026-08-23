@@ -290,16 +290,14 @@ export const ProfilePage: React.FC = () => {
     setCvMode(true);
   };
 
-  // Change user role (Admin action only — FastAPI + service_role)
+  // Change user role (Admin action only — Supabase Direct + Postgres RLS/Triggers)
   const handleUpdateUserRole = async (targetUserId: string, newRole: Profile['role']) => {
-    if (!session?.access_token || !isAdmin) return;
+    if (!supabase || !isAdmin) return;
     setAdminMessage(null);
 
     try {
-      await apiJson(`/admin/profiles/${targetUserId}`, session.access_token, {
-        method: 'PATCH',
-        body: JSON.stringify({ role: newRole }),
-      });
+      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', targetUserId);
+      if (error) throw error;
       
       setAdminMessage(`Cập nhật vai trò người dùng thành [${ENUM_LABELS.profile_role[newRole]}] thành công!`);
       fetchAdminProfiles();
@@ -310,7 +308,7 @@ export const ProfilePage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Admin role update error:', err);
-      setAdminMessage(err.message || handleSupabaseError(err));
+      setAdminMessage(handleSupabaseError(err));
     }
   };
 

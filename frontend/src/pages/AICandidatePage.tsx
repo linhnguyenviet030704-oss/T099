@@ -12,6 +12,7 @@ import { ENUM_LABELS } from "../lib/format";
 import { APP_STATUS_COLORS } from "../lib/ui";
 import type { JobPost } from "../types";
 import AnimatedPage from "../components/AnimatedPage";
+import { useToast } from "../context/ToastContext";
 
 const QUICK_PROMPT = "Gợi ý ứng viên phù hợp";
 const FIT_GOOD = 0.75;
@@ -95,6 +96,7 @@ function CandidateCard({
 
 export default function AICandidatePage() {
   const { user, session } = useAuth();
+  const { error: toastError } = useToast();
   const [jobs, setJobs] = useState<JobOption[]>([]);
   const [jobId, setJobId] = useState("");
   const [jobsError, setJobsError] = useState<string | null>(null);
@@ -186,8 +188,16 @@ export default function AICandidatePage() {
   };
 
   const handleSend = async (text?: string) => {
+    if (!jobId) {
+      toastError("Chưa chọn tin", "Vui lòng chọn tin tuyển dụng ở danh sách thả xuống.");
+      return;
+    }
     const msgText = (text || input).trim();
-    if (!msgText || sending || !jobId || !session?.access_token) return;
+    if (!msgText) {
+      toastError("Nội dung trống", "Vui lòng nhập câu hỏi hoặc bấm gợi ý!");
+      return;
+    }
+    if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);

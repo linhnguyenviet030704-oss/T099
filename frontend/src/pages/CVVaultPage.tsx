@@ -87,24 +87,40 @@ export default function CVVaultPage() {
     }
   };
 
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
   const handleSetDefault = async (resumeId: string) => {
     if (!supabase || !user) return;
-    const { error } = await supabase.from("profiles").update({ default_resume_id: resumeId }).eq("id", user.id);
-    if (error) toastError("Không thể đặt CV mặc định", handleSupabaseError(error));
-    else {
+    setProcessingId(resumeId);
+    try {
+      const { error } = await supabase.from("profiles").update({ default_resume_id: resumeId }).eq("id", user.id);
+      if (error) throw error;
       success("Đã đặt làm CV mặc định!");
       await load();
+    } catch (err: unknown) {
+      toastError("Không thể đặt CV mặc định", handleSupabaseError(err));
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const handleRename = async (resumeId: string) => {
-    if (!supabase || !editName.trim()) return;
-    const { error } = await supabase.from("resumes").update({ title: editName.trim() }).eq("id", resumeId).eq("user_id", user!.id);
-    if (error) toastError("Không đổi tên được", handleSupabaseError(error));
-    else {
+    if (!supabase || !user) return;
+    if (!editName.trim()) {
+      toastError("Thiếu tên CV", "Vui lòng nhập tên mới cho CV!");
+      return;
+    }
+    setProcessingId(resumeId);
+    try {
+      const { error } = await supabase.from("resumes").update({ title: editName.trim() }).eq("id", resumeId).eq("user_id", user.id);
+      if (error) throw error;
       success("Đã đổi tên CV thành công!");
       setEditingId(null);
       await load();
+    } catch (err: unknown) {
+      toastError("Không đổi tên được", handleSupabaseError(err));
+    } finally {
+      setProcessingId(null);
     }
   };
 

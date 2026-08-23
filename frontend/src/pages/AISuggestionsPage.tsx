@@ -7,6 +7,7 @@ import { apiJson } from "../lib/api";
 import { ENUM_LABELS, formatCurrency } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
 import Badge from "../components/Badge";
+import { useToast } from "../context/ToastContext";
 
 const QUICK_PROMPT = "Gợi ý việc phù hợp";
 
@@ -27,6 +28,7 @@ type Message = { id: string; role: "user" | "system"; text: string; jobs?: ChatJ
 export default function AISuggestionsPage() {
   const { session } = useAuth();
   const navigate = useNavigate();
+  const { error: toastError } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     { id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc gõ tin nhắn." },
   ]);
@@ -40,7 +42,11 @@ export default function AISuggestionsPage() {
 
   const handleSend = async (text?: string) => {
     const msgText = (text || input).trim();
-    if (!msgText || sending || !session?.access_token) return;
+    if (!msgText) {
+      toastError("Nội dung trống", "Vui lòng nhập câu hỏi hoặc bấm nút gợi ý!");
+      return;
+    }
+    if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);

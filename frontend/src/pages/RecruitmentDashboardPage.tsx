@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -18,6 +18,10 @@ export default function RecruitmentDashboardPage() {
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
   const { success, error: toastError } = useToast();
+  const companySelectRef = useRef<HTMLSelectElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const descInputRef = useRef<HTMLTextAreaElement>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ company?: boolean; title?: boolean; description?: boolean }>({});
   const [memberships, setMemberships] = useState<CompanyMember[]>([]);
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -113,6 +117,7 @@ export default function RecruitmentDashboardPage() {
       location: "", employment_type: "full_time", salaryMin: "", salaryMax: "", currency: "VND", deadline: "", status: "published",
     });
     setEditingJob(null);
+    setFieldErrors({});
   };
 
   const handleOpenCreateJob = () => {
@@ -122,6 +127,7 @@ export default function RecruitmentDashboardPage() {
 
   const handleOpenEditJob = (job: JobPost) => {
     setEditingJob(job);
+    setFieldErrors({});
     setNewJob({
       title: job.title || "",
       description: job.description || "",
@@ -138,8 +144,35 @@ export default function RecruitmentDashboardPage() {
     setShowCreateJob(true);
   };
 
+  const [updatingStatusJobId, setUpdatingStatusJobId] = useState<string | null>(null);
+
   const handleSaveJob = async () => {
-    if (!supabase || !user || !selectedCompanyId || !newJob.title.trim() || !newJob.description.trim()) return;
+    setFieldErrors({});
+    if (!selectedCompanyId) {
+      setFieldErrors({ company: true });
+      companySelectRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      companySelectRef.current?.focus();
+      toastError("Không thể tạo tin", "Bạn chưa có công ty hoặc chưa chọn công ty.");
+      return;
+    }
+    if (!newJob.title.trim()) {
+      setFieldErrors({ title: true });
+      titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      titleInputRef.current?.focus();
+      toastError("Thiếu thông tin", "Vui lòng nhập tiêu đề công việc!");
+      return;
+    }
+    if (!newJob.description.trim()) {
+      setFieldErrors({ description: true });
+      descInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      descInputRef.current?.focus();
+      toastError("Thiếu thông tin", "Vui lòng nhập mô tả công việc!");
+      return;
+    }
+    if (!supabase || !user) {
+      toastError("Lỗi hệ thống", "Vui lòng đăng nhập lại để thực hiện.");
+      return;
+    }
     setJobSaving(true);
     try {
       const payload: Record<string, unknown> = {
@@ -182,14 +215,19 @@ export default function RecruitmentDashboardPage() {
 
   const handleUpdateJobStatus = async (jobId: string, status: JobPostStatus) => {
     if (!supabase) return;
-    const payload: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-    if (status === "published") payload.published_at = new Date().toISOString();
-    if (status === "closed") payload.closed_at = new Date().toISOString();
-    const { error: uErr } = await supabase.from("job_posts").update(payload).eq("id", jobId);
-    if (uErr) toastError("Cập nhật thất bại", handleSupabaseError(uErr));
-    else {
+    setUpdatingStatusJobId(jobId);
+    try {
+      const payload: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+      if (status === "published") payload.published_at = new Date().toISOString();
+      if (status === "closed") payload.closed_at = new Date().toISOString();
+      const { error: uErr } = await supabase.from("job_posts").update(payload).eq("id", jobId);
+      if (uErr) throw uErr;
       success(`Đã chuyển trạng thái sang ${ENUM_LABELS.job_post_status[status]}`);
       await fetchWorkspace();
+    } catch (err: unknown) {
+      toastError("Cập nhật thất bại", handleSupabaseError(err));
+    } finally {
+      setUpdatingStatusJobId(null);
     }
   };
 
@@ -226,9 +264,10 @@ export default function RecruitmentDashboardPage() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Bàn tuyển dụng</h1>
           <select
+            ref={companySelectRef}
             value={selectedCompanyId}
-            onChange={(e) => { setSelectedCompanyId(e.target.value); setSelectedJobId(null); }}
-            className="px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm"
+            onChange={(e) => { setSelectedCompanyId(e.target.value); setSelectedJobId(null); setFieldErrors((p) => ({ ...p, company: false })); }}
+            className={`px-3 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-sm transition-all ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
           >
             {memberships.map((m) => <option key={m.company_id} value={m.company_id}>{m.company?.name || m.company_id}</option>)}
           </select>
@@ -259,12 +298,25 @@ export default function RecruitmentDashboardPage() {
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Tiêu đề công việc *</label>
-                        <input placeholder="Ví dụ: Kỹ sư AI, Frontend Developer..." value={newJob.title} onChange={(e) => setNewJob((p) => ({ ...p, title: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                        <input
+                          ref={titleInputRef}
+                          placeholder="Ví dụ: Kỹ sư AI, Frontend Developer..."
+                          value={newJob.title}
+                          onChange={(e) => { setNewJob((p) => ({ ...p, title: e.target.value })); setFieldErrors((p) => ({ ...p, title: false })); }}
+                          className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border rounded-xl text-sm transition-all ${fieldErrors.title ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-600"}`}
+                        />
                       </div>
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Mô tả công việc *</label>
-                        <textarea rows={3} placeholder="Mô tả chi tiết công việc, nhiệm vụ chính..." value={newJob.description} onChange={(e) => setNewJob((p) => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm resize-none" />
+                        <textarea
+                          ref={descInputRef}
+                          rows={3}
+                          placeholder="Mô tả chi tiết công việc, nhiệm vụ chính..."
+                          value={newJob.description}
+                          onChange={(e) => { setNewJob((p) => ({ ...p, description: e.target.value })); setFieldErrors((p) => ({ ...p, description: false })); }}
+                          className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border rounded-xl text-sm resize-none transition-all ${fieldErrors.description ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-600"}`}
+                        />
                       </div>
 
                       <div>
@@ -328,7 +380,7 @@ export default function RecruitmentDashboardPage() {
 
                       <div className="flex gap-2 justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
                         <Button variant="ghost" size="xs" onClick={() => { setShowCreateJob(false); resetForm(); }}>Hủy</Button>
-                        <Button size="xs" onClick={() => void handleSaveJob()} disabled={!newJob.title || !newJob.description} isLoading={jobSaving} loadingText="Đang lưu...">
+                        <Button size="xs" onClick={() => void handleSaveJob()} disabled={jobSaving} isLoading={jobSaving} loadingText="Đang lưu...">
                           {editingJob ? "Lưu thay đổi" : "Tạo tin"}
                         </Button>
                       </div>

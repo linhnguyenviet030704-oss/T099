@@ -74,7 +74,11 @@ export default function ProfilePage() {
   };
 
   const handleAddLine = async () => {
-    if (!supabase || !user || !lineValue.trim()) return;
+    if (!supabase || !user) return;
+    if (!lineValue.trim()) {
+      toastError("Thiếu nội dung", "Vui lòng nhập nội dung dòng hồ sơ!");
+      return;
+    }
     setAddingLine(true);
     try {
       const { error } = await supabase.from("profile_lines").insert({
@@ -94,10 +98,16 @@ export default function ProfilePage() {
 
   const handleDeleteLine = async () => {
     if (!supabase || !user || !deleteId) return;
-    await supabase.from("profile_lines").delete().eq("id", deleteId).eq("user_id", user.id);
-    setDeleteId(null);
-    success("Đã xóa dòng hồ sơ!");
-    await loadLines();
+    try {
+      const { error } = await supabase.from("profile_lines").delete().eq("id", deleteId).eq("user_id", user.id);
+      if (error) throw error;
+      success("Đã xóa dòng hồ sơ!");
+      await loadLines();
+    } catch (err: unknown) {
+      toastError("Xóa thất bại", handleSupabaseError(err));
+    } finally {
+      setDeleteId(null);
+    }
   };
 
   const changeRole = async (userId: string, role: Profile["role"]) => {

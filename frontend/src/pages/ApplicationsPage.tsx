@@ -55,20 +55,27 @@ export default function ApplicationsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const [withdrawing, setWithdrawing] = useState(false);
+
   const handleWithdraw = async () => {
     if (!supabase || !user || !withdrawId) return;
-    const { error } = await supabase.from("application_stages").insert({
-      application_id: withdrawId,
-      changed_by_user_id: user.id,
-      stage: "withdrawn",
-      note: "Ứng viên rút đơn",
-      is_system_generated: false,
-    });
-    setWithdrawId(null);
-    if (error) toastError("Không rút được đơn", handleSupabaseError(error));
-    else {
+    setWithdrawing(true);
+    try {
+      const { error } = await supabase.from("application_stages").insert({
+        application_id: withdrawId,
+        changed_by_user_id: user.id,
+        stage: "withdrawn",
+        note: "Ứng viên rút đơn",
+        is_system_generated: false,
+      });
+      if (error) throw error;
+      setWithdrawId(null);
       success("Đã rút đơn ứng tuyển!");
       await load();
+    } catch (err: unknown) {
+      toastError("Không rút được đơn", handleSupabaseError(err));
+    } finally {
+      setWithdrawing(false);
     }
   };
 

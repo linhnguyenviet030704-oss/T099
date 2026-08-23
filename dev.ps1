@@ -25,8 +25,8 @@ $py = Join-Path $Root '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $py)) {
   throw "Missing .venv. Run: python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r requirements.txt"
 }
-if (-not (Test-Path -LiteralPath (Join-Path $Root 'new_frontend\node_modules'))) {
-  throw "Missing new_frontend\node_modules. Run: cd new_frontend; pnpm install"
+if (-not (Test-Path -LiteralPath (Join-Path $Root 'frontend\node_modules'))) {
+  throw "Missing frontend\node_modules. Run: cd frontend; pnpm install"
 }
 
 Write-Host '==> Supabase' -ForegroundColor Cyan
@@ -39,7 +39,7 @@ $ErrorActionPreference = $prevEap
 if ($supabaseExit -ne 0) { throw "supabase start failed (exit $supabaseExit)" }
 
 # Quote-safe paths (repo path may contain spaces, e.g. "AI IA")
-$frontendDir = Join-Path $Root 'new_frontend'
+$frontendDir = Join-Path $Root 'frontend'
 
 Write-Host '==> Backend  http://localhost:8000' -ForegroundColor Cyan
 $backend = Start-Process -PassThru -FilePath 'cmd.exe' -WorkingDirectory $Root -ArgumentList @(

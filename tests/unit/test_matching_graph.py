@@ -272,8 +272,14 @@ async def test_matching_graph_explain_node_attaches_match_reason_per_candidate()
 
 
 @pytest.mark.asyncio
-async def test_matching_graph_explain_node_falls_back_to_empty_reason_on_llm_error():
-    candidates = [_candidate("a"), _candidate("b")]
+async def test_matching_graph_explain_node_falls_back_to_deterministic_reason_on_llm_error():
+    """When the LLM call fails, the node must still attach a
+    deterministic per-candidate reason so the recruiter sees something
+    better than `null` — no API key, no network, no JSON, all OK."""
+    candidates = [
+        _candidate("a", skills=["python", "fastapi"]),
+        _candidate("b", skills=["python"]),
+    ]
 
     def explain_complete(_prompt: str, **_kwargs):
         raise RuntimeError("llm down")
@@ -287,7 +293,10 @@ async def test_matching_graph_explain_node_falls_back_to_empty_reason_on_llm_err
         explain_complete=explain_complete,
     )
     result = await graph.ainvoke({"job_id": str(uuid4()), "query": "x", "rerank_mode": "agent"})
-    assert all(row.get("match_reason") in (None, "") for row in result["candidates"])
+    reasons = {row["application_id"]: row.get("match_reason") for row in result["candidates"]}
+    assert reasons["a"] and reasons["b"]
+    assert "python" in reasons["a"].lower() or "fastapi" in reasons["a"].lower()
+    assert "python" in reasons["b"].lower()
 
 
 @pytest.mark.asyncio

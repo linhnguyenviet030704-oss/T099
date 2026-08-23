@@ -82,11 +82,22 @@ def test_explain_matches_calls_complete_with_json_mode():
     assert "id=app1" in captured["prompt"]
 
 
-def test_explain_matches_returns_empty_on_complete_failure():
-    def complete(_prompt: str, **_kwargs):
-        raise RuntimeError("llm down")
-
-    assert explain_matches(jd_text="x", candidates=[_row("app1")], complete=complete) == {}
+def test_explain_matches_falls_back_to_deterministic_reason_on_llm_error():
+    out = explain_matches(
+        jd_text="Backend Python",
+        candidates=[
+            {
+                "application_id": "app1",
+                "skills": ["python", "fastapi"],
+                "rerank_score": 0.9,
+            }
+        ],
+        jd_skills=["python", "fastapi"],
+        complete=lambda _p, **_k: (_ for _ in ()).throw(RuntimeError("llm down")),
+    )
+    assert out["app1"]
+    assert "python" in out["app1"] or "fastapi" in out["app1"]
+    assert "Backend Python" not in out["app1"]  # raw JD text must not be echoed back
 
 
 def test_explain_matches_ignores_ids_returned_by_llm_that_are_not_in_input():
@@ -100,6 +111,37 @@ def test_explain_matches_ignores_ids_returned_by_llm_that_are_not_in_input():
     )
     assert "stranger" not in out
     assert out["app1"] == "ok"
+
+
+def test_explain_matches_partial_llm_response_fills_missing_with_deterministic():
+    """LLM returned only one of two ids — the missing one gets the
+    deterministic reason so the recruiter still sees an explanation."""
+
+    def complete(_prompt: str, **_kwargs):
+        return json.dumps({"app1": "ok"})
+
+    out = explain_matches(
+        jd_text="x",
+        candidates=[
+            _row("app1", skills=["python"]),
+            _row("app2", skills=["python"]),
+        ],
+        jd_skills=["python"],
+        complete=complete,
+    )
+    assert out["app1"] == "ok"  # LLM reason kept
+    assert out["app2"]  # fallback reason present
+    assert "python" in out["app2"].lower() or "JD" in out["app2"]
+
+
+def test_deterministic_reason_handles_no_skills_no_score():
+    from backend.app.services.matching.explain import deterministic_reason
+
+    reason = deterministic_reason(
+        row={"application_id": "x"}, jd_skills=["python"], rank=1, total=1
+    )
+    assert reason
+    assert "xếp" not in reason  # single-candidate, no rank phrase
 
 
 def test_explain_matches_truncates_long_jd_and_body():

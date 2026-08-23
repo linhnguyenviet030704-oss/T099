@@ -37,8 +37,7 @@ Sản phẩm giải quyết vấn đề như thế nào bằng AI:
 
 ```text
 .
-├── new_frontend/      # React (Vite) UI chạy cổng 3000
-├── frontend/          # UI cũ (giữ để đối chiếu, không dùng bởi dev.ps1)
+├── frontend/          # React (Vite) UI chạy cổng 3000
 ├── backend/app/       # FastAPI (api, agents, services, clients)
 ├── supabase/          # config, migrations, seed.sql
 ├── tests/             # pytest (unit / api / agent)
@@ -97,7 +96,7 @@ cp backend/.env.example .env
 ### 2. Frontend
 
 ```powershell
-cd new_frontend
+cd frontend
 copy .env.example .env
 pnpm install
 cd ..
@@ -126,7 +125,7 @@ Từ `npx supabase status`, điền vào **`.env` (root)**:
 | `SUPABASE_SERVICE_ROLE_KEY` | `service_role` / `Secret` key |
 | `SUPABASE_JWT_SECRET` | JWT secret — local mặc định đã có trong `backend/.env.example` |
 
-Cùng `SUPABASE_URL` và `SUPABASE_ANON_KEY` điền vào `new_frontend/.env` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`). `VITE_API_BASE_URL` giữ `http://localhost:8000`.
+Cùng `SUPABASE_URL` và `SUPABASE_ANON_KEY` điền vào `frontend/.env` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`). `VITE_API_BASE_URL` giữ `http://localhost:8000`.
 
 **Không commit** file `.env` / secret thật.
 
@@ -140,7 +139,7 @@ Cùng `SUPABASE_URL` và `SUPABASE_ANON_KEY` điền vào `new_frontend/.env` (`
 
 ## Chạy local
 
-Windows — một lệnh (cần đã có `.venv` và `new_frontend/node_modules`):
+Windows — một lệnh (cần đã có `.venv` và `frontend/node_modules`):
 
 ```powershell
 .\dev.ps1
@@ -156,7 +155,7 @@ npx supabase start
 Terminal khác:
 
 ```powershell
-cd new_frontend
+cd frontend
 pnpm dev
 ```
 
@@ -211,7 +210,7 @@ Lint Python:
 Typecheck frontend:
 
 ```powershell
-cd new_frontend
+cd frontend
 pnpm lint
 ```
 

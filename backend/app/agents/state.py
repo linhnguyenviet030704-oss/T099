@@ -24,3 +24,5 @@ class AgentState(TypedDict, total=False):
     bm25_query: str
     match_reasons: dict[str, str]
     job_description: str
+    cv_verified: list[str]
+    cv_has_evidence: bool

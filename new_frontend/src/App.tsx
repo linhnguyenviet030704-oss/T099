@@ -48,35 +48,35 @@ function AnimatedRoutes() {
         <Route
           path="/cv-vault"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["candidate"]}>
               <CVVaultPage />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
         <Route path="/profile/resumes" element={<Navigate to="/cv-vault" replace />} />
         <Route
           path="/cv-builder"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["candidate"]}>
               <CVBuilderPage />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
         <Route
           path="/applications"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["candidate"]}>
               <ApplicationsPage />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
         <Route path="/my-applications" element={<Navigate to="/applications" replace />} />
         <Route
           path="/ai-suggestions"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["candidate"]}>
               <AISuggestionsPage />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
         <Route path="/match" element={<Navigate to="/ai-suggestions" replace />} />
@@ -84,16 +84,16 @@ function AnimatedRoutes() {
         <Route
           path="/recruiter-register"
           element={
-            <ProtectedRoute>
+            <RoleRoute allowedRoles={["candidate"]}>
               <RecruiterRegisterPage />
-            </ProtectedRoute>
+            </RoleRoute>
           }
         />
         <Route path="/recruiter/request" element={<Navigate to="/recruiter-register" replace />} />
         <Route
           path="/dashboard"
           element={
-            <RoleRoute allowedRoles={["recruiter", "admin"]}>
+            <RoleRoute allowedRoles={["recruiter"]}>
               <RecruitmentDashboardPage />
             </RoleRoute>
           }
@@ -102,7 +102,7 @@ function AnimatedRoutes() {
         <Route
           path="/ai-candidates"
           element={
-            <RoleRoute allowedRoles={["recruiter", "admin"]}>
+            <RoleRoute allowedRoles={["recruiter"]}>
               <AICandidatePage />
             </RoleRoute>
           }

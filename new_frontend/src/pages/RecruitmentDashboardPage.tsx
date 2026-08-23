@@ -38,31 +38,20 @@ export default function RecruitmentDashboardPage() {
     salaryMin: "", salaryMax: "", currency: "VND", deadline: "", status: "published" as JobPostStatus,
   });
 
-  const isAdmin = profile?.role === "admin";
-
   const fetchWorkspace = useCallback(async () => {
     if (!supabase || !user) return;
     try {
       setLoading(true);
       setError(null);
-      let items: CompanyMember[] = [];
-      if (isAdmin) {
-        const { data: companiesData, error: cErr } = await supabase.from("companies").select("*").order("name");
-        if (cErr) throw cErr;
-        items = (companiesData || []).map((c: any) => ({
-          id: `admin-${c.id}`, company_id: c.id, user_id: user.id, role: "owner", is_active: true,
-          invited_by_user_id: null, created_at: c.created_at, updated_at: c.updated_at, company: c,
-        }));
-      } else {
-        const { data: memberData, error: mErr } = await supabase
-          .from("company_members")
-          .select("*, companies(*)")
-          .eq("user_id", user.id)
-          .eq("is_active", true)
-          .in("role", ["owner", "recruiter"]);
-        if (mErr) throw mErr;
-        items = (memberData || []).map((m: any) => ({ ...m, company: m.companies })) as CompanyMember[];
-      }
+      const { data: memberData, error: mErr } = await supabase
+        .from("company_members")
+        .select("*, companies(*)")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .in("role", ["owner", "recruiter"]);
+      if (mErr) throw mErr;
+      const items = (memberData || []).map((m: any) => ({ ...m, company: m.companies })) as CompanyMember[];
+
       setMemberships(items);
       let companyId = selectedCompanyId;
       if (!companyId || !items.some((m) => m.company_id === companyId)) {
@@ -74,9 +63,12 @@ export default function RecruitmentDashboardPage() {
         setApplications([]);
         return;
       }
-      let jobsQuery = supabase.from("job_posts").select("*").eq("company_id", companyId).order("updated_at", { ascending: false });
-      if (!isAdmin) jobsQuery = jobsQuery.eq("created_by_user_id", user.id);
-      const { data: jobsData, error: jobsErr } = await jobsQuery;
+      const { data: jobsData, error: jobsErr } = await supabase
+        .from("job_posts")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("created_by_user_id", user.id)
+        .order("updated_at", { ascending: false });
       if (jobsErr) throw jobsErr;
       const loadedJobs = (jobsData || []) as JobPost[];
       setJobs(loadedJobs);
@@ -102,7 +94,7 @@ export default function RecruitmentDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, isAdmin, selectedCompanyId]);
+  }, [user, selectedCompanyId]);
 
   useEffect(() => { if (user) void fetchWorkspace(); }, [user, fetchWorkspace]);
 

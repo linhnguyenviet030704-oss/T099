@@ -67,3 +67,7 @@ docs/superpowers/
 */slides_generation_prompt.txt
 */slides_generation_prompt.md
 *.pem
+
+# Supabase local temp files (keep config.toml, migrations/, seed.sql tracked)
+supabase/.branches/
+supabase/.temp/

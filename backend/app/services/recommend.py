@@ -141,8 +141,8 @@ async def assert_recruiter_job_access(client: Client, actor_id: UUID, job_id: UU
         return result.data
 
     profile = await asyncio.to_thread(_profile)
-    if profile and profile.get("role") == "admin":
-        return
+    if not profile or profile.get("role") != "recruiter":
+        raise ForbiddenError("Not a recruiter")
 
     if str(job.get("created_by_user_id")) != str(actor_id):
         raise ForbiddenError("Not the poster of this job")
@@ -162,3 +162,4 @@ async def assert_recruiter_job_access(client: Client, actor_id: UUID, job_id: UU
 
     if not await asyncio.to_thread(_member):
         raise ForbiddenError("Not a recruiter for this job")
+

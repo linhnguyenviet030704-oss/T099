@@ -30,8 +30,8 @@ export const CvPreview = forwardRef<HTMLDivElement, CvPreviewProps>(
       if (!wrap) return;
 
       const recompute = () => {
-        const available = wrap.clientWidth;
-        const next = Math.min(1, available / A4_WIDTH_PX);
+        const available = wrap.clientWidth || 320;
+        const next = Math.min(1, Math.max(0.15, available / A4_WIDTH_PX));
         setScale(next);
         if (innerRef.current) {
           setDocHeight(innerRef.current.offsetHeight * next);

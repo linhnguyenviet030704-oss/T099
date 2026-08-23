@@ -240,7 +240,8 @@ class _RoutingFakeClient:
 
 
 @pytest.mark.asyncio
-async def test_assert_recruiter_job_access_allows_admin():
+async def test_assert_recruiter_job_access_rejects_admin():
+    # Admin is not a recruiter and cannot match candidates for job posts
     actor_id = uuid4()
     job_id = uuid4()
     other_user_id = uuid4()
@@ -250,20 +251,19 @@ async def test_assert_recruiter_job_access_allows_admin():
             "profiles": {"role": "admin"},
         }
     )
-    await assert_recruiter_job_access(client, actor_id, job_id)
+    with pytest.raises(ForbiddenError):
+        await assert_recruiter_job_access(client, actor_id, job_id)
 
 
 @pytest.mark.asyncio
 async def test_assert_recruiter_job_access_allows_poster_with_active_membership():
-    # Non-admin access requires BOTH being the job's creator AND an active
-    # owner/recruiter membership on that job's company — being the poster
-    # alone is not sufficient (see the two rejection tests below).
+    # Access requires role = recruiter, being the job's creator AND an active membership on that job's company
     actor_id = uuid4()
     job_id = uuid4()
     client = _RoutingFakeClient(
         {
             "job_posts": {"id": str(job_id), "company_id": str(uuid4()), "created_by_user_id": str(actor_id)},
-            "profiles": {"role": "candidate"},
+            "profiles": {"role": "recruiter"},
             "company_members": {"id": str(uuid4())},
         }
     )
@@ -272,10 +272,6 @@ async def test_assert_recruiter_job_access_allows_poster_with_active_membership(
 
 @pytest.mark.asyncio
 async def test_assert_recruiter_job_access_rejects_active_member_who_is_not_poster():
-    # A recruiter with active company membership is still rejected if they
-    # are not the `created_by_user_id` of this specific job post — the
-    # "not poster" check runs first and short-circuits before the
-    # company_members lookup even executes.
     actor_id = uuid4()
     job_id = uuid4()
     other_user_id = uuid4()
@@ -297,7 +293,7 @@ async def test_assert_recruiter_job_access_rejects_poster_without_active_members
     client = _RoutingFakeClient(
         {
             "job_posts": {"id": str(job_id), "company_id": str(uuid4()), "created_by_user_id": str(actor_id)},
-            "profiles": {"role": "candidate"},
+            "profiles": {"role": "recruiter"},
             "company_members": None,
         }
     )

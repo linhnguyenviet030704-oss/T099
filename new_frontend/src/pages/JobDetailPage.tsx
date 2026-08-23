@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, DollarSign, Calendar, Bookmark, BookmarkCheck, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { INDEX_FAIL_COPY, ingestResume } from "../lib/ingest";
 import type { Application, JobPost, Resume } from "../types";
@@ -20,6 +21,7 @@ export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, session } = useAuth();
+  const { profile } = useCurrentProfile();
   const { success: toastSuccess, info } = useToast();
   const [job, setJob] = useState<JobPost | null>(null);
   const [similarJobs, setSimilarJobs] = useState<JobPost[]>([]);
@@ -226,6 +228,10 @@ export default function JobDetailPage() {
                 <div className="p-6 text-center">
                   <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Đăng nhập để ứng tuyển vị trí này</p>
                   <Button fullWidth onClick={() => navigate("/login")}>Đăng nhập</Button>
+                </div>
+              ) : profile?.role !== "candidate" ? (
+                <div className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                  Tính năng nộp đơn chỉ dành cho tài khoản Ứng viên (Candidate).
                 </div>
               ) : existingApp || success ? (
                 <div className="p-6">

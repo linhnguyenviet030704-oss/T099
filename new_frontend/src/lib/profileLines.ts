@@ -49,7 +49,9 @@ export async function batchInsertLines(
   userId: string,
 ): Promise<UserProfileLine[]> {
   if (!supabase) throw new Error('Supabase client chưa được cấu hình.');
-  const payloads = drafts.map((d) => draftToPayload(d, userId));
+  const validDrafts = drafts.filter((d) => d.value && d.value.trim() !== '');
+  if (validDrafts.length === 0) return [];
+  const payloads = validDrafts.map((d) => draftToPayload(d, userId));
   const { data, error } = await supabase
     .from('profile_lines')
     .insert(payloads)
@@ -63,8 +65,10 @@ export async function batchUpdateLines(
   userId: string,
 ): Promise<void> {
   if (!supabase) throw new Error('Supabase client chưa được cấu hình.');
+  const validLines = lines.filter((l) => l.value && l.value.trim() !== '');
+  if (validLines.length === 0) return;
   const results = await Promise.all(
-    lines.map((l) =>
+    validLines.map((l) =>
       supabase!
         .from('profile_lines')
         .update({

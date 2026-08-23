@@ -34,34 +34,40 @@ export default function Navbar() {
   const role = profile?.role || "candidate";
   const displayName = profile?.full_name || user?.email || "Tài khoản";
   const displayEmail = profile?.email || user?.email || "";
+  const isCandidate = role === "candidate";
 
   const navLinks = [
     { label: t.home, href: "/", always: true },
     { label: t.jobs, href: "/jobs", always: true },
-    { label: t.aiSuggestions, href: "/ai-suggestions", loggedIn: true },
+    { label: t.aiSuggestions, href: "/ai-suggestions", candidate: true },
     { label: t.aiCandidates, href: "/ai-candidates", recruiter: true },
     { label: t.dashboard, href: "/dashboard", recruiter: true },
+    { label: t.adminMenu, href: "/admin", admin: true },
   ];
 
   const userLinks = [
     { label: t.profile, href: "/profile", icon: User, always: true },
-    { label: t.cvVault, href: "/cv-vault", icon: FileText, always: true },
-    { label: t.applications, href: "/applications", icon: BookOpen, always: true },
+    { label: t.cvVault, href: "/cv-vault", icon: FileText, candidate: true },
+    { label: t.applications, href: "/applications", icon: BookOpen, candidate: true },
     { label: t.recruiterRegister, href: "/recruiter-register", icon: Star, candidate: true },
+    { label: t.dashboard, href: "/dashboard", icon: LayoutDashboard, recruiter: true },
     { label: t.adminMenu, href: "/admin", icon: Shield, admin: true },
   ];
 
   const visibleNavLinks = navLinks.filter((l) => {
     if (l.always) return true;
     if (!user) return false;
-    if (l.loggedIn) return true;
-    if (l.recruiter) return isRecruiter || isAdmin;
+    if (l.candidate) return isCandidate;
+    if (l.recruiter) return isRecruiter;
+    if (l.admin) return isAdmin;
     return false;
   });
 
   const visibleUserLinks = userLinks.filter((l) => {
     if (l.always) return true;
-    if (l.candidate) return !isRecruiter && !isAdmin;
+    if (!user) return false;
+    if (l.candidate) return isCandidate;
+    if (l.recruiter) return isRecruiter;
     if (l.admin) return isAdmin;
     return false;
   });
@@ -182,16 +188,6 @@ export default function Navbar() {
                             {link.label}
                           </Link>
                         ))}
-                        {isRecruiter && (
-                          <Link
-                            to="/dashboard"
-                            onClick={() => setProfileOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700 hover:text-indigo-600 transition-colors"
-                          >
-                            <LayoutDashboard size={15} />
-                            {t.dashboard}
-                          </Link>
-                        )}
                         <div className="border-t border-slate-100 dark:border-slate-700 p-1">
                           <button
                             onClick={() => void handleLogout()}

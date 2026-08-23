@@ -214,3 +214,123 @@ async def test_ingest_flags_low_content_through_to_final_metadata():
     graph = build_ingest_graph(encode=encode, complete=_complete)
     result = await graph.ainvoke({"raw_bytes": b"Hi", "mime_type": "text/plain"})
     assert result["metadata"]["low_content"] is True
+
+
+def _matching_retrieve(candidates: list[dict], jd_description: str = "Python FastAPI") -> dict:
+    return {
+        "jd_skills": ["Python", "FastAPI"],
+        "jd_query": "Python FastAPI",
+        "job_description": jd_description,
+        "candidates": candidates,
+    }
+
+
+def _candidate(i: str, *, skills=None) -> dict:
+    return {
+        "application_id": i,
+        "applicant_user_id": str(uuid4()),
+        "resume_id": str(uuid4()),
+        "full_name": f"User {i}",
+        "email": f"{i}@x",
+        "resume_title": f"cv{i}.pdf",
+        "resume_storage_path": f"u/{i}",
+        "current_status": "pending",
+        "skills": skills or [],
+        "distance_expanded": 0.2,
+        "bm25_score": 0.5,
+    }
+
+
+@pytest.mark.asyncio
+async def test_matching_graph_explain_node_attaches_match_reason_per_candidate():
+    candidates = [_candidate("a", skills=["python"]), _candidate("b", skills=["python", "fastapi"])]
+    seen_ids: list[str] = []
+
+    def explain_complete(prompt: str, **_kwargs):
+        seen_ids.append(prompt)
+        return json.dumps(
+            {
+                "a": "Có Python nhưng thiếu FastAPI trong JD.",
+                "b": "Đủ cả Python và FastAPI như JD yêu cầu, vượt trội hơn a.",
+            }
+        )
+
+    async def retrieve(_job_id):
+        return _matching_retrieve(candidates)
+
+    graph = build_matching_graph(
+        retrieve=retrieve,
+        rerank_fn=lambda _q, _docs: [],
+        explain_complete=explain_complete,
+    )
+    result = await graph.ainvoke({"job_id": str(uuid4()), "query": "x", "rerank_mode": "agent"})
+
+    reasons = {row["application_id"]: row.get("match_reason") for row in result["candidates"]}
+    assert reasons["a"] == "Có Python nhưng thiếu FastAPI trong JD."
+    assert reasons["b"] == "Đủ cả Python và FastAPI như JD yêu cầu, vượt trội hơn a."
+    assert len(seen_ids) == 1
+
+
+@pytest.mark.asyncio
+async def test_matching_graph_explain_node_falls_back_to_empty_reason_on_llm_error():
+    candidates = [_candidate("a"), _candidate("b")]
+
+    def explain_complete(_prompt: str, **_kwargs):
+        raise RuntimeError("llm down")
+
+    async def retrieve(_job_id):
+        return _matching_retrieve(candidates)
+
+    graph = build_matching_graph(
+        retrieve=retrieve,
+        rerank_fn=lambda _q, _docs: [],
+        explain_complete=explain_complete,
+    )
+    result = await graph.ainvoke({"job_id": str(uuid4()), "query": "x", "rerank_mode": "agent"})
+    assert all(row.get("match_reason") in (None, "") for row in result["candidates"])
+
+
+@pytest.mark.asyncio
+async def test_matching_graph_explain_node_uses_jd_query_when_description_missing():
+    candidates = [_candidate("a")]
+    seen_jd: list[str] = []
+
+    def explain_complete(prompt: str, **_kwargs):
+        seen_jd.append(prompt)
+        return json.dumps({"a": "ok"})
+
+    async def retrieve_no_desc(_job_id):
+        return {
+            "jd_skills": ["Python"],
+            "jd_query": "Python developer needed",
+            "candidates": candidates,
+        }
+
+    graph = build_matching_graph(
+        retrieve=retrieve_no_desc,
+        rerank_fn=lambda _q, _docs: [],
+        explain_complete=explain_complete,
+    )
+    await graph.ainvoke({"job_id": str(uuid4()), "query": "x", "rerank_mode": "agent"})
+    assert "Python developer needed" in seen_jd[0]
+
+
+@pytest.mark.asyncio
+async def test_matching_graph_explain_node_no_candidates_skips_llm():
+    calls: list[str] = []
+
+    def explain_complete(prompt: str, **_kwargs):
+        calls.append(prompt)
+        return "{}"
+
+    async def retrieve(_job_id):
+        return {"jd_skills": [], "jd_query": "", "candidates": []}
+
+    graph = build_matching_graph(
+        retrieve=retrieve,
+        rerank_fn=None,
+        explain_complete=explain_complete,
+    )
+    result = await graph.ainvoke({"job_id": str(uuid4()), "query": "x"})
+    assert result["response"] == "Chưa có CV nộp cho vị trí này."
+    assert calls == []

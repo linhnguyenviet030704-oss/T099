@@ -298,9 +298,13 @@ async def retrieve_for_job(
         row["bm25_score"] = score
 
     pool_size = len(submits)
+    job_description = "\n".join(
+        part.strip() for part in (job.get("title"), job.get("description"), job.get("requirements")) if part
+    )
     return {
         "jd_skills": extract_skills(query_text),
         "jd_query": query_text,
+        "job_description": job_description,
         "dense_query": dense_q,
         "bm25_query": bm25_q,
         "skill_constraints": constraints,

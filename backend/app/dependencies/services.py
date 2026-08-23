@@ -57,7 +57,12 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
                 base_url=settings.qwen_base_url,
             )
 
-        graph = build_matching_graph(retrieve=retrieve, rerank_fn=None)
+        graph = build_matching_graph(
+            retrieve=retrieve,
+            rerank_fn=None,
+            explain_api_key=settings.qwen_api_key,
+            explain_base_url=settings.qwen_base_url,
+        )
         result = await graph.ainvoke(
             {"job_id": str(job_id), "query": message, "rerank_mode": rerank}
         )

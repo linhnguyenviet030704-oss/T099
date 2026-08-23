@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
 from backend.app.core.exceptions import AppError, ForbiddenError
-from backend.app.services.chat_service import ChatService
+from backend.app.services.chat_service import ChatService, chat_response_from_graph
 
 
 def test_chat_request_rerank_defaults_to_qwen():
@@ -198,4 +198,60 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
     assert result.candidates[0].rrf_score == 0.81
     assert result.candidates[0].rerank_score is None
     assert "mock matching" not in result.response
+
+
+def test_chat_response_from_graph_forwards_match_reason():
+    app_id = str(uuid4())
+    user_id = str(uuid4())
+    result = chat_response_from_graph(
+        {
+            "response": "ok",
+            "candidates": [
+                {
+                    "application_id": app_id,
+                    "applicant_user_id": user_id,
+                    "full_name": "Ada",
+                    "email": "ada@x",
+                    "resume_title": "cv.pdf",
+                    "resume_storage_path": "u/cv",
+                    "current_status": "pending",
+                    "rrf_score": 0.9,
+                    "rerank_score": 0.7,
+                    "rerank_status": "success",
+                    "match_reason": "Đủ Python và FastAPI như JD.",
+                }
+            ],
+        }
+    )
+    assert result.candidates[0].match_reason == "Đủ Python và FastAPI như JD."
+
+
+def test_chat_response_from_graph_drops_blank_match_reason():
+    app_id = str(uuid4())
+    user_id = str(uuid4())
+    result = chat_response_from_graph(
+        {
+            "response": "ok",
+            "candidates": [
+                {
+                    "application_id": app_id,
+                    "applicant_user_id": user_id,
+                    "current_status": "pending",
+                    "rrf_score": 0.1,
+                    "match_reason": "   ",
+                }
+            ],
+        }
+    )
+    assert result.candidates[0].match_reason is None
+
+
+def test_recommended_candidate_accepts_match_reason_optional():
+    rec = RecommendedCandidate(
+        application_id=uuid4(),
+        applicant_user_id=uuid4(),
+        current_status="pending",
+        rrf_score=0.1,
+    )
+    assert rec.match_reason is None
 

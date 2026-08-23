@@ -23,6 +23,8 @@ def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
     for row in (result.get("candidates") or [])[:FINAL_CANDIDATE_K]:
         rerank_status = str(row.get("rerank_status") or "not_requested")
         rerank_score = row.get("rerank_score")
+        reason_raw = row.get("match_reason")
+        reason_clean = str(reason_raw).strip() if reason_raw else ""
         candidates.append(
             RecommendedCandidate(
                 application_id=UUID(str(row["application_id"])),
@@ -35,6 +37,7 @@ def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
                 rrf_score=float(row.get("rrf_score") or 0.0),
                 rerank_score=None if rerank_score is None else float(rerank_score),
                 rerank_status=rerank_status,  # type: ignore[arg-type]
+                match_reason=reason_clean or None,
             )
         )
     return ChatResponse(response=str(result.get("response") or ""), candidates=candidates)

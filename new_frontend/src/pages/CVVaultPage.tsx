@@ -9,9 +9,14 @@ import { formatDate } from "../lib/format";
 import type { Resume } from "../types";
 import AnimatedPage from "../components/AnimatedPage";
 
+import Button from "../components/ui/Button";
+import { useToast } from "../context/ToastContext";
+import { motion } from "framer-motion";
+
 export default function CVVaultPage() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
+  const { success, error: toastError } = useToast();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [appCounts, setAppCounts] = useState<Record<string, number>>({});
   const [showUpload, setShowUpload] = useState(false);
@@ -61,12 +66,15 @@ export default function CVVaultPage() {
       if (session?.access_token) {
         try { await ingestResume(resumeId, session.access_token); } catch { setMessage(INDEX_FAIL_COPY); }
       }
+      success("Tải CV lên thành công!");
       setFile(null);
       setTitle("");
       setShowUpload(false);
       await load();
     } catch (err: unknown) {
-      setMessage(err instanceof Error ? err.message : handleSupabaseError(err));
+      const msg = err instanceof Error ? err.message : handleSupabaseError(err);
+      setMessage(msg);
+      toastError("Tải CV thất bại", msg);
     } finally {
       setUploading(false);
     }
@@ -75,16 +83,22 @@ export default function CVVaultPage() {
   const handleSetDefault = async (resumeId: string) => {
     if (!supabase || !user) return;
     const { error } = await supabase.from("profiles").update({ default_resume_id: resumeId }).eq("id", user.id);
-    if (error) alert(handleSupabaseError(error));
-    else await load();
+    if (error) toastError("Không thể đặt CV mặc định", handleSupabaseError(error));
+    else {
+      success("Đã đặt làm CV mặc định!");
+      await load();
+    }
   };
 
   const handleRename = async (resumeId: string) => {
     if (!supabase || !editName.trim()) return;
     const { error } = await supabase.from("resumes").update({ title: editName.trim() }).eq("id", resumeId).eq("user_id", user!.id);
-    if (error) alert(handleSupabaseError(error));
-    setEditingId(null);
-    await load();
+    if (error) toastError("Không đổi tên được", handleSupabaseError(error));
+    else {
+      success("Đã đổi tên CV thành công!");
+      setEditingId(null);
+      await load();
+    }
   };
 
   return (
@@ -92,54 +106,54 @@ export default function CVVaultPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="font-display text-3xl font-bold">Tủ hồ sơ/CV</h1>
-            <p className="text-sm text-slate-500 mt-1">{resumes.length} CV đang lưu</p>
+            <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Tủ hồ sơ/CV</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{resumes.length} CV đang lưu</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => navigate("/cv-builder")} className="flex items-center gap-2 px-4 py-2.5 bg-white border rounded-xl text-sm">
-              <FileText size={15} /> Tạo CV
-            </button>
-            <button onClick={() => setShowUpload((v) => !v)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm">
-              <Upload size={15} /> Tải lên
-            </button>
+            <Button variant="outline" size="sm" leftIcon={<FileText size={15} />} onClick={() => navigate("/cv-builder")}>
+              Tạo CV
+            </Button>
+            <Button size="sm" leftIcon={<Upload size={15} />} onClick={() => setShowUpload((v) => !v)}>
+              Tải lên
+            </Button>
           </div>
         </div>
         {showUpload && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-indigo-300 p-6 mb-6 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-indigo-300 dark:border-slate-600 p-6 mb-6 space-y-3">
             <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => {
               const selected = e.target.files?.[0];
               if (!selected) return;
               setFile(selected);
               if (!title) setTitle(selected.name.replace(/\.[^.]+$/, ""));
-            }} />
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Đặt tên cho CV..." className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm" />
-            <button onClick={() => void handleUpload()} disabled={!file || uploading} className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-xl disabled:opacity-60">
-              {uploading ? "Đang tải..." : "Tải lên"}
-            </button>
-            {message && <p className="text-xs text-amber-600">{message}</p>}
+            }} className="text-sm text-slate-600 dark:text-slate-300" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Đặt tên cho CV..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+            <Button onClick={() => void handleUpload()} disabled={!file} isLoading={uploading} loadingText="Đang tải lên...">
+              Tải lên
+            </Button>
+            {message && <p className="text-xs text-amber-600 dark:text-amber-400">{message}</p>}
           </div>
         )}
         <div className="space-y-3">
           {resumes.map((r) => (
-            <div key={r.id} className="bg-white dark:bg-slate-800 rounded-2xl border p-4 flex items-center justify-between gap-3">
+            <div key={r.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between gap-3">
               <div>
                 {editingId === r.id ? (
-                  <div className="flex gap-2">
-                    <input value={editName} onChange={(e) => setEditName(e.target.value)} className="px-2 py-1 border rounded-lg text-sm" />
-                    <button onClick={() => void handleRename(r.id)} className="text-indigo-600"><Check size={14} /></button>
+                  <div className="flex gap-2 items-center">
+                    <input value={editName} onChange={(e) => setEditName(e.target.value)} className="px-2 py-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm" />
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => void handleRename(r.id)} className="p-1 text-indigo-600"><Check size={16} /></motion.button>
                   </div>
                 ) : (
-                  <p className="font-medium text-sm">{r.title || r.original_filename}</p>
+                  <p className="font-medium text-sm text-slate-900 dark:text-white">{r.title || r.original_filename}</p>
                 )}
-                <p className="text-xs text-slate-500">{formatDate(r.created_at)} · {appCounts[r.id] || 0} đơn</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(r.created_at)} · {appCounts[r.id] || 0} đơn</p>
               </div>
               <div className="flex items-center gap-2">
-                {r.is_default && <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full">Mặc định</span>}
+                {r.is_default && <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-full font-medium">Mặc định</span>}
                 {!r.is_default && (
-                  <button onClick={() => void handleSetDefault(r.id)} className="p-2 text-slate-400 hover:text-amber-500" title="Đặt mặc định"><Star size={14} /></button>
+                  <motion.button whileTap={{ scale: 0.85 }} onClick={() => void handleSetDefault(r.id)} className="p-2 text-slate-400 hover:text-amber-500 transition-colors" title="Đặt mặc định"><Star size={16} /></motion.button>
                 )}
-                <button onClick={() => { setEditingId(r.id); setEditName(r.title || ""); }} className="p-2 text-slate-400"><Edit2 size={14} /></button>
-                <button onClick={() => void getResumeSignedUrl(r.storage_path).then((url) => window.open(url, "_blank"))} className="p-2 text-slate-400"><ExternalLink size={14} /></button>
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setEditingId(r.id); setEditName(r.title || ""); }} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"><Edit2 size={16} /></motion.button>
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => void getResumeSignedUrl(r.storage_path).then((url) => window.open(url, "_blank"))} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"><ExternalLink size={16} /></motion.button>
               </div>
             </div>
           ))}

@@ -119,7 +119,8 @@ export default function Navbar() {
                 </AnimatePresence>
               </motion.button>
 
-              <button
+              <motion.button
+                whileTap={{ scale: 0.9 }}
                 onClick={toggleDarkMode}
                 className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                 title="Đổi giao diện"
@@ -129,7 +130,7 @@ export default function Navbar() {
                     {darkMode ? <Sun size={18} /> : <Moon size={18} />}
                   </motion.div>
                 </AnimatePresence>
-              </button>
+              </motion.button>
 
               {user ? (
                 <div className="relative hidden md:block">

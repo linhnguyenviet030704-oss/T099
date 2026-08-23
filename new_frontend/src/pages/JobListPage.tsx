@@ -8,10 +8,14 @@ import { ENUM_LABELS } from "../lib/format";
 import JobCard from "../components/JobCard";
 import AnimatedPage, { staggerContainer, fadeUp } from "../components/AnimatedPage";
 
+import { JobCardSkeleton } from "../components/ui/Skeleton";
+import { useToast } from "../context/ToastContext";
+
 const JOB_TYPES = Object.keys(ENUM_LABELS.employment_type) as EmploymentType[];
 
 export default function JobListPage() {
   const { user } = useAuth();
+  const { success, info } = useToast();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +64,11 @@ export default function JobListPage() {
     if (!supabase || !user) return;
     const isSaved = savedIds.includes(jobId);
     setSavedIds((ids) => (isSaved ? ids.filter((id) => id !== jobId) : [...ids, jobId]));
+    if (isSaved) {
+      info("Đã bỏ lưu việc làm");
+    } else {
+      success("Đã lưu việc làm thành công!");
+    }
     const { error: saveErr } = isSaved
       ? await supabase.from("saved_jobs").delete().eq("user_id", user.id).eq("job_post_id", jobId)
       : await supabase.from("saved_jobs").insert({ user_id: user.id, job_post_id: jobId });
@@ -104,12 +113,13 @@ export default function JobListPage() {
                 className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            <button
+            <motion.button
+              whileTap={{ scale: 0.95 }}
               onClick={() => setShowFilters((v) => !v)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200"}`}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-colors ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200"}`}
             >
               <Filter size={16} /> Lọc
-            </button>
+            </motion.button>
           </div>
           <AnimatePresence>
             {showFilters && (
@@ -117,13 +127,14 @@ export default function JobListPage() {
                 <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
                   <div className="flex flex-wrap gap-2">
                     {JOB_TYPES.map((t) => (
-                      <button
+                      <motion.button
                         key={t}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => toggleType(t)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full border ${selectedTypes.includes(t) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 border-slate-200"}`}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${selectedTypes.includes(t) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
                       >
                         {ENUM_LABELS.employment_type[t]}
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4">
@@ -132,15 +143,16 @@ export default function JobListPage() {
                       {locations.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                     {user && (
-                      <button
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => setSavedOnly((v) => !v)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${savedOnly ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 border-slate-200"}`}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${savedOnly ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
                       >
                         <Bookmark size={14} /> Đã lưu ({savedIds.length})
-                      </button>
+                      </motion.button>
                     )}
                   </div>
-                  {hasFilters && <button onClick={clearFilters} className="text-xs text-red-500 font-medium">Xóa tất cả bộ lọc</button>}
+                  {hasFilters && <button onClick={clearFilters} className="text-xs text-red-500 font-medium hover:underline">Xóa tất cả bộ lọc</button>}
                 </div>
               </motion.div>
             )}
@@ -150,7 +162,9 @@ export default function JobListPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {loading ? (
-          <p className="text-sm text-slate-500">Đang tải...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <JobCardSkeleton count={6} />
+          </div>
         ) : error ? (
           <p className="text-sm text-red-500">{error}</p>
         ) : filtered.length === 0 ? (

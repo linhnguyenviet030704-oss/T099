@@ -1,21 +1,12 @@
-# ---- Stage 1: Build ----
-FROM python:3.11-slim AS builder
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefer-binary --default-timeout=100 --user -r requirements.txt
-
-# ---- Stage 2: Production ----
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
+# Install dependencies directly into system python
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefer-binary --default-timeout=100 -r requirements.txt
 
-# Security: run as non-root user
+# Security: create non-root user
 RUN useradd -m appuser
 
 # Copy application code

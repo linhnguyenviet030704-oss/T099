@@ -123,6 +123,22 @@ export const AdminRecruiterRequestsPage: React.FC = () => {
       await fetchAdminOnboardWorkspace();
     } catch (err: any) {
       console.error('Review application filing error:', err);
+      if (err.message && err.message.includes('Failed to fetch')) {
+        const { error: sbErr } = await supabase
+          .from('recruiter_registration_forms')
+          .update({
+            status: decision,
+            admin_note: note.trim() || null,
+            reviewed_by_user_id: session.user.id,
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq('id', formId);
+        if (!sbErr) {
+          setSuccessMsg(`Đã ${decision === 'approved' ? 'Phê duyệt' : 'Từ chối'} đơn trên Supabase thành công!`);
+          await fetchAdminOnboardWorkspace();
+          return;
+        }
+      }
       alert(err.message || handleSupabaseError(err));
     } finally {
       setSavingId(null);

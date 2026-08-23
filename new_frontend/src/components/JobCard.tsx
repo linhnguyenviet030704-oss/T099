@@ -58,16 +58,18 @@ export default function JobCard({ job, compact = false, saved = false, onToggleS
             </div>
           </div>
           {onToggleSave && (
-            <button
+            <motion.button
+              whileTap={{ scale: 0.85 }}
               onClick={handleSave}
               className={`p-2 rounded-xl transition-all flex-shrink-0 ${
                 saved
                   ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30"
                   : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
               }`}
+              title={saved ? "Bỏ lưu việc làm" : "Lưu việc làm"}
             >
               {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-            </button>
+            </motion.button>
           )}
         </div>
 

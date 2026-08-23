@@ -44,6 +44,9 @@ export function handleSupabaseError(error: any): string {
   if (message.includes('User already registered')) {
     return 'Email này đã được đăng ký tài khoản.';
   }
+  if (message.includes('Error sending confirmation email')) {
+    return 'Lỗi khi gửi email xác nhận. Dự án đã vượt quá giới hạn email/giờ của Supabase (Cần cấu hình Custom SMTP hoặc tắt xác minh email trong Supabase Dashboard).';
+  }
   if (message.includes('Password should be at least 6 characters') || message.includes('at least 8 characters')) {
     return 'Mật khẩu tối thiểu phải từ 8 ký tự trở lên.';
   }

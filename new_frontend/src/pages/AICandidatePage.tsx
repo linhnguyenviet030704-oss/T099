@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, Bot, User, FileText, ExternalLink,
-  PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal,
+  PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -411,17 +411,33 @@ export default function AICandidatePage() {
                   );
                 })}
               </AnimatePresence>
-              {sending && <p className="text-xs text-slate-400">Đang gợi ý ứng viên...</p>}
+              {sending && (
+                <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 py-1">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>AI đang phân tích và gợi ý ứng viên...</span>
+                </div>
+              )}
               <div ref={bottomRef} />
             </div>
             <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 flex-wrap">
-              <button disabled={sending || !jobId} onClick={() => void handleSend(QUICK_PROMPT)} className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-600 text-xs font-medium rounded-full disabled:opacity-50">
-                <Sparkles size={12} /> {QUICK_PROMPT}
-              </button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                disabled={sending || !jobId}
+                onClick={() => void handleSend(QUICK_PROMPT)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 text-xs font-semibold rounded-full border border-purple-200 dark:border-purple-800 disabled:opacity-50 transition-colors"
+              >
+                <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {QUICK_PROMPT}
+              </motion.button>
               {(["qwen", "agent"] as const).map((mode) => (
-                <button key={mode} disabled={sending || !jobId} onClick={() => setRerank(mode)} className={`px-3 py-1.5 text-xs font-medium rounded-full border ${rerank === mode ? "bg-purple-600 text-white border-purple-600" : "bg-slate-50 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}>
+                <motion.button
+                  key={mode}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={sending || !jobId}
+                  onClick={() => setRerank(mode)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${rerank === mode ? "bg-purple-600 text-white border-purple-600 shadow-sm" : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}
+                >
                   {mode}
-                </button>
+                </motion.button>
               ))}
             </div>
             <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
@@ -431,11 +447,16 @@ export default function AICandidatePage() {
                 onKeyDown={(e) => e.key === "Enter" && void handleSend()}
                 disabled={sending || !jobId}
                 placeholder={jobId ? "Nhắn tin với AI..." : "Chọn tin tuyển dụng trước"}
-                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm disabled:opacity-60"
+                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm disabled:opacity-60"
               />
-              <button onClick={() => void handleSend()} disabled={!input.trim() || sending || !jobId} className="p-2.5 bg-purple-600 disabled:opacity-50 text-white rounded-xl">
-                <Send size={16} />
-              </button>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => void handleSend()}
+                disabled={!input.trim() || sending || !jobId}
+                className="p-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 text-white rounded-xl transition-colors shadow-md shadow-purple-200 dark:shadow-none"
+              >
+                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              </motion.button>
             </div>
           </section>
         </div>

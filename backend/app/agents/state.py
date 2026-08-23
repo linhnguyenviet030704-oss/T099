@@ -22,3 +22,5 @@ class AgentState(TypedDict, total=False):
     constraints_confirmed: bool
     dense_query: str
     bm25_query: str
+    match_reasons: dict[str, str]
+    job_description: str

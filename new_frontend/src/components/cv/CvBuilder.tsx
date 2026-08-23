@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   DndContext,
   closestCenter,
@@ -202,22 +203,25 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.95 }}
             onClick={onClose}
-            className="px-3 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer"
+            className="px-3 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
           >
             <X className="h-3.5 w-3.5" />
             Thoát chế độ tạo CV
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
             onClick={() => setShowExport(true)}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-emerald-950/40"
           >
             <FileDown className="h-4 w-4" />
             Xuất CV
-          </button>
+          </motion.button>
         </div>
       </div>
 

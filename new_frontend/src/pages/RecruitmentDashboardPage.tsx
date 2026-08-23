@@ -10,9 +10,14 @@ import { ENUM_LABELS, formatDate } from "../lib/format";
 import { APP_STATUS_COLORS, JOB_STATUS_COLORS, salaryRange, TERMINAL_APP_STATUSES } from "../lib/ui";
 import AnimatedPage from "../components/AnimatedPage";
 
+import Button from "../components/ui/Button";
+import { Skeleton } from "../components/ui/Skeleton";
+import { useToast } from "../context/ToastContext";
+
 export default function RecruitmentDashboardPage() {
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
+  const { success, error: toastError } = useToast();
   const [memberships, setMemberships] = useState<CompanyMember[]>([]);
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -26,6 +31,7 @@ export default function RecruitmentDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobSaving, setJobSaving] = useState(false);
+  const [updatingApp, setUpdatingApp] = useState(false);
   const [newJob, setNewJob] = useState({
     title: "", description: "", requirements: "", benefits: "",
     location: "", employment_type: "full_time" as EmploymentType,
@@ -121,11 +127,12 @@ export default function RecruitmentDashboardPage() {
         deadline_at: newJob.deadline ? new Date(newJob.deadline).toISOString() : null,
       });
       if (insErr) throw insErr;
+      success("Đã tạo tin tuyển dụng mới!");
       setShowCreateJob(false);
       setNewJob({ title: "", description: "", requirements: "", benefits: "", location: "", employment_type: "full_time", salaryMin: "", salaryMax: "", currency: "VND", deadline: "", status: "published" });
       await fetchWorkspace();
     } catch (err: unknown) {
-      alert(handleSupabaseError(err));
+      toastError("Tạo tin thất bại", handleSupabaseError(err));
     } finally {
       setJobSaving(false);
     }
@@ -137,24 +144,33 @@ export default function RecruitmentDashboardPage() {
     if (status === "published") payload.published_at = new Date().toISOString();
     if (status === "closed") payload.closed_at = new Date().toISOString();
     const { error: uErr } = await supabase.from("job_posts").update(payload).eq("id", jobId);
-    if (uErr) alert(handleSupabaseError(uErr));
-    else await fetchWorkspace();
+    if (uErr) toastError("Cập nhật thất bại", handleSupabaseError(uErr));
+    else {
+      success(`Đã chuyển trạng thái sang ${ENUM_LABELS.job_post_status[status]}`);
+      await fetchWorkspace();
+    }
   };
 
   const handleAddStage = async (appId: string) => {
     if (!supabase || !user) return;
-    const { error: sErr } = await supabase.from("application_stages").insert({
-      application_id: appId,
-      changed_by_user_id: user.id,
-      stage: newStatus,
-      note: stageNote.trim() || null,
-      is_system_generated: false,
-    });
-    if (sErr) alert(handleSupabaseError(sErr));
-    else {
+    setUpdatingApp(true);
+    try {
+      const { error: sErr } = await supabase.from("application_stages").insert({
+        application_id: appId,
+        changed_by_user_id: user.id,
+        stage: newStatus,
+        note: stageNote.trim() || null,
+        is_system_generated: false,
+      });
+      if (sErr) throw sErr;
+      success("Đã cập nhật trạng thái đơn ứng tuyển!");
       setSelectedApp(null);
       setStageNote("");
       await fetchWorkspace();
+    } catch (err: unknown) {
+      toastError("Cập nhật thất bại", handleSupabaseError(err));
+    } finally {
+      setUpdatingApp(false);
     }
   };
 
@@ -203,77 +219,79 @@ export default function RecruitmentDashboardPage() {
                         </select>
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <button onClick={() => setShowCreateJob(false)} className="px-3 py-1.5 text-xs">Hủy</button>
-                        <button onClick={() => void handleCreateJob()} disabled={jobSaving || !newJob.title || !newJob.description} className="px-4 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-xl disabled:opacity-60">
-                          {jobSaving ? "Đang tạo..." : "Tạo tin"}
-                        </button>
+                        <Button variant="ghost" size="xs" onClick={() => setShowCreateJob(false)}>Hủy</Button>
+                        <Button size="xs" onClick={() => void handleCreateJob()} disabled={!newJob.title || !newJob.description} isLoading={jobSaving} loadingText="Đang tạo...">
+                          Tạo tin
+                        </Button>
                       </div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
               {companyJobs.length === 0 ? (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border p-8 text-center">
-                  <Briefcase size={32} className="text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-500">Chưa có tin nào</p>
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center">
+                  <Briefcase size={32} className="text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có tin nào</p>
                 </div>
               ) : companyJobs.map((job) => {
                 const appCount = applications.filter((a) => a.job_post_id === job.id).length;
                 return (
-                  <button
+                  <motion.button
                     key={job.id}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setSelectedJobId(selectedJobId === job.id ? null : job.id)}
-                    className={`w-full text-left p-4 rounded-xl border ${selectedJobId === job.id ? "bg-indigo-50 border-indigo-200" : "bg-white dark:bg-slate-800 border-slate-200"}`}
+                    className={`w-full text-left p-4 rounded-xl border transition-all ${selectedJobId === job.id ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300"}`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium line-clamp-2">{job.title}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${JOB_STATUS_COLORS[job.status]}`}>{ENUM_LABELS.job_post_status[job.status]}</span>
+                      <p className="text-sm font-medium line-clamp-2 text-slate-900 dark:text-white">{job.title}</p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status]}`}>{ENUM_LABELS.job_post_status[job.status]}</span>
                     </div>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1"><Users size={11} />{appCount} đơn</span>
                       <span>Hạn: {formatDate(job.deadline_at)}</span>
                     </div>
-                    <div className="flex gap-1 mt-2">
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
                       {(["published", "closed", "archived"] as JobPostStatus[]).filter((s) => s !== job.status).map((s) => (
-                        <span
+                        <motion.span
                           key={s}
+                          whileTap={{ scale: 0.92 }}
                           onClick={(e) => { e.stopPropagation(); void handleUpdateJobStatus(job.id, s); }}
-                          className="text-xs px-2 py-0.5 bg-slate-100 rounded-full"
+                          className="text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-600 text-slate-600 dark:text-slate-300 rounded-full font-medium transition-colors cursor-pointer"
                         >
                           → {ENUM_LABELS.job_post_status[s]}
-                        </span>
+                        </motion.span>
                       ))}
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
             <div className="lg:col-span-2">
               {!selectedJob ? (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border p-12 text-center h-full flex flex-col items-center justify-center">
-                  <Briefcase size={48} className="text-slate-200 mb-4" />
-                  <p className="text-slate-500 text-sm">Chọn một tin tuyển dụng để xem đơn ứng viên</p>
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center h-full flex flex-col items-center justify-center">
+                  <Briefcase size={48} className="text-slate-200 dark:text-slate-700 mb-4" />
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">Chọn một tin tuyển dụng để xem đơn ứng viên</p>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border overflow-hidden">
-                  <div className="p-5 border-b border-slate-100">
-                    <h2 className="font-semibold">{selectedJob.title}</h2>
-                    <p className="text-xs text-slate-500 mt-1">{jobApps.length} đơn • {salaryRange(selectedJob)} • {selectedJob.location}</p>
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  <div className="p-5 border-b border-slate-100 dark:border-slate-700">
+                    <h2 className="font-semibold text-slate-900 dark:text-white">{selectedJob.title}</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{jobApps.length} đơn • {salaryRange(selectedJob)} • {selectedJob.location}</p>
                   </div>
                   {jobApps.length === 0 ? (
-                    <div className="p-12 text-center text-sm text-slate-500">Chưa có ứng viên nào nộp đơn</div>
+                    <div className="p-12 text-center text-sm text-slate-500 dark:text-slate-400">Chưa có ứng viên nào nộp đơn</div>
                   ) : jobApps.map((app) => {
                     const cand = profilesMap[app.applicant_user_id];
                     const isSelected = selectedApp === app.id;
                     return (
-                      <div key={app.id} className="p-4 border-b border-slate-100">
+                      <div key={app.id} className="p-4 border-b border-slate-100 dark:border-slate-700">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-sm font-medium">{cand?.full_name || app.applicant_user_id}</p>
-                            <p className="text-xs text-slate-500">{app.resume_title_snapshot || "CV"}</p>
+                            <p className="text-sm font-medium text-slate-900 dark:text-white">{cand?.full_name || app.applicant_user_id}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{app.resume_title_snapshot || "CV"}</p>
                             {app.resume_storage_path_snapshot && (
                               <button
-                                className="text-xs text-indigo-600 mt-1"
+                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
                                 onClick={() => void getResumeSignedUrl(app.resume_storage_path_snapshot!).then((url) => window.open(url, "_blank"))}
                               >
                                 Mở CV
@@ -281,23 +299,23 @@ export default function RecruitmentDashboardPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2.5 py-1 rounded-full ${APP_STATUS_COLORS[app.current_status]}`}>{ENUM_LABELS.application_status[app.current_status]}</span>
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>{ENUM_LABELS.application_status[app.current_status]}</span>
                             {!TERMINAL_APP_STATUSES.includes(app.current_status) && (
-                              <button onClick={() => setSelectedApp(isSelected ? null : app.id)} className="text-xs px-2 py-1 bg-slate-100 rounded-lg">Cập nhật</button>
+                              <Button size="xs" variant="outline" onClick={() => setSelectedApp(isSelected ? null : app.id)}>Cập nhật</Button>
                             )}
                           </div>
                         </div>
                         {isSelected && (
-                          <div className="mt-3 grid grid-cols-2 gap-2">
-                            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ApplicationStatus)} className="px-3 py-2 bg-slate-50 border rounded-xl text-xs">
+                          <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
+                            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ApplicationStatus)} className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white">
                               {(Object.keys(ENUM_LABELS.application_status) as ApplicationStatus[]).filter((s) => !TERMINAL_APP_STATUSES.includes(s) || s === "rejected").map((s) => (
                                 <option key={s} value={s}>{ENUM_LABELS.application_status[s]}</option>
                               ))}
                             </select>
-                            <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder="Ghi chú" className="px-3 py-2 bg-slate-50 border rounded-xl text-xs" />
+                            <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder="Ghi chú" className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
                             <div className="col-span-2 flex justify-end gap-2">
-                              <button onClick={() => setSelectedApp(null)} className="p-1.5"><X size={12} /></button>
-                              <button onClick={() => void handleAddStage(app.id)} className="flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-xl"><Check size={12} /> Lưu</button>
+                              <Button size="xs" variant="ghost" onClick={() => setSelectedApp(null)}>Hủy</Button>
+                              <Button size="xs" leftIcon={<Check size={12} />} onClick={() => void handleAddStage(app.id)} isLoading={updatingApp} loadingText="Đang lưu...">Lưu</Button>
                             </div>
                           </div>
                         )}

@@ -6,10 +6,14 @@ import { useAuth } from "../auth/AuthProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import AnimatedPage from "../components/AnimatedPage";
 
+import Button from "../components/ui/Button";
+import { useToast } from "../context/ToastContext";
+
 export default function LoginPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { success } = useToast();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +38,7 @@ export default function LoginPage() {
         password,
       });
       if (signErr) throw signErr;
+      success("Đăng nhập thành công!");
       navigate(from, { replace: true });
     } catch (err: unknown) {
       setError(handleSupabaseError(err));
@@ -68,14 +73,16 @@ export default function LoginPage() {
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Tài khoản seed (mật khẩu: password123)</p>
           <div className="flex gap-2">
             {demoAccounts.map((acc) => (
-              <button
+              <motion.button
                 key={acc.email}
                 type="button"
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.02 }}
                 onClick={() => { setEmail(acc.email); setPassword("password123"); }}
                 className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${acc.color}`}
               >
                 {acc.label}
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -130,14 +137,15 @@ export default function LoginPage() {
               </motion.div>
             )}
 
-            <motion.button
-              whileTap={{ scale: 0.98 }}
+            <Button
               type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30"
+              isLoading={loading}
+              loadingText="Đang đăng nhập..."
+              fullWidth
+              size="lg"
             >
-              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
-            </motion.button>
+              Đăng nhập
+            </Button>
           </form>
 
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">

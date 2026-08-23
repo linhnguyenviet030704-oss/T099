@@ -23,6 +23,8 @@ import AICandidatePage from "./pages/AICandidatePage";
 import AdminRecruiterPage from "./pages/AdminRecruiterPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
+import { ToastProvider } from "./context/ToastContext";
+
 function AnimatedRoutes() {
   const location = useLocation();
   return (
@@ -123,19 +125,21 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    <LangProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <ProfileProvider>
-            <BrowserRouter>
-              <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors">
-                <Navbar />
-                <AnimatedRoutes />
-              </div>
-            </BrowserRouter>
-          </ProfileProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </LangProvider>
+    <ToastProvider>
+      <LangProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ProfileProvider>
+              <BrowserRouter>
+                <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors">
+                  <Navbar />
+                  <AnimatedRoutes />
+                </div>
+              </BrowserRouter>
+            </ProfileProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </LangProvider>
+    </ToastProvider>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Sparkles, MapPin, DollarSign, ExternalLink, Bot, User } from "lucide-react";
+import { Send, Sparkles, MapPin, DollarSign, ExternalLink, Bot, User, Loader2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
 import { ENUM_LABELS, formatCurrency } from "../lib/format";
@@ -102,13 +102,23 @@ export default function AISuggestionsPage() {
                 </motion.div>
               ))}
             </AnimatePresence>
-            {sending && <p className="text-xs text-slate-400">Đang gợi ý việc làm...</p>}
+            {sending && (
+              <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 py-1">
+                <Loader2 size={14} className="animate-spin" />
+                <span>AI đang tìm kiếm công việc phù hợp...</span>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
           <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2">
-            <button disabled={sending} onClick={() => void handleSend(QUICK_PROMPT)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-full disabled:opacity-50">
-              <Sparkles size={12} /> {QUICK_PROMPT}
-            </button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              disabled={sending}
+              onClick={() => void handleSend(QUICK_PROMPT)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-semibold rounded-full border border-indigo-100 dark:border-indigo-800 disabled:opacity-50 transition-colors"
+            >
+              <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {QUICK_PROMPT}
+            </motion.button>
           </div>
           <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
             <input
@@ -117,11 +127,16 @@ export default function AISuggestionsPage() {
               onKeyDown={(e) => e.key === "Enter" && void handleSend()}
               disabled={sending}
               placeholder="Nhắn tin với AI..."
-              className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm"
+              className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm"
             />
-            <button onClick={() => void handleSend()} disabled={!input.trim() || sending} className="p-2.5 bg-indigo-600 disabled:opacity-50 text-white rounded-xl">
-              <Send size={16} />
-            </button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => void handleSend()}
+              disabled={!input.trim() || sending}
+              className="p-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white rounded-xl transition-colors shadow-md shadow-indigo-200 dark:shadow-none"
+            >
+              {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </motion.button>
           </div>
         </div>
       </div>

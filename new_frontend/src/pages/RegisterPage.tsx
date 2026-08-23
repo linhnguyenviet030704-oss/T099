@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { SITE_URL } from "../lib/env";
 import AnimatedPage from "../components/AnimatedPage";
+import Button from "../components/ui/Button";
 
 export default function RegisterPage() {
   const { user, loading: authLoading } = useAuth();
@@ -176,14 +177,15 @@ export default function RegisterPage() {
                 <AlertCircle size={15} /> {error}
               </div>
             )}
-            <motion.button
-              whileTap={{ scale: 0.98 }}
+            <Button
               type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold rounded-xl"
+              isLoading={loading}
+              loadingText="Đang đăng ký..."
+              fullWidth
+              size="lg"
             >
-              {loading ? "Đang đăng ký..." : "Đăng ký"}
-            </motion.button>
+              Đăng ký
+            </Button>
           </form>
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
             Đã có tài khoản?{" "}

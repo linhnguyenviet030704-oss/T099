@@ -10,14 +10,20 @@ import { ENUM_LABELS } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
 import ConfirmModal from "../components/ConfirmModal";
 
+import Button from "../components/ui/Button";
+import { useToast } from "../context/ToastContext";
+import { motion } from "framer-motion";
+
 export default function ProfilePage() {
   const { user, session } = useAuth();
   const { profile, isAdmin, refreshProfile } = useCurrentProfile();
+  const { success, error: toastError } = useToast();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [addingLine, setAddingLine] = useState(false);
   const [lines, setLines] = useState<UserProfileLine[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [lineType, setLineType] = useState<UserProfileLine["name"]>("experience");
@@ -58,9 +64,10 @@ export default function ProfilePage() {
       if (error) throw error;
       await refreshProfile();
       setSaved(true);
+      success("Đã cập nhật thông tin cá nhân!");
       setTimeout(() => setSaved(false), 2000);
     } catch (err: unknown) {
-      alert(handleSupabaseError(err));
+      toastError("Lỗi lưu thông tin", handleSupabaseError(err));
     } finally {
       setSaving(false);
     }
@@ -68,14 +75,20 @@ export default function ProfilePage() {
 
   const handleAddLine = async () => {
     if (!supabase || !user || !lineValue.trim()) return;
-    const { error } = await supabase.from("profile_lines").insert({
-      user_id: user.id, name: lineType, value: lineValue.trim(), display_order: lines.length,
-    });
-    if (error) alert(handleSupabaseError(error));
-    else {
+    setAddingLine(true);
+    try {
+      const { error } = await supabase.from("profile_lines").insert({
+        user_id: user.id, name: lineType, value: lineValue.trim(), display_order: lines.length,
+      });
+      if (error) throw error;
+      success("Đã thêm dòng hồ sơ!");
       setLineValue("");
       setShowAdd(false);
       await loadLines();
+    } catch (err: unknown) {
+      toastError("Thêm dòng thất bại", handleSupabaseError(err));
+    } finally {
+      setAddingLine(false);
     }
   };
 
@@ -83,6 +96,7 @@ export default function ProfilePage() {
     if (!supabase || !user || !deleteId) return;
     await supabase.from("profile_lines").delete().eq("id", deleteId).eq("user_id", user.id);
     setDeleteId(null);
+    success("Đã xóa dòng hồ sơ!");
     await loadLines();
   };
 
@@ -94,8 +108,9 @@ export default function ProfilePage() {
         body: JSON.stringify({ role }),
       });
       setAdminUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
+      success("Đã đổi vai trò người dùng!");
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Không đổi được vai trò.");
+      toastError("Không đổi được vai trò", err instanceof Error ? err.message : "Thao tác thất bại");
     }
   };
 
@@ -123,34 +138,48 @@ export default function ProfilePage() {
             </div>
             <label className="block text-xs text-slate-500">URL ảnh đại diện</label>
             <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" />
-            <button onClick={() => void handleSaveProfile()} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-xl">
-              {saved ? <span className="inline-flex items-center gap-1"><Check size={14} /> Đã lưu</span> : saving ? "Đang lưu..." : "Lưu thông tin"}
-            </button>
+            <div className="pt-2">
+              <Button
+                onClick={() => void handleSaveProfile()}
+                isLoading={saving}
+                loadingText="Đang lưu..."
+                leftIcon={saved ? <Check size={16} /> : undefined}
+              >
+                {saved ? "Đã lưu" : "Lưu thông tin"}
+              </Button>
+            </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border p-7 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-7 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Dòng hồ sơ</h2>
-            <button onClick={() => setShowAdd((v) => !v)} className="flex items-center gap-1 text-sm text-indigo-600"><Plus size={14} /> Thêm dòng</button>
+            <h2 className="font-semibold text-slate-900 dark:text-white">Dòng hồ sơ</h2>
+            <Button size="xs" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAdd((v) => !v)}>
+              Thêm dòng
+            </Button>
           </div>
           {showAdd && (
-            <div className="mb-4 space-y-2">
-              <select value={lineType} onChange={(e) => setLineType(e.target.value as UserProfileLine["name"])} className="px-3 py-2 bg-slate-50 border rounded-xl text-sm">
+            <div className="mb-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200 dark:border-slate-600 space-y-3">
+              <select value={lineType} onChange={(e) => setLineType(e.target.value as UserProfileLine["name"])} className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
                 {Object.entries(ENUM_LABELS.line_type).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
-              <textarea value={lineValue} onChange={(e) => setLineValue(e.target.value)} rows={3} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm" placeholder="Nội dung" />
-              <button onClick={() => void handleAddLine()} className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-xl">Thêm</button>
+              <textarea value={lineValue} onChange={(e) => setLineValue(e.target.value)} rows={3} className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" placeholder="Nội dung" />
+              <div className="flex gap-2 justify-end">
+                <Button size="xs" variant="ghost" onClick={() => setShowAdd(false)}>Hủy</Button>
+                <Button size="xs" onClick={() => void handleAddLine()} isLoading={addingLine} loadingText="Đang thêm...">
+                  Thêm
+                </Button>
+              </div>
             </div>
           )}
           {lines.length === 0 ? (
-            <p className="text-sm text-slate-500">Chưa có dòng hồ sơ nào.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có dòng hồ sơ nào.</p>
           ) : lines.map((line) => (
-            <div key={line.id} className="flex items-start justify-between gap-3 py-3 border-t border-slate-100">
+            <div key={line.id} className="flex items-start justify-between gap-3 py-3 border-t border-slate-100 dark:border-slate-700">
               <div>
-                <p className="text-xs text-indigo-600 font-medium">{ENUM_LABELS.line_type[line.name]}</p>
-                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line">{line.value}</p>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">{ENUM_LABELS.line_type[line.name]}</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line mt-0.5">{line.value}</p>
               </div>
-              <button onClick={() => setDeleteId(line.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => setDeleteId(line.id)} className="p-1 text-slate-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></motion.button>
             </div>
           ))}
         </div>

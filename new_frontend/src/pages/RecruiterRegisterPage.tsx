@@ -8,9 +8,13 @@ import type { RecruiterRegistrationForm } from "../types";
 import { formatDate } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
 
+import Button from "../components/ui/Button";
+import { useToast } from "../context/ToastContext";
+
 export default function RecruiterRegisterPage() {
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
+  const { success } = useToast();
   const [forms, setForms] = useState<RecruiterRegistrationForm[]>([]);
   const [form, setForm] = useState({ companyName: "", companyEmail: "", website: "", licenseUrl: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -60,11 +64,11 @@ export default function RecruiterRegisterPage() {
       if (pending) {
         const { error } = await supabase.from("recruiter_registration_forms").update(payload).eq("id", pending.id).eq("user_id", user.id);
         if (error) throw error;
-        setMessage("Đã cập nhật đơn đăng ký.");
+        success("Đã cập nhật đơn đăng ký!");
       } else {
         const { error } = await supabase.from("recruiter_registration_forms").insert({ ...payload, user_id: user.id, status: "pending" });
         if (error) throw error;
-        setMessage("Đã gửi đơn đăng ký.");
+        success("Đã gửi đơn đăng ký thành công!");
       }
       await load();
     } catch (err: unknown) {
@@ -92,24 +96,29 @@ export default function RecruiterRegisterPage() {
         <h1 className="font-display text-3xl font-bold mb-2">Đăng ký Nhà tuyển dụng</h1>
         <p className="text-sm text-slate-500 mb-6">Điền thông tin công ty để Admin phê duyệt</p>
         {latest && !pending && (
-          <div className="mb-6 p-4 rounded-xl bg-slate-100 text-sm">
+          <div className="mb-6 p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border text-sm">
             {latest.status === "approved" ? <CheckCircle2 className="inline text-emerald-500 mr-2" size={16} /> : latest.status === "rejected" ? <XCircle className="inline text-red-500 mr-2" size={16} /> : <Clock className="inline text-amber-500 mr-2" size={16} />}
             Đơn gần nhất: {latest.status} · {formatDate(latest.created_at)}
             {latest.admin_note && <p className="mt-1 text-xs">Ghi chú: {latest.admin_note}</p>}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-2xl border p-6 space-y-3">
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-3">
           <div className="relative">
             <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input required value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} placeholder="Tên công ty *" className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border rounded-xl text-sm" />
+            <input required value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} placeholder="Tên công ty *" className="w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
           </div>
-          <input value={form.companyEmail} onChange={(e) => setForm((p) => ({ ...p, companyEmail: e.target.value }))} placeholder="Email công ty" className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" />
-          <input value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))} placeholder="Website" className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" />
-          <input value={form.licenseUrl} onChange={(e) => setForm((p) => ({ ...p, licenseUrl: e.target.value }))} placeholder="Đường dẫn giấy phép kinh doanh" className="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" />
-          {message && <p className="text-xs text-indigo-600">{message}</p>}
-          <button type="submit" disabled={submitting} className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold">
-            {submitting ? "Đang gửi..." : pending ? "Cập nhật đơn" : "Gửi đơn đăng ký"}
-          </button>
+          <input value={form.companyEmail} onChange={(e) => setForm((p) => ({ ...p, companyEmail: e.target.value }))} placeholder="Email công ty" className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+          <input value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))} placeholder="Website" className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+          <input value={form.licenseUrl} onChange={(e) => setForm((p) => ({ ...p, licenseUrl: e.target.value }))} placeholder="Đường dẫn giấy phép kinh doanh" className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+          {message && <p className="text-xs text-indigo-600 dark:text-indigo-400">{message}</p>}
+          <Button
+            type="submit"
+            isLoading={submitting}
+            loadingText="Đang gửi..."
+            fullWidth
+          >
+            {pending ? "Cập nhật đơn" : "Gửi đơn đăng ký"}
+          </Button>
         </form>
       </div>
     </AnimatedPage>

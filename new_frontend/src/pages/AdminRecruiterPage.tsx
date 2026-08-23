@@ -59,6 +59,7 @@ export default function AdminRecruiterPage() {
       await load();
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('Failed to fetch')) {
+        const targetForm = forms.find((f) => f.id === id);
         const { error: sbErr } = await supabase
           .from("recruiter_registration_forms")
           .update({
@@ -69,6 +70,9 @@ export default function AdminRecruiterPage() {
           })
           .eq("id", id);
         if (!sbErr) {
+          if (decision === "approved" && targetForm) {
+            await supabase.from("profiles").update({ role: "recruiter" }).eq("id", targetForm.user_id);
+          }
           await load();
           success(`Đã ${decision === "approved" ? "phê duyệt" : "từ chối"} đơn thành công!`);
           return;

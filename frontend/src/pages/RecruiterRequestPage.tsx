@@ -20,7 +20,7 @@ import { formatDate, ENUM_LABELS } from '../lib/format';
 
 export const RecruiterRequestPage: React.FC = () => {
   const { user } = useAuth();
-  const { profile } = useCurrentProfile();
+  const { profile, refreshProfile } = useCurrentProfile();
 
   const [formsList, setFormsList] = useState<RecruiterRegistrationForm[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +84,13 @@ export const RecruiterRequestPage: React.FC = () => {
       fetchOnboardingWorkspace();
     }
   }, [user, fetchOnboardingWorkspace]);
+
+  useEffect(() => {
+    const latest = formsList[0];
+    if (latest?.status === 'approved' && profile?.role === 'candidate') {
+      void refreshProfile();
+    }
+  }, [formsList, profile?.role, refreshProfile]);
 
   // Handle submit logic (idempotent redirect on pending or insert)
   const handleSubmitRequest = async (e: React.FormEvent) => {

@@ -92,7 +92,11 @@ export default function JobDetailPage() {
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !user || !id) return;
+    if (!supabase || !user || !id || !job) return;
+    if (expired || job.status !== "published") {
+      setFormErr("Tin tuyển dụng đã hết hạn hoặc không còn nhận hồ sơ.");
+      return;
+    }
     if (!selectedResumeId) {
       setFormErr("Vui lòng chọn CV.");
       return;

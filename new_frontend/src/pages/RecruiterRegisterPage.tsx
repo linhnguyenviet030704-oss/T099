@@ -13,7 +13,7 @@ import { useToast } from "../context/ToastContext";
 
 export default function RecruiterRegisterPage() {
   const { user } = useAuth();
-  const { profile } = useCurrentProfile();
+  const { profile, refreshProfile } = useCurrentProfile();
   const { success } = useToast();
   const [forms, setForms] = useState<RecruiterRegistrationForm[]>([]);
   const [form, setForm] = useState({ companyName: "", companyEmail: "", website: "", licenseUrl: "" });
@@ -44,6 +44,12 @@ export default function RecruiterRegisterPage() {
   }, [user]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (latest?.status === "approved" && profile?.role === "candidate") {
+      void refreshProfile();
+    }
+  }, [latest?.status, profile?.role, refreshProfile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

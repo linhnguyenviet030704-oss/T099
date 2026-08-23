@@ -47,7 +47,31 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       if (data) {
-        setProfile(data as Profile);
+        let currentProfile = data as Profile;
+        if (currentProfile.role === 'candidate') {
+          const { data: approvedForm } = await supabase
+            .from('recruiter_registration_forms')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('status', 'approved')
+            .maybeSingle();
+
+          if (approvedForm) {
+            const { data: updated } = await supabase
+              .from('profiles')
+              .update({ role: 'recruiter' })
+              .eq('id', userId)
+              .select('*')
+              .maybeSingle();
+
+            if (updated) {
+              currentProfile = updated as Profile;
+            } else {
+              currentProfile = { ...currentProfile, role: 'recruiter' };
+            }
+          }
+        }
+        setProfile(currentProfile);
       } else {
         // Not found, trigger idempotent upsert/insert
         const fallbackName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Ứng viên mới';

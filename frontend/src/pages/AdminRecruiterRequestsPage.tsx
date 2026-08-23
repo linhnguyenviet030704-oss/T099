@@ -124,6 +124,7 @@ export const AdminRecruiterRequestsPage: React.FC = () => {
     } catch (err: any) {
       console.error('Review application filing error:', err);
       if (err.message && err.message.includes('Failed to fetch')) {
+        const targetForm = forms.find(f => f.id === formId);
         const { error: sbErr } = await supabase
           .from('recruiter_registration_forms')
           .update({
@@ -134,6 +135,9 @@ export const AdminRecruiterRequestsPage: React.FC = () => {
           })
           .eq('id', formId);
         if (!sbErr) {
+          if (decision === 'approved' && targetForm) {
+            await supabase.from('profiles').update({ role: 'recruiter' }).eq('id', targetForm.user_id);
+          }
           setSuccessMsg(`Đã ${decision === 'approved' ? 'Phê duyệt' : 'Từ chối'} đơn trên Supabase thành công!`);
           await fetchAdminOnboardWorkspace();
           return;

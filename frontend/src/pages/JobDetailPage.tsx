@@ -187,9 +187,15 @@ export const JobDetailPage: React.FC = () => {
   // Execute application submission
   const handleApplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !user || !jobId) return;
+    if (!supabase || !user || !jobId || !job) return;
 
     setFormErr(null);
+
+    if (isDeadlinePassed(job.deadline_at) || job.status !== 'published') {
+      setFormErr('Tin tuyển dụng này đã hết hạn hoặc không còn nhận hồ sơ.');
+      return;
+    }
+
     setSubmitting(true);
 
     if (!selectedResumeId) {

@@ -115,17 +115,6 @@ export default function AICandidatePage() {
     if (!supabase || !user) return;
     try {
       setJobsError(null);
-      const { data: profileRow } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-      const isAdmin = profileRow?.role === "admin";
-      if (isAdmin) {
-        const { data: jobsData, error: jobsErr } = await supabase.from("job_posts").select("*, companies(name)").order("updated_at", { ascending: false });
-        if (jobsErr) throw jobsErr;
-        setJobs(((jobsData || []) as any[]).map((job) => ({
-          ...job,
-          company_name: Array.isArray(job.companies) ? job.companies[0]?.name : job.companies?.name,
-        })));
-        return;
-      }
       const { data: memberData, error: memberErr } = await supabase
         .from("company_members")
         .select("company_id, companies(name)")

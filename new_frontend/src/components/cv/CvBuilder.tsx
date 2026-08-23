@@ -21,6 +21,7 @@ import {
   Square,
   Layers,
   ChevronDown,
+  Upload,
 } from 'lucide-react';
 import { UserProfileLine, Profile } from '../../types';
 import {
@@ -37,6 +38,9 @@ import { CvLineEditor } from './CvLineEditor';
 import { CvExportModal, ExportOptions } from './CvExportModal';
 import { SplitPane } from '../SplitPane';
 import { CV_TEMPLATES, CvTemplateId } from '../../lib/cvTemplates';
+import { supabase } from '../../lib/supabase';
+import { buildResumeStoragePath } from '../../lib/storage';
+import { ingestResume } from '../../lib/ingest';
 
 const lineTypeLabel = (value: string): string =>
   LINE_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
@@ -169,7 +173,12 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
     ]);
   };
 
+  const [uploadingIngest, setUploadingIngest] = useState(false);
+
   const addBlankLine = () => {
+    // Anti-spam safeguard: Don't create another empty line if one already exists
+    const hasEmpty = cvLines.some((l) => !l.value.trim());
+    if (hasEmpty) return;
     const blank = createBlankCvLine();
     setCvLines((prev) => [...prev, blank]);
     setActiveKey(blank.key);
@@ -178,12 +187,55 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
   const setAllSelected = (selected: boolean) =>
     setCvLines((prev) => prev.map((l) => ({ ...l, selected })));
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !supabase) return;
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES) {
+      alert(`Dung lượng file (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn tối đa 10MB.`);
+      return;
+    }
+    setUploadingIngest(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Chưa đăng nhập");
+      const resumeId = crypto.randomUUID();
+      const storagePath = buildResumeStoragePath(user.id, resumeId, file.name);
+      const { error: uploadErr } = await supabase.storage.from("resumes").upload(storagePath, file, { upsert: false });
+      if (uploadErr) throw uploadErr;
+      await supabase.from("resumes").insert({
+        id: resumeId, user_id: user.id, bucket_id: "resumes", storage_path: storagePath,
+        original_filename: file.name, title: file.name.replace(/\.[^.]+$/, ""), mime_type: file.type,
+        size_bytes: file.size, is_default: false,
+      });
+      const session = (await supabase.auth.getSession()).data.session;
+      if (session?.access_token) {
+        try { await ingestResume(resumeId, session.access_token); } catch {}
+      }
+      const { data } = await supabase.from("profile_lines").select("*").eq("user_id", user.id).order("display_order");
+      if (data && data.length > 0) {
+        const fresh = data as UserProfileLine[];
+        setCvLines(fresh.map(profileLineToCvLine));
+      }
+    } catch (err: any) {
+      alert(`Không thể bóc tách CV: ${err?.message || "Lỗi không xác định"}`);
+    } finally {
+      setUploadingIngest(false);
+      e.target.value = "";
+    }
+  };
+
   const handleExportConfirm = async (options: ExportOptions) => {
     if (!docRef.current) throw new Error('Không tìm thấy bản xem trước CV.');
+    // Filter out empty lines to prevent empty payload spam
+    const validLines = cvLines.filter((l) => l.value.trim() !== '');
+    if (validLines.length === 0) {
+      throw new Error('CV chưa có dòng nội dung hợp lệ nào để xuất.');
+    }
     await onExport({
       docNode: docRef.current,
       header,
-      lines: cvLines,
+      lines: validLines,
       options,
       templateId,
     });
@@ -202,7 +254,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <motion.button
             type="button"
             whileTap={{ scale: 0.95 }}
@@ -210,7 +262,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
             className="px-3 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
           >
             <X className="h-3.5 w-3.5" />
-            Thoát chế độ tạo CV
+            Thoát
           </motion.button>
           <motion.button
             type="button"
@@ -246,7 +298,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
         </button>
 
         {templatesOpen ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-56 overflow-y-auto pr-1 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-56 overflow-y-auto pr-1 mt-3">
             {CV_TEMPLATES.map((tpl) => (
               <button
                 key={tpl.id}
@@ -285,12 +337,12 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
         maxPct={68}
         left={
           /* FRAME 1: all editing controls */
-          <div className="space-y-4 pr-1">
+          <div className="space-y-4 pr-0 lg:pr-1">
             {/* Source pool */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Kho dòng hồ sơ
+                Kho dòng hồ sơ Master (Database)
               </h4>
               {availableSource.length > 0 && (
                 <button
@@ -305,7 +357,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
 
             {availableSource.length === 0 ? (
               <p className="text-[11px] text-slate-500 py-2">
-                Tất cả dòng hồ sơ đã có trong CV. Bạn vẫn có thể tạo dòng mới.
+                Tất cả dòng hồ sơ master đã có trong CV. Bạn có thể bấm tạo dòng mới hoặc tải file CV để nhập thêm.
               </p>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -330,14 +382,27 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={addBlankLine}
-              className="w-full border-2 border-dashed border-slate-800 hover:border-emerald-500/40 text-slate-400 hover:text-emerald-400 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              Tạo dòng mới trong CV
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={addBlankLine}
+                className="border-2 border-dashed border-slate-800 hover:border-emerald-500/40 text-slate-400 hover:text-emerald-400 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Tạo dòng mới
+              </button>
+              <label className="border-2 border-dashed border-indigo-500/40 hover:border-indigo-400 text-indigo-400 hover:text-indigo-300 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer bg-indigo-500/5">
+                <Upload className="h-4 w-4" />
+                {uploadingIngest ? 'Đang bóc tách...' : 'Tải CV bóc tách'}
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  disabled={uploadingIngest}
+                  className="hidden"
+                  onChange={(e) => void handleFileUpload(e)}
+                />
+              </label>
+            </div>
           </div>
 
           {/* Inline editor for the active line */}
@@ -450,8 +515,8 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
         }
         right={
           /* FRAME 2: live preview only (also the WYSIWYG export target) */
-          <div className="pl-1">
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 sticky top-4">
+          <div className="pl-0 lg:pl-1 w-full overflow-hidden">
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-2 sm:p-4 lg:sticky lg:top-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                   Bản xem trước CV

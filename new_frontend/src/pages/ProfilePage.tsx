@@ -115,13 +115,13 @@ export default function ProfilePage() {
   return (
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Hồ sơ</h1>
-          <Link to="/cv-vault" className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm rounded-xl">
+          <Link to="/cv-vault" className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm rounded-xl hover:bg-indigo-700 transition-colors w-fit">
             <FileText size={15} /> Tủ hồ sơ/CV
           </Link>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border p-7 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border p-5 sm:p-7 mb-6">
           <h2 className="font-semibold mb-5">Thông tin cá nhân</h2>
           <div className="space-y-3">
             <label className="block text-xs text-slate-500">Họ tên</label>
@@ -148,7 +148,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-7 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-7 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-slate-900 dark:text-white">Dòng hồ sơ</h2>
             <Button size="xs" variant="secondary" leftIcon={<Plus size={14} />} onClick={() => setShowAdd((v) => !v)}>
@@ -173,7 +173,7 @@ export default function ProfilePage() {
             <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có dòng hồ sơ nào.</p>
           ) : lines.map((line) => (
             <div key={line.id} className="flex items-start justify-between gap-3 py-3 border-t border-slate-100 dark:border-slate-700">
-              <div>
+              <div className="min-w-0 flex-1 break-words">
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">{ENUM_LABELS.line_type[line.name]}</p>
                 <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line mt-0.5">{line.value}</p>
               </div>

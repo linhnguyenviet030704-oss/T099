@@ -77,9 +77,9 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
 
   if (!isWide) {
     return (
-      <div className="flex flex-col gap-4">
-        <div>{left}</div>
-        <div>{right}</div>
+      <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
+        <div className="w-full min-w-0">{left}</div>
+        <div className="w-full min-w-0">{right}</div>
       </div>
     );
   }

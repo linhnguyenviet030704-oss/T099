@@ -29,7 +29,7 @@ export default function CVVaultPage() {
 
   const load = useCallback(async () => {
     if (!supabase || !user) return;
-    const { data: resumesData, error } = await supabase.from("resumes").select("*").is("deleted_at", null).order("is_default", { ascending: false }).order("created_at", { ascending: false });
+    const { data: resumesData, error } = await supabase.from("resumes").select("*").eq("user_id", user.id).is("deleted_at", null).order("is_default", { ascending: false }).order("created_at", { ascending: false });
     if (error) {
       setMessage(handleSupabaseError(error));
       return;
@@ -47,6 +47,13 @@ export default function CVVaultPage() {
 
   const handleUpload = async () => {
     if (!supabase || !user || !file) return;
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB max limit
+    if (file.size > MAX_SIZE_BYTES) {
+      const msg = `Dung lượng file (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn tối đa 10MB.`;
+      setMessage(msg);
+      toastError("Tải CV thất bại", msg);
+      return;
+    }
     setUploading(true);
     setMessage(null);
     const resumeId = crypto.randomUUID();
@@ -104,12 +111,12 @@ export default function CVVaultPage() {
   return (
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Tủ hồ sơ/CV</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{resumes.length} CV đang lưu</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap sm:flex-nowrap">
             <Button variant="outline" size="sm" leftIcon={<FileText size={15} />} onClick={() => navigate("/cv-builder")}>
               Tạo CV
             </Button>
@@ -119,13 +126,13 @@ export default function CVVaultPage() {
           </div>
         </div>
         {showUpload && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-indigo-300 dark:border-slate-600 p-6 mb-6 space-y-3">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-indigo-300 dark:border-slate-600 p-4 sm:p-6 mb-6 space-y-3">
             <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => {
               const selected = e.target.files?.[0];
               if (!selected) return;
               setFile(selected);
               if (!title) setTitle(selected.name.replace(/\.[^.]+$/, ""));
-            }} className="text-sm text-slate-600 dark:text-slate-300" />
+            }} className="text-sm text-slate-600 dark:text-slate-300 w-full overflow-hidden" />
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Đặt tên cho CV..." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
             <Button onClick={() => void handleUpload()} disabled={!file} isLoading={uploading} loadingText="Đang tải lên...">
               Tải lên
@@ -135,19 +142,19 @@ export default function CVVaultPage() {
         )}
         <div className="space-y-3">
           {resumes.map((r) => (
-            <div key={r.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center justify-between gap-3">
-              <div>
+            <div key={r.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="min-w-0 flex-1 break-words">
                 {editingId === r.id ? (
-                  <div className="flex gap-2 items-center">
-                    <input value={editName} onChange={(e) => setEditName(e.target.value)} className="px-2 py-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm" />
+                  <div className="flex gap-2 items-center flex-wrap sm:flex-nowrap">
+                    <input value={editName} onChange={(e) => setEditName(e.target.value)} className="px-2 py-1 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-sm flex-1" />
                     <motion.button whileTap={{ scale: 0.9 }} onClick={() => void handleRename(r.id)} className="p-1 text-indigo-600"><Check size={16} /></motion.button>
                   </div>
                 ) : (
-                  <p className="font-medium text-sm text-slate-900 dark:text-white">{r.title || r.original_filename}</p>
+                  <p className="font-medium text-sm text-slate-900 dark:text-white break-all">{r.title || r.original_filename}</p>
                 )}
                 <p className="text-xs text-slate-500 dark:text-slate-400">{formatDate(r.created_at)} · {appCounts[r.id] || 0} đơn</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                 {r.is_default && <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-full font-medium">Mặc định</span>}
                 {!r.is_default && (
                   <motion.button whileTap={{ scale: 0.85 }} onClick={() => void handleSetDefault(r.id)} className="p-2 text-slate-400 hover:text-amber-500 transition-colors" title="Đặt mặc định"><Star size={16} /></motion.button>

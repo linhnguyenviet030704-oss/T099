@@ -30,3 +30,24 @@ async def get_current_admin(
     if profile.role != "admin":
         raise ForbiddenError("Admin only")
     return user
+
+
+async def get_current_candidate(
+    user: AuthenticatedUser = Depends(get_current_user),
+    service: ProfileService = Depends(get_profile_service),
+) -> AuthenticatedUser:
+    profile = await service.get_own_profile(user.id)
+    if profile.role != "candidate":
+        raise ForbiddenError("Chỉ ứng viên mới có quyền sử dụng tính năng này")
+    return user
+
+
+async def get_current_recruiter(
+    user: AuthenticatedUser = Depends(get_current_user),
+    service: ProfileService = Depends(get_profile_service),
+) -> AuthenticatedUser:
+    profile = await service.get_own_profile(user.id)
+    if profile.role != "recruiter":
+        raise ForbiddenError("Chỉ Nhà tuyển dụng mới có quyền sử dụng tính năng này")
+    return user
+

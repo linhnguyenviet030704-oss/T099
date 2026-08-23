@@ -37,18 +37,19 @@ export async function generateWysiwygPdf(node: HTMLElement): Promise<Blob> {
 
   const imgWidth = pageWidth;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  const imgData = canvas.toDataURL('image/png');
+  // Use JPEG 82% quality to compress A4 canvas from ~10MB down to ~400KB
+  const imgData = canvas.toDataURL('image/jpeg', 0.82);
 
   let heightLeft = imgHeight;
   let position = 0;
 
-  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
   heightLeft -= pageHeight;
 
   while (heightLeft > 0) {
     position -= pageHeight;
     pdf.addPage();
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 
@@ -68,12 +69,13 @@ export async function generateTextPdf(
   header: CvHeader,
   lines: CvLine[],
   accent = '#10b981',
+  docNode?: HTMLElement,
 ): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const pdf = new jsPDF('p', 'mm', 'a4');
   const [ar, ag, ab] = hexToRgb(accent);
 
-  let fontName = 'helvetica';
+  let fontLoaded = false;
   try {
     const font = await loadRobotoFont();
     if (font) {
@@ -83,11 +85,18 @@ export async function generateTextPdf(
         pdf.addFileToVFS('Roboto-Bold.ttf', font.bold);
         pdf.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
       }
-      fontName = 'Roboto';
+      fontLoaded = true;
     }
   } catch {
-    // Keep Helvetica fallback.
+    fontLoaded = false;
   }
+
+  // Fall back to WYSIWYG rasterization if font loading failed, preventing garbled Vietnamese text
+  if (!fontLoaded && docNode) {
+    return generateWysiwygPdf(docNode);
+  }
+
+  const fontName = fontLoaded ? 'Roboto' : 'helvetica';
 
   const marginX = 16;
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -144,14 +153,26 @@ export async function generateTextPdf(
     y += 6;
 
     for (const line of inType) {
-      ensureSpace(16);
-      pdf.setFont(fontName, 'normal');
-      pdf.setFontSize(10);
-      pdf.setTextColor(55, 65, 81);
-      const valueLines = pdf.splitTextToSize(line.value || '', contentWidth);
-      ensureSpace(valueLines.length * 5);
-      pdf.text(valueLines, marginX, y);
-      y += valueLines.length * 5 + 4;
+      const rawText = line.value || '';
+      const items = rawText
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      for (const itemStr of items) {
+        ensureSpace(12);
+        pdf.setFont(fontName, 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(55, 65, 81);
+
+        const cleanItem = itemStr.replace(/^[-*•\s]+/, '').trim();
+        const displayStr = items.length > 1 ? `•  ${cleanItem}` : itemStr;
+        const valueLines = pdf.splitTextToSize(displayStr, contentWidth - 4);
+        ensureSpace(valueLines.length * 5);
+        pdf.text(valueLines, marginX + (items.length > 1 ? 2 : 0), y);
+        y += valueLines.length * 5 + 3;
+      }
+      y += 3;
     }
     y += 3;
   }
@@ -159,10 +180,33 @@ export async function generateTextPdf(
   return pdf.output('blob');
 }
 
+async function fetchFirstSuccessful(urls: string[]): Promise<string> {
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const buf = await res.arrayBuffer();
+      let binary = '';
+      const bytes = new Uint8Array(buf);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(
+          null,
+          Array.from(bytes.subarray(i, i + chunk)),
+        );
+      }
+      return btoa(binary);
+    } catch {
+      continue;
+    }
+  }
+  throw new Error('All font URLs failed');
+}
+
 /**
  * Loads a Roboto Unicode font (base64) from CDN for Vietnamese support in the
  * text PDF. Cached in module scope. Returns null on failure so the caller can
- * gracefully fall back to Helvetica.
+ * gracefully fall back.
  */
 let cachedFont: { regular: string; bold: string | null } | null = null;
 let fontAttempted = false;
@@ -175,31 +219,19 @@ async function loadRobotoFont(): Promise<{
   if (fontAttempted) return cachedFont;
   fontAttempted = true;
 
-  const toBase64 = async (url: string): Promise<string> => {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('font fetch failed');
-    const buf = await res.arrayBuffer();
-    let binary = '';
-    const bytes = new Uint8Array(buf);
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode.apply(
-        null,
-        Array.from(bytes.subarray(i, i + chunk)),
-      );
-    }
-    return btoa(binary);
-  };
+  const regularUrls = [
+    'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxK.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts/apache/roboto/static/Roboto-Regular.ttf',
+  ];
+
+  const boldUrls = [
+    'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBB4L.ttf',
+    'https://cdn.jsdelivr.net/gh/google/fonts/apache/roboto/static/Roboto-Bold.ttf',
+  ];
 
   try {
-    const regularUrl =
-      'https://cdn.jsdelivr.net/gh/google/fonts/apache/roboto/static/Roboto-Regular.ttf';
-    const boldUrl =
-      'https://cdn.jsdelivr.net/gh/google/fonts/apache/roboto/static/Roboto-Bold.ttf';
-    const [regular, bold] = await Promise.all([
-      toBase64(regularUrl),
-      toBase64(boldUrl).catch(() => null),
-    ]);
+    const regular = await fetchFirstSuccessful(regularUrls);
+    const bold = await fetchFirstSuccessful(boldUrls).catch(() => null);
     cachedFont = { regular, bold };
     return cachedFont;
   } catch {

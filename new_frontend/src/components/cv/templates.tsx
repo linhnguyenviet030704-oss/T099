@@ -73,13 +73,36 @@ const ModernTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
   );
 };
 
-const Entry: React.FC<{ line: CvLine; dense?: boolean }> = ({ line, dense }) => (
-  <div style={{ marginBottom: dense ? 8 : 12 }}>
-    <p style={{ fontSize: dense ? 11 : 12, color: '#374151', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-line' }}>
-      {line.value}
-    </p>
-  </div>
-);
+const parseItems = (value: string): string[] => {
+  if (!value) return [];
+  const rawLines = value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  if (rawLines.length === 0) return [];
+  return rawLines.map((s) => s.replace(/^[-*•\s]+/, '').trim()).filter(Boolean);
+};
+
+const Entry: React.FC<{ line: CvLine; dense?: boolean }> = ({ line, dense }) => {
+  const items = parseItems(line.value);
+  if (items.length <= 1) {
+    return (
+      <div style={{ marginBottom: dense ? 6 : 10 }}>
+        <p style={{ fontSize: dense ? 11 : 12, color: '#374151', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-line' }}>
+          {line.value}
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div style={{ marginBottom: dense ? 6 : 10 }}>
+      <ul style={{ margin: 0, paddingLeft: 18, listStyleType: 'disc' }}>
+        {items.map((item, idx) => (
+          <li key={idx} style={{ fontSize: dense ? 11 : 12, color: '#374151', lineHeight: 1.5, marginBottom: 3 }}>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 
 const EmptyNote: React.FC = () => (
   <p style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: 13 }}>

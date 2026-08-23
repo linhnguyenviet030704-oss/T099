@@ -76,9 +76,15 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
       return;
     }
 
+    const validDrafts = drafts.filter((d) => d.value && d.value.trim() !== '');
+    if (validDrafts.length === 0) {
+      setGlobalError('Không có dòng nội dung hợp lệ nào để lưu.');
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await onSubmit(drafts);
+      await onSubmit(validDrafts);
     } catch (err: any) {
       setGlobalError(err?.message || 'Không thể lưu các dòng hồ sơ.');
     } finally {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { LogIn, UserPlus, Mail, Lock, ShieldCheck, MailCheck, AlertCircle } from 'lucide-react';
 import { supabase, handleSupabaseError } from '../lib/supabase';
+import { SITE_URL } from '../lib/env';
 import { useAuth } from '../auth/AuthProvider';
 
 interface AuthPageProps {
@@ -96,11 +97,26 @@ export const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
             data: {
               full_name: fullName.trim(),
             },
-            emailRedirectTo: `${window.location.origin}/profile`,
+            emailRedirectTo: `${SITE_URL || window.location.origin}/profile`,
           },
         });
 
         if (registerErr) throw registerErr;
+
+        // If user already exists (unconfirmed), auto call resend confirmation email
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+          const { error: resendErr } = await supabase.auth.resend({
+            type: 'signup',
+            email: email.trim(),
+            options: {
+              emailRedirectTo: `${SITE_URL || window.location.origin}/profile`,
+            },
+          });
+          if (resendErr) throw resendErr;
+          setSuccessMessage('Tài khoản này chưa được xác minh. Một liên kết xác minh mới đã được gửi đến email của bạn!');
+          setPassword('');
+          return;
+        }
 
         // If auto sign-in occurs or confirmation is disabled, check session
         if (data.session) {

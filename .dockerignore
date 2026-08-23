@@ -14,3 +14,16 @@ eval/
 .dockerignore
 Dockerfile
 docker-compose.yml
+frontend/
+new_frontend/
+node_modules/
+storage/
+data/
+.agents/
+.ai-log/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.superpowers/
+

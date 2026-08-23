@@ -64,3 +64,5 @@ docs/superpowers/
 /data_find
 /evaluation/.cache
 /evaluation/golden/.cache
+*/slides_generation_prompt.txt
+*/slides_generation_prompt.md

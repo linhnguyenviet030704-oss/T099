@@ -161,3 +161,16 @@ def test_explain_matches_truncates_long_jd_and_body():
     assert "JJJJ" in captured["prompt"]
     # Body in prompt must be capped, never the full 5 KB.
     assert captured["prompt"].count("X") <= 400
+
+
+def test_deterministic_reason_uses_verified_skills_not_full_skill_list():
+    from backend.app.services.matching.explain import deterministic_reason
+
+    row = {
+        "application_id": "a",
+        "skills": ["python", "fastapi"],
+        "verified_skills": ["python"],
+    }
+    reason = deterministic_reason(row=row, jd_skills=["python", "fastapi"], rank=1, total=1)
+    assert "python" in reason
+    assert "fastapi" not in reason

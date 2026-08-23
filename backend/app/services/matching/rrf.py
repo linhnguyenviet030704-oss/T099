@@ -69,13 +69,14 @@ def score_candidates(
     constraint_payload = constraints or empty_constraints()
     annotated: list[dict[str, Any]] = []
     for row in rows:
-        verified = list(row.get("verified_skills") or [])
-        skills = list(row.get("skills") or verified)
+        verified_raw = row.get("verified_skills")
+        verified = list(verified_raw) if verified_raw is not None else None
+        skills = list(row.get("skills") or verified or [])
         coverage = row.get("skill_score")
         if coverage is None:
             coverage = coverage_score(verified or skills, jd_skills, index)
         distance = _finite_distance(row)
-        delta = soft_delta(verified, jd_skills)
+        delta = soft_delta(verified or [], jd_skills)
         status = constraint_status(row, constraint_payload, confirmed=confirmed)
         annotated.append(
             {

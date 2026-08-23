@@ -95,8 +95,10 @@ def _parse_map(raw: str) -> dict[str, str]:
 
 
 def _extract_skills(row: dict[str, Any]) -> list[str]:
+    verified = row.get("verified_skills")
+    source = verified if verified is not None else (row.get("skills") or [])
     seen: list[str] = []
-    for skill in row.get("skills") or []:
+    for skill in source:
         token = str(skill).strip()
         if token and token not in seen:
             seen.append(token)
@@ -116,8 +118,6 @@ def deterministic_reason(
     candidate_skills = _extract_skills(row)
     wanted = [str(s).strip() for s in jd_skills if str(s).strip()]
     matched = [s for s in candidate_skills if s in wanted]
-    missing = [s for s in wanted if s in matched][:0]  # keep for future use
-    del missing
     score_pick = row.get("rerank_score")
     if score_pick is None:
         score_pick = row.get("rrf_score")

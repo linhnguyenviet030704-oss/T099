@@ -47,38 +47,28 @@ export default function AdminRecruiterPage() {
   useEffect(() => { void load(); }, [load]);
 
   const handleReview = async (id: string, decision: "approved" | "rejected") => {
-    if (!session?.access_token || !supabase) return;
+    if (!supabase || !session?.user?.id) return;
     if (decision === "rejected" && !notes[id]?.trim()) return;
     setProcessing(id);
     try {
-      await apiJson(`/admin/recruiter-forms/${id}/review`, session.access_token, {
-        method: "POST",
-        body: JSON.stringify({ decision, admin_note: notes[id]?.trim() || null }),
-      });
-      success(`Đã ${decision === "approved" ? "phê duyệt" : "từ chối"} thành công!`);
-      await load();
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes('Failed to fetch')) {
-        const targetForm = forms.find((f) => f.id === id);
-        const { error: sbErr } = await supabase
-          .from("recruiter_registration_forms")
-          .update({
-            status: decision,
-            admin_note: notes[id]?.trim() || null,
-            reviewed_by_user_id: session.user.id,
-            reviewed_at: new Date().toISOString(),
-          })
-          .eq("id", id);
-        if (!sbErr) {
-          if (decision === "approved" && targetForm) {
-            await supabase.from("profiles").update({ role: "recruiter" }).eq("id", targetForm.user_id);
-          }
-          await load();
-          success(`Đã ${decision === "approved" ? "phê duyệt" : "từ chối"} đơn thành công!`);
-          return;
-        }
+      const targetForm = forms.find((f) => f.id === id);
+      const { error: sbErr } = await supabase
+        .from("recruiter_registration_forms")
+        .update({
+          status: decision,
+          admin_note: notes[id]?.trim() || null,
+          reviewed_by_user_id: session.user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (sbErr) throw sbErr;
+      if (decision === "approved" && targetForm) {
+        await supabase.from("profiles").update({ role: "recruiter" }).eq("id", targetForm.user_id);
       }
-      toastError("Thao tác thất bại", err instanceof Error ? err.message : handleSupabaseError(err));
+      await load();
+      success(`Đã ${decision === "approved" ? "phê duyệt" : "từ chối"} đơn thành công!`);
+    } catch (err: unknown) {
+      toastError("Thao tác thất bại", handleSupabaseError(err));
     } finally {
       setProcessing(null);
     }

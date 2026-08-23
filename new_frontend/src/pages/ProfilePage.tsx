@@ -101,16 +101,14 @@ export default function ProfilePage() {
   };
 
   const changeRole = async (userId: string, role: Profile["role"]) => {
-    if (!session?.access_token) return;
+    if (!supabase) return;
     try {
-      await apiJson(`/admin/profiles/${userId}`, session.access_token, {
-        method: "PATCH",
-        body: JSON.stringify({ role }),
-      });
+      const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+      if (error) throw error;
       setAdminUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
       success("Đã đổi vai trò người dùng!");
     } catch (err: unknown) {
-      toastError("Không đổi được vai trò", err instanceof Error ? err.message : "Thao tác thất bại");
+      toastError("Không đổi được vai trò", handleSupabaseError(err));
     }
   };
 

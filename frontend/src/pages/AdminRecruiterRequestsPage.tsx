@@ -99,7 +99,7 @@ export const AdminRecruiterRequestsPage: React.FC = () => {
 
   // Approve / Reject registration form filings
   const handleReviewForm = async (formId: string, decision: 'approved' | 'rejected') => {
-    if (!session?.access_token) return;
+    if (!supabase || !session?.user?.id) return;
     setSuccessMsg(null);
 
     const note = adminNotes[formId] || '';
@@ -110,39 +110,26 @@ export const AdminRecruiterRequestsPage: React.FC = () => {
 
     try {
       setSavingId(formId);
-
-      await apiJson(`/admin/recruiter-forms/${formId}/review`, session.access_token, {
-        method: 'POST',
-        body: JSON.stringify({
-          decision,
+      const targetForm = forms.find(f => f.id === formId);
+      const { error: sbErr } = await supabase
+        .from('recruiter_registration_forms')
+        .update({
+          status: decision,
           admin_note: note.trim() || null,
-        }),
-      });
+          reviewed_by_user_id: session.user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', formId);
 
-      setSuccessMsg(`Đã ${decision === 'approved' ? 'Phê duyệt' : 'Từ chối'} hồ sơ và cập nhật hệ quản trị thành công!`);
+      if (sbErr) throw sbErr;
+
+      if (decision === 'approved' && targetForm) {
+        await supabase.from('profiles').update({ role: 'recruiter' }).eq('id', targetForm.user_id);
+      }
+      setSuccessMsg(`Đã ${decision === 'approved' ? 'Phê duyệt' : 'Từ chối'} đơn nộp thành công!`);
       await fetchAdminOnboardWorkspace();
     } catch (err: any) {
       console.error('Review application filing error:', err);
-      if (err.message && err.message.includes('Failed to fetch')) {
-        const targetForm = forms.find(f => f.id === formId);
-        const { error: sbErr } = await supabase
-          .from('recruiter_registration_forms')
-          .update({
-            status: decision,
-            admin_note: note.trim() || null,
-            reviewed_by_user_id: session.user.id,
-            reviewed_at: new Date().toISOString(),
-          })
-          .eq('id', formId);
-        if (!sbErr) {
-          if (decision === 'approved' && targetForm) {
-            await supabase.from('profiles').update({ role: 'recruiter' }).eq('id', targetForm.user_id);
-          }
-          setSuccessMsg(`Đã ${decision === 'approved' ? 'Phê duyệt' : 'Từ chối'} đơn trên Supabase thành công!`);
-          await fetchAdminOnboardWorkspace();
-          return;
-        }
-      }
       alert(err.message || handleSupabaseError(err));
     } finally {
       setSavingId(null);

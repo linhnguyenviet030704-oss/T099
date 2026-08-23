@@ -346,6 +346,22 @@ async def test_matching_graph_explain_node_no_candidates_skips_llm():
 
 
 @pytest.mark.asyncio
+async def test_explain_node_forwards_custom_prompt_template():
+    from backend.app.agents.matching.nodes.explain import make_explain_node
+
+    captured: dict = {}
+
+    def complete(prompt: str, **_kwargs):
+        captured["prompt"] = prompt
+        return '{"a": "ok"}'
+
+    node = make_explain_node(complete=complete, prompt_template="CUSTOM {job_description} {candidate_briefs}")
+    result = await node({"candidates": [{"application_id": "a", "skills": ["python"]}], "job_description": "JD"})
+    assert captured["prompt"].startswith("CUSTOM JD")
+    assert result["candidates"][0]["match_reason"] == "ok"
+
+
+@pytest.mark.asyncio
 async def test_ingest_graph_runs_extract_node_before_summarize(monkeypatch):
     calls: list[str] = []
 

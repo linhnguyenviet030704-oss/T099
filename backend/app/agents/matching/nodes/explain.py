@@ -11,6 +11,7 @@ def make_explain_node(
     complete: CompleteFn | None = None,
     api_key: str | None = None,
     base_url: str | None = None,
+    prompt_template: str | None = None,
 ):
     async def explain_node(state: AgentState) -> dict:
         def _complete(prompt: str, **kwargs):
@@ -28,9 +29,10 @@ def make_explain_node(
             candidates=candidates,
             complete=_complete,
             jd_skills=jd_skills,
+            prompt_template=prompt_template,
         )
         enriched = [
-            {**row, "match_reason": reasons.get(str(row.get("application_id") or ""))}
+            {**row, "match_reason": reasons.get(str(row.get("application_id") or row.get("job_id") or ""))}
             for row in candidates
         ]
         return {"candidates": enriched}

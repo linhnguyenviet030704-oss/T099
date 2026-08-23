@@ -21,7 +21,7 @@ class SupabaseResumeStore:
                 .maybe_single()
                 .execute()
             )
-            return result.data
+            return result.data if result else None
 
         return await asyncio.to_thread(_query)
 
@@ -34,7 +34,7 @@ class SupabaseResumeStore:
                 .maybe_single()
                 .execute()
             )
-            return result.data
+            return result.data if result else None
 
         return await asyncio.to_thread(_query)
 

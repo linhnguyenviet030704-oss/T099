@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Users, Briefcase, Check, X } from "lucide-react";
+import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
@@ -25,6 +25,7 @@ export default function RecruitmentDashboardPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [showCreateJob, setShowCreateJob] = useState(false);
+  const [editingJob, setEditingJob] = useState<JobPost | null>(null);
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [stageNote, setStageNote] = useState("");
   const [newStatus, setNewStatus] = useState<ApplicationStatus>("screening");
@@ -33,9 +34,17 @@ export default function RecruitmentDashboardPage() {
   const [jobSaving, setJobSaving] = useState(false);
   const [updatingApp, setUpdatingApp] = useState(false);
   const [newJob, setNewJob] = useState({
-    title: "", description: "", requirements: "", benefits: "",
-    location: "", employment_type: "full_time" as EmploymentType,
-    salaryMin: "", salaryMax: "", currency: "VND", deadline: "", status: "published" as JobPostStatus,
+    title: "",
+    description: "",
+    requirements: "",
+    benefits: "",
+    location: "",
+    employment_type: "full_time" as EmploymentType,
+    salaryMin: "",
+    salaryMax: "",
+    currency: "VND",
+    deadline: "",
+    status: "published" as JobPostStatus,
   });
 
   const fetchWorkspace = useCallback(async () => {
@@ -98,11 +107,42 @@ export default function RecruitmentDashboardPage() {
 
   useEffect(() => { if (user) void fetchWorkspace(); }, [user, fetchWorkspace]);
 
-  const handleCreateJob = async () => {
+  const resetForm = () => {
+    setNewJob({
+      title: "", description: "", requirements: "", benefits: "",
+      location: "", employment_type: "full_time", salaryMin: "", salaryMax: "", currency: "VND", deadline: "", status: "published",
+    });
+    setEditingJob(null);
+  };
+
+  const handleOpenCreateJob = () => {
+    resetForm();
+    setShowCreateJob(true);
+  };
+
+  const handleOpenEditJob = (job: JobPost) => {
+    setEditingJob(job);
+    setNewJob({
+      title: job.title || "",
+      description: job.description || "",
+      requirements: job.requirements || "",
+      benefits: job.benefits || "",
+      location: job.location || "",
+      employment_type: job.employment_type || "full_time",
+      salaryMin: job.salary_min != null ? String(job.salary_min) : "",
+      salaryMax: job.salary_max != null ? String(job.salary_max) : "",
+      currency: job.currency || "VND",
+      deadline: job.deadline_at ? job.deadline_at.split("T")[0] : "",
+      status: job.status || "published",
+    });
+    setShowCreateJob(true);
+  };
+
+  const handleSaveJob = async () => {
     if (!supabase || !user || !selectedCompanyId || !newJob.title.trim() || !newJob.description.trim()) return;
     setJobSaving(true);
     try {
-      const { error: insErr } = await supabase.from("job_posts").insert({
+      const payload: Record<string, unknown> = {
         company_id: selectedCompanyId,
         created_by_user_id: user.id,
         title: newJob.title.trim(),
@@ -117,14 +157,24 @@ export default function RecruitmentDashboardPage() {
         status: newJob.status,
         published_at: newJob.status === "published" ? new Date().toISOString() : null,
         deadline_at: newJob.deadline ? new Date(newJob.deadline).toISOString() : null,
-      });
-      if (insErr) throw insErr;
-      success("Đã tạo tin tuyển dụng mới!");
+        updated_at: new Date().toISOString(),
+      };
+
+      if (editingJob) {
+        const { error: err } = await supabase.from("job_posts").update(payload).eq("id", editingJob.id);
+        if (err) throw err;
+        success("Đã cập nhật tin tuyển dụng!");
+      } else {
+        const { error: err } = await supabase.from("job_posts").insert(payload);
+        if (err) throw err;
+        success("Đã tạo tin tuyển dụng mới!");
+      }
+
       setShowCreateJob(false);
-      setNewJob({ title: "", description: "", requirements: "", benefits: "", location: "", employment_type: "full_time", salaryMin: "", salaryMax: "", currency: "VND", deadline: "", status: "published" });
+      resetForm();
       await fetchWorkspace();
     } catch (err: unknown) {
-      toastError("Tạo tin thất bại", handleSupabaseError(err));
+      toastError(editingJob ? "Cập nhật tin thất bại" : "Tạo tin thất bại", handleSupabaseError(err));
     } finally {
       setJobSaving(false);
     }
@@ -189,31 +239,97 @@ export default function RecruitmentDashboardPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-sm">Tin tuyển dụng ({companyJobs.length})</h2>
-                <button onClick={() => setShowCreateJob((v) => !v)} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-indigo-600 text-white rounded-xl">
+                <button onClick={handleOpenCreateJob} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors">
                   <Plus size={13} /> Tạo tin
                 </button>
               </div>
               <AnimatePresence>
                 {showCreateJob && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-indigo-200 p-5 space-y-3">
-                      <input placeholder="Tiêu đề *" value={newJob.title} onChange={(e) => setNewJob((p) => ({ ...p, title: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                      <textarea rows={3} placeholder="Mô tả công việc *" value={newJob.description} onChange={(e) => setNewJob((p) => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm resize-none" />
-                      <div className="grid grid-cols-2 gap-2">
-                        <input placeholder="Địa điểm" value={newJob.location} onChange={(e) => setNewJob((p) => ({ ...p, location: e.target.value }))} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                        <select value={newJob.employment_type} onChange={(e) => setNewJob((p) => ({ ...p, employment_type: e.target.value as EmploymentType }))} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-                          {Object.entries(ENUM_LABELS.employment_type).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                        </select>
-                        <input type="date" value={newJob.deadline} onChange={(e) => setNewJob((p) => ({ ...p, deadline: e.target.value }))} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
-                        <select value={newJob.status} onChange={(e) => setNewJob((p) => ({ ...p, status: e.target.value as JobPostStatus }))} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-                          <option value="draft">Bản nháp</option>
-                          <option value="published">Đang tuyển</option>
-                        </select>
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-indigo-200 dark:border-indigo-800 p-5 space-y-4 shadow-sm">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
+                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                          {editingJob ? <Pencil size={14} className="text-indigo-600" /> : <Plus size={14} className="text-indigo-600" />}
+                          {editingJob ? "Chỉnh sửa tin tuyển dụng" : "Tạo tin tuyển dụng mới"}
+                        </h3>
+                        <button onClick={() => { setShowCreateJob(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                          <X size={14} />
+                        </button>
                       </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="xs" onClick={() => setShowCreateJob(false)}>Hủy</Button>
-                        <Button size="xs" onClick={() => void handleCreateJob()} disabled={!newJob.title || !newJob.description} isLoading={jobSaving} loadingText="Đang tạo...">
-                          Tạo tin
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Tiêu đề công việc *</label>
+                        <input placeholder="Ví dụ: Kỹ sư AI, Frontend Developer..." value={newJob.title} onChange={(e) => setNewJob((p) => ({ ...p, title: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Mô tả công việc *</label>
+                        <textarea rows={3} placeholder="Mô tả chi tiết công việc, nhiệm vụ chính..." value={newJob.description} onChange={(e) => setNewJob((p) => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm resize-none" />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-semibold text-purple-700 dark:text-purple-300">Yêu cầu ứng viên (AI Matching)</label>
+                          <span className="text-[11px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 px-2 py-0.5 rounded-full flex items-center gap-1 border border-purple-200 dark:border-purple-800">
+                            <Sparkles size={11} /> Cốt lõi cho AI Candidate Matching
+                          </span>
+                        </div>
+                        <textarea
+                          rows={4}
+                          placeholder="Kỹ năng bắt buộc, kinh nghiệm, bằng cấp... (Ví dụ: Python, FastAPI, 2 năm kinh nghiệm NLP, ReactJS...)"
+                          value={newJob.requirements}
+                          onChange={(e) => setNewJob((p) => ({ ...p, requirements: e.target.value }))}
+                          className="w-full px-3 py-2 bg-purple-50/30 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/60 rounded-xl text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Quyền lợi & Phúc lợi</label>
+                        <textarea rows={2} placeholder="Chế độ bảo hiểm, thưởng năm, du lịch, hỗ trợ máy tính..." value={newJob.benefits} onChange={(e) => setNewJob((p) => ({ ...p, benefits: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm resize-none" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Địa điểm</label>
+                          <input placeholder="Hà Nội, TP.HCM..." value={newJob.location} onChange={(e) => setNewJob((p) => ({ ...p, location: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Hình thức</label>
+                          <select value={newJob.employment_type} onChange={(e) => setNewJob((p) => ({ ...p, employment_type: e.target.value as EmploymentType }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
+                            {Object.entries(ENUM_LABELS.employment_type).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Lương tối thiểu</label>
+                          <input type="number" placeholder="Ví dụ: 15000000" value={newJob.salaryMin} onChange={(e) => setNewJob((p) => ({ ...p, salaryMin: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Lương tối đa</label>
+                          <input type="number" placeholder="Ví dụ: 25000000" value={newJob.salaryMax} onChange={(e) => setNewJob((p) => ({ ...p, salaryMax: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Hạn nộp</label>
+                          <input type="date" value={newJob.deadline} onChange={(e) => setNewJob((p) => ({ ...p, deadline: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Tiền tệ / Trạng thái</label>
+                          <div className="grid grid-cols-2 gap-1">
+                            <select value={newJob.currency} onChange={(e) => setNewJob((p) => ({ ...p, currency: e.target.value }))} className="w-full px-2 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-xs">
+                              <option value="VND">VND</option>
+                              <option value="USD">USD</option>
+                            </select>
+                            <select value={newJob.status} onChange={(e) => setNewJob((p) => ({ ...p, status: e.target.value as JobPostStatus }))} className="w-full px-2 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-xs">
+                              <option value="draft">Bản nháp</option>
+                              <option value="published">Đang tuyển</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
+                        <Button variant="ghost" size="xs" onClick={() => { setShowCreateJob(false); resetForm(); }}>Hủy</Button>
+                        <Button size="xs" onClick={() => void handleSaveJob()} disabled={!newJob.title || !newJob.description} isLoading={jobSaving} loadingText="Đang lưu...">
+                          {editingJob ? "Lưu thay đổi" : "Tạo tin"}
                         </Button>
                       </div>
                     </div>
@@ -236,7 +352,16 @@ export default function RecruitmentDashboardPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium line-clamp-2 text-slate-900 dark:text-white">{job.title}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status]}`}>{ENUM_LABELS.job_post_status[job.status]}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status]}`}>{ENUM_LABELS.job_post_status[job.status]}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleOpenEditJob(job); }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          title="Sửa tin tuyển dụng"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
                       <span className="flex items-center gap-1"><Users size={11} />{appCount} đơn</span>
@@ -267,8 +392,28 @@ export default function RecruitmentDashboardPage() {
               ) : (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                   <div className="p-5 border-b border-slate-100 dark:border-slate-700">
-                    <h2 className="font-semibold text-slate-900 dark:text-white">{selectedJob.title}</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{jobApps.length} đơn • {salaryRange(selectedJob)} • {selectedJob.location}</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="font-semibold text-slate-900 dark:text-white">{selectedJob.title}</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{jobApps.length} đơn • {salaryRange(selectedJob)} • {selectedJob.location || "Chưa có địa điểm"}</p>
+                      </div>
+                      <Button size="xs" variant="outline" leftIcon={<Pencil size={12} />} onClick={() => handleOpenEditJob(selectedJob)}>
+                        Sửa tin
+                      </Button>
+                    </div>
+                    {selectedJob.requirements ? (
+                      <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 rounded-xl">
+                        <div className="flex items-center justify-between text-xs font-semibold text-purple-700 dark:text-purple-300 mb-1">
+                          <span className="flex items-center gap-1.5"><Sparkles size={12} /> Yêu cầu ứng viên (AI Matching):</span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">{selectedJob.requirements}</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl flex items-center justify-between text-xs text-amber-800 dark:text-amber-300">
+                        <span>⚠️ Tin này chưa có <b>Yêu cầu ứng viên</b>. Thêm yêu cầu để AI matching chính xác hơn.</span>
+                        <button onClick={() => handleOpenEditJob(selectedJob)} className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-200 shrink-0 ml-2">Thêm ngay</button>
+                      </div>
+                    )}
                   </div>
                   {jobApps.length === 0 ? (
                     <div className="p-12 text-center text-sm text-slate-500 dark:text-slate-400">Chưa có ứng viên nào nộp đơn</div>

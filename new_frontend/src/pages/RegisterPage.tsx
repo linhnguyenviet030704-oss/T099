@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Briefcase, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
+import { SITE_URL } from "../lib/env";
 import AnimatedPage from "../components/AnimatedPage";
 
 export default function RegisterPage() {
@@ -39,10 +40,23 @@ export default function RegisterPage() {
         password: form.password,
         options: {
           data: { full_name: form.name.trim() },
-          emailRedirectTo: `${window.location.origin}/profile`,
+          emailRedirectTo: `${SITE_URL || window.location.origin}/profile`,
         },
       });
       if (registerErr) throw registerErr;
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        const { error: resendErr } = await supabase.auth.resend({
+          type: "signup",
+          email: form.email.trim(),
+          options: {
+            emailRedirectTo: `${SITE_URL || window.location.origin}/profile`,
+          },
+        });
+        if (resendErr) throw resendErr;
+        setSuccess("confirm");
+        setForm((p) => ({ ...p, password: "" }));
+        return;
+      }
       if (data.session) {
         setSuccess("session");
         setTimeout(() => navigate("/profile", { replace: true }), 1500);

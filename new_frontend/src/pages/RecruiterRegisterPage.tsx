@@ -50,7 +50,6 @@ export default function RecruiterRegisterPage() {
       void refreshProfile();
     }
   }, [latest?.status, profile?.role, refreshProfile]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase || !user || !form.companyName.trim()) {

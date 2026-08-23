@@ -228,7 +228,11 @@ export default function RecruitmentDashboardPage() {
       if (status === "closed") payload.closed_at = new Date().toISOString();
       const { error: uErr } = await supabase.from("job_posts").update(payload).eq("id", jobId);
       if (uErr) throw uErr;
-      success(`Đã chuyển trạng thái sang ${ENUM_LABELS.job_post_status[status]}`);
+      if (status === "published") {
+        success("Đã đăng tin tuyển dụng! Tin đã hiển thị công khai trên trang Việc làm (/jobs).");
+      } else {
+        success(`Đã chuyển trạng thái sang: ${ENUM_LABELS.job_post_status[status]}`);
+      }
       await fetchWorkspace();
     } catch (err: unknown) {
       toastError("Cập nhật thất bại", handleSupabaseError(err));
@@ -445,6 +449,21 @@ export default function RecruitmentDashboardPage() {
                       <span className="flex items-center gap-1"><Users size={11} />{appCount} đơn</span>
                       <span>Hạn: {formatDate(job.deadline_at)}</span>
                     </div>
+                    {job.status === "published" ? (
+                      <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-between">
+                        <span>✓ Đang phát hành trên /jobs</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${job.id}`); }}
+                          className="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5"
+                        >
+                          Xem trên /jobs ↗
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                        ⚠️ Đang ở dạng <b>{ENUM_LABELS.job_post_status[job.status]}</b>. Bấm <b>→ Đang tuyển</b> bên dưới để hiển thị lên /jobs.
+                      </div>
+                    )}
                     <div className="flex gap-1.5 mt-2 flex-wrap">
                       {(["published", "closed", "archived"] as JobPostStatus[]).filter((s) => s !== job.status).map((s) => (
                         <motion.span

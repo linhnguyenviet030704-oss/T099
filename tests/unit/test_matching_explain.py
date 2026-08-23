@@ -161,3 +161,51 @@ def test_explain_matches_truncates_long_jd_and_body():
     assert "JJJJ" in captured["prompt"]
     # Body in prompt must be capped, never the full 5 KB.
     assert captured["prompt"].count("X") <= 400
+
+
+def test_brief_includes_name_title_and_score_percentage():
+    from backend.app.services.matching.explain import _brief
+
+    row = {
+        "application_id": "app-123",
+        "full_name": "Nguyễn Văn A",
+        "resume_title": "Senior Frontend Developer",
+        "rerank_score": 0.92,
+        "skills": ["React", "TypeScript"],
+        "summary": "5 năm kinh nghiệm",
+    }
+    cid, brief = _brief(row)
+    assert cid == "app-123"
+    assert "name=Nguyễn Văn A" in brief
+    assert "title=Senior Frontend Developer" in brief
+    assert "match_score=92%" in brief
+    assert "skills=React, TypeScript" in brief
+    assert "summary=5 năm kinh nghiệm" in brief
+
+
+def test_explain_matches_handles_up_to_50_candidates():
+    candidates = [
+        {
+            "application_id": f"app-{i}",
+            "full_name": f"Candidate {i}",
+            "rerank_score": 0.8,
+            "skills": ["Python"],
+        }
+        for i in range(25)
+    ]
+    captured: dict = {}
+
+    def complete(prompt: str, **_kwargs):
+        captured["prompt"] = prompt
+        return json.dumps({f"app-{i}": f"Reason {i}" for i in range(25)})
+
+    out = explain_matches(
+        jd_text="Job Description",
+        candidates=candidates,
+        complete=complete,
+    )
+    assert len(out) == 25
+    assert out["app-0"] == "Reason 0"
+    assert out["app-24"] == "Reason 24"
+    assert "id=app-24" in captured["prompt"]
+

@@ -20,8 +20,8 @@ EXPLAIN_PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
 EXPLAIN_PROMPT_VERSION = "2026-08-23.v1"
 
 _MAX_JD_CHARS = 4000
-_MAX_BRIEF_CHARS = 400
-_MAX_CANDIDATES = 10
+_MAX_BRIEF_CHARS = 500
+_MAX_CANDIDATES = 50
 
 
 def _truncate(text: str | None, limit: int) -> str:
@@ -35,11 +35,24 @@ def _truncate(text: str | None, limit: int) -> str:
 
 def _brief(row: dict[str, Any]) -> tuple[str, str]:
     """Return (candidate_id, brief) for the prompt. The brief uses facts
-    that are already extracted and known-safe (skill names, summary, body
-    fragment) — never raw markdown that may contain PII. The markdown
-    passed to retrieve() is already PII-redacted."""
+    that are already extracted and known-safe (name, title, match score,
+    skill names, summary, body fragment) — never raw markdown that may
+    contain PII. The markdown passed to retrieve() is already PII-redacted."""
     cid = str(row.get("application_id") or "")
     parts: list[str] = []
+    name = row.get("full_name")
+    if name:
+        parts.append(f"name={name}")
+    title = row.get("resume_title")
+    if title:
+        parts.append(f"title={title}")
+    score = row.get("rerank_score")
+    if score is not None:
+        pct = round(float(score) * 100)
+        parts.append(f"match_score={pct}% (rerank={float(score):.2f})")
+    elif row.get("rrf_score") is not None:
+        pct = round(float(row["rrf_score"]) * 100)
+        parts.append(f"match_score={pct}% (rrf={float(row['rrf_score']):.2f})")
     skills = row.get("skills") or []
     if skills:
         parts.append("skills=" + ", ".join(str(s) for s in skills))
@@ -49,11 +62,6 @@ def _brief(row: dict[str, Any]) -> tuple[str, str]:
     body = _truncate(row.get("clean_markdown") or row.get("markdown"), 300)
     if body:
         parts.append("body=" + body)
-    score = row.get("rerank_score")
-    if score is not None:
-        parts.append(f"rerank={float(score):.2f}")
-    elif row.get("rrf_score") is not None:
-        parts.append(f"rrf={float(row['rrf_score']):.2f}")
     return cid, "; ".join(parts)
 
 
@@ -110,35 +118,28 @@ def deterministic_reason(
     rank: int,
     total: int,
 ) -> str:
-    """Ponytail: evidence-grounded 1-sentence reason when LLM is unavailable.
-    Ceiling: no deep relative ranking narrative — only matched-skill list
-    and ordinal position in the shortlist."""
+    """Evidence-grounded 1-sentence reason when LLM is unavailable.
+    Provides matched-skill list, match score percentage and ordinal position in the shortlist."""
     candidate_skills = _extract_skills(row)
     wanted = [str(s).strip() for s in jd_skills if str(s).strip()]
     matched = [s for s in candidate_skills if s in wanted]
-    missing = [s for s in wanted if s in matched][:0]  # keep for future use
-    del missing
     score_pick = row.get("rerank_score")
     if score_pick is None:
         score_pick = row.get("rrf_score")
-    score_phrase = ""
-    if score_pick is not None:
-        score_phrase = f", điểm rerank {float(score_pick):.2f}"
+    pct_phrase = f" ({round(float(score_pick) * 100)}%)" if score_pick is not None else ""
+    rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
 
     if matched:
         skills_phrase = ", ".join(matched[:5])
-        rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
         return (
-            f"Có các kỹ năng trùng JD: {skills_phrase}{rank_phrase}{score_phrase}."
+            f"Đạt điểm phù hợp{pct_phrase} nhờ đáp ứng các kỹ năng cốt lõi: {skills_phrase}{rank_phrase}."
         )
     if candidate_skills:
         skills_phrase = ", ".join(candidate_skills[:3])
-        rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
         return (
-            f"Khớp một phần JD nhờ các kỹ năng {skills_phrase}{rank_phrase}{score_phrase}."
+            f"Đạt điểm phù hợp{pct_phrase} nhờ các kỹ năng liên quan: {skills_phrase}{rank_phrase}."
         )
-    rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
-    return f"Được đánh giá phù hợp JD dựa trên tổng điểm matching{rank_phrase}{score_phrase}."
+    return f"Được đánh giá phù hợp JD{pct_phrase} dựa trên phân tích tổng thể hồ sơ{rank_phrase}."
 
 
 def explain_matches(

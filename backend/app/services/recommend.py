@@ -53,8 +53,17 @@ def mock_recommend(rows: list[dict[str, Any]]) -> list[RecommendedJob]:
 
 def mock_recommend_candidates(rows: list[dict[str, Any]]) -> list[RecommendedCandidate]:
     candidates: list[RecommendedCandidate] = []
+    reasons = [
+        "Khớp 92% nhờ đáp ứng xuất sắc các kỹ năng cốt lõi React, TypeScript và có 3+ năm kinh nghiệm phát triển Frontend.",
+        "Khớp 88% với kinh nghiệm vững chắc về JavaScript, Git, ReactJS và quy trình làm việc Agile/Scrum.",
+        "Khớp 87% chuyên sâu về React, Next.js và tối ưu hóa hiệu năng giao diện sản phẩm theo yêu cầu JD.",
+        "Khớp 81% đáp ứng các kỹ năng lập trình Frontend cơ bản, kinh nghiệm làm việc thực tế với dự án sản phẩm.",
+        "Khớp 79% phù hợp tổng thể hồ sơ, cần phỏng vấn chuyên sâu thêm về kinh nghiệm làm việc nhóm.",
+    ]
     for index, row in enumerate(rows[:MOCK_LIMIT]):
         profile = _profile(row)
+        score = MOCK_SCORES[index]
+        reason = reasons[index % len(reasons)]
         candidates.append(
             RecommendedCandidate(
                 application_id=row["id"],
@@ -64,9 +73,10 @@ def mock_recommend_candidates(rows: list[dict[str, Any]]) -> list[RecommendedCan
                 resume_title=row.get("resume_title_snapshot"),
                 resume_storage_path=row.get("resume_storage_path_snapshot"),
                 current_status=row.get("current_status") or "pending",
-                rrf_score=MOCK_SCORES[index],
+                rrf_score=score,
                 rerank_score=None,
                 rerank_status="not_requested",
+                match_reason=reason,
             )
         )
     return candidates

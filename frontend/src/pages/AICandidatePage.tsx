@@ -34,6 +34,7 @@ type ChatCandidate = {
   rrf_score: number;
   rerank_score: number | null;
   rerank_status: RerankStatus;
+  match_reason?: string | null;
 };
 type HistoryRun = { id: string; created_at: string; rerank_mode: string | null; rerank_status: string | null; recruiter_message: string | null };
 type Message = { id: string; role: "user" | "system"; text: string; candidates?: ChatCandidate[] };
@@ -43,7 +44,7 @@ type FitKey = "good" | "ok" | "poor";
 const FIT_GROUPS: { key: FitKey; label: string; className: string }[] = [
   { key: "good", label: "Phù hợp", className: "text-emerald-600 dark:text-emerald-400" },
   { key: "ok", label: "Bình thường", className: "text-amber-600 dark:text-amber-400" },
-  { key: "poor", label: "Không phù hợp", className: "text-rose-600 dark:text-rose-400" },
+  { key: "poor", label: "Chưa phù hợp", className: "text-rose-600 dark:text-rose-400" },
 ];
 
 const displayScore = (c: ChatCandidate) =>
@@ -70,23 +71,37 @@ function CandidateCard({
 }) {
   const pct = Math.round(displayScore(candidate) * 100);
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-64 shrink-0">
-      <div className="flex items-center justify-between mb-2 gap-2">
-        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300 px-2 py-0.5 rounded-full">{pct}% phù hợp</span>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
-          {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
-        </span>
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+      <div>
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300 px-2 py-0.5 rounded-full">{pct}% phù hợp</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
+            {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
+          </span>
+        </div>
+        <p className="font-semibold text-sm truncate">{candidate.full_name || "Ứng viên"}</p>
+        <p className="text-xs text-slate-500 truncate">{candidate.email}</p>
+        <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
+          <FileText size={11} />
+          <span className="truncate">{candidate.resume_title || "CV"}</span>
+        </div>
+
+        {/* Dynamic AI Match Reason / Score Explanation */}
+        <div className="mt-3 p-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl text-xs space-y-1">
+          <div className="flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300 text-[11px]">
+            <Sparkles size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
+            <span>Giải thích điểm phù hợp ({pct}%):</span>
+          </div>
+          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+            {candidate.match_reason || `Được AI đánh giá ${pct}% phù hợp JD dựa trên phân tích kỹ năng và kinh nghiệm trong CV.`}
+          </p>
+        </div>
       </div>
-      <p className="font-semibold text-sm truncate">{candidate.full_name || "Ứng viên"}</p>
-      <p className="text-xs text-slate-500 truncate">{candidate.email}</p>
-      <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
-        <FileText size={11} />
-        <span className="truncate">{candidate.resume_title || "CV"}</span>
-      </div>
+
       <button
         onClick={onOpen}
         disabled={opening}
-        className="mt-3 w-full py-1.5 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-center gap-1 disabled:opacity-50"
+        className="mt-3 w-full py-1.5 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-center gap-1 disabled:opacity-50 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"
       >
         <ExternalLink size={11} /> Xem CV
       </button>
@@ -390,8 +405,13 @@ export default function AICandidatePage() {
                           const list = groups[g.key];
                           if (list.length === 0) return null;
                           return (
-                            <div key={g.key} className="min-w-0">
-                              <p className={`text-xs font-semibold mb-2 ${g.className}`}>{g.label} ({list.length})</p>
+                            <div key={g.key} className="min-w-0 pt-2">
+                              <h2 className={`text-base sm:text-lg font-bold mb-3 flex items-center gap-2 ${g.className}`}>
+                                <span>{g.label}</span>
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                  {list.length}
+                                </span>
+                              </h2>
                               <div className="flex flex-row flex-wrap gap-3">
                                 {list.map((cand) => (
                                   <CandidateCard

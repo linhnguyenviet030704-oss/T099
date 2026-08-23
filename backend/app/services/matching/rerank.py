@@ -50,7 +50,7 @@ def _fill_window(rows: list[dict[str, Any]], window_n: int, *, confirmed: bool) 
     if not confirmed:
         return list(rows[:window_n])
     window: list[dict[str, Any]] = []
-    for status in ("pass", "unknown", "fail"):
+    for status in _GROUP_ORDER:
         for row in rows:
             if _status(row) != status:
                 continue
@@ -117,6 +117,6 @@ def apply_rerank(
     ordered: list[dict[str, Any]] = []
     for key in _GROUP_ORDER:
         chunk = grouped[key]
-        chunk.sort(key=lambda item: (-float(item["rerank_score"]), str(item.get("application_id") or "")))
+        chunk.sort(key=lambda item: (-float(item["rerank_score"]), str(item.get("application_id") or item.get("job_id") or "")))
         ordered.extend(chunk)
     return ordered + _annotate(rest, score=None, status="not_requested")

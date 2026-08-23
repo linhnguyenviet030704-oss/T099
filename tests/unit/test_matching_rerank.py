@@ -112,6 +112,35 @@ def test_apply_rerank_confirmed_keeps_fail_below_pass():
     assert [r["application_id"] for r in out] == ["pass", "fail"]
 
 
+def test_apply_rerank_qwen_tie_break_falls_back_to_job_id():
+    rows = [
+        {"job_id": "j2", "rrf_score": 0.5, "markdown": "job two"},
+        {"job_id": "j1", "rrf_score": 0.5, "markdown": "job one"},
+    ]
+
+    def rerank_fn(_query: str, documents: list[str]):
+        assert documents == ["job two", "job one"]
+        return [{"index": 0, "relevance_score": 0.5}, {"index": 1, "relevance_score": 0.5}]
+
+    out = apply_rerank(rows, jd_query="Python", mode="qwen", rerank_fn=rerank_fn)
+    assert [r["job_id"] for r in out] == ["j1", "j2"]
+
+
+def test_apply_rerank_confirmed_window_includes_ungated_rows():
+    rows = [
+        {"job_id": "j1", "rrf_score": 0.9, "markdown": "a", "constraint_status": "ungated"},
+        {"job_id": "j2", "rrf_score": 0.1, "markdown": "b", "constraint_status": "ungated"},
+    ]
+
+    def rerank_fn(_query: str, documents: list[str]):
+        assert documents == ["a", "b"]
+        return [{"index": 0, "relevance_score": 0.9}, {"index": 1, "relevance_score": 0.1}]
+
+    out = apply_rerank(rows, jd_query="Python", mode="qwen", rerank_fn=rerank_fn, confirmed=True)
+    assert [r["job_id"] for r in out] == ["j1", "j2"]
+    assert out[0]["rerank_status"] == "success"
+
+
 class _RpcClient:
     def __init__(self) -> None:
         self.calls: list[dict] = []

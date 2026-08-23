@@ -343,3 +343,26 @@ async def test_matching_graph_explain_node_no_candidates_skips_llm():
     result = await graph.ainvoke({"job_id": str(uuid4()), "query": "x"})
     assert result["response"] == "Chưa có CV nộp cho vị trí này."
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_ingest_graph_runs_extract_node_before_summarize(monkeypatch):
+    calls: list[str] = []
+
+    from backend.app.agents.ingest.nodes.extract import extract_skills_node as original_extract
+
+    async def _spy_extract(state):
+        calls.append("extract")
+        return await original_extract(state)
+
+    monkeypatch.setattr(
+        "backend.app.agents.ingest.graph.extract_skills_node", _spy_extract
+    )
+
+    graph = build_ingest_graph(encode=_encode, complete=_complete)
+    result = await graph.ainvoke(
+        {"raw_bytes": b"Python FastAPI Docker intern", "mime_type": "text/plain"}
+    )
+
+    assert calls == ["extract"]
+    assert set(result["metadata"]["skills"]) == {"python", "fastapi", "docker"}

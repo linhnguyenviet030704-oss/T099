@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles } from "lucide-react";
+import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles, Building2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
@@ -15,6 +16,7 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { useToast } from "../context/ToastContext";
 
 export default function RecruitmentDashboardPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
   const { success, error: toastError } = useToast();
@@ -121,6 +123,11 @@ export default function RecruitmentDashboardPage() {
   };
 
   const handleOpenCreateJob = () => {
+    if (memberships.length === 0) {
+      toastError("Chưa có công ty được duyệt", "Bạn chưa có công ty được duyệt. Vui lòng gửi đơn Đăng ký Nhà tuyển dụng!");
+      navigate("/register-recruiter");
+      return;
+    }
     resetForm();
     setShowCreateJob(true);
   };
@@ -150,9 +157,8 @@ export default function RecruitmentDashboardPage() {
     setFieldErrors({});
     if (!selectedCompanyId) {
       setFieldErrors({ company: true });
-      companySelectRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      companySelectRef.current?.focus();
-      toastError("Không thể tạo tin", "Bạn chưa có công ty hoặc chưa chọn công ty.");
+      toastError("Chưa có công ty", "Tài khoản của bạn chưa có công ty được Admin phê duyệt.");
+      navigate("/register-recruiter");
       return;
     }
     if (!newJob.title.trim()) {
@@ -263,15 +269,35 @@ export default function RecruitmentDashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Bàn tuyển dụng</h1>
-          <select
-            ref={companySelectRef}
-            value={selectedCompanyId}
-            onChange={(e) => { setSelectedCompanyId(e.target.value); setSelectedJobId(null); setFieldErrors((p) => ({ ...p, company: false })); }}
-            className={`px-3 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-sm transition-all ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
-          >
-            {memberships.map((m) => <option key={m.company_id} value={m.company_id}>{m.company?.name || m.company_id}</option>)}
-          </select>
+          {memberships.length > 0 && (
+            <select
+              ref={companySelectRef}
+              value={selectedCompanyId}
+              onChange={(e) => { setSelectedCompanyId(e.target.value); setSelectedJobId(null); setFieldErrors((p) => ({ ...p, company: false })); }}
+              className={`px-3 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-sm transition-all ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
+            >
+              {memberships.map((m) => <option key={m.company_id} value={m.company_id}>{m.company?.name || m.company_id}</option>)}
+            </select>
+          )}
         </div>
+        {memberships.length === 0 && !loading && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+                <Building2 size={20} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Chưa có công ty được phê duyệt</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  Nhà tuyển dụng cần hoàn tất Đăng ký Nhà tuyển dụng và được Admin duyệt thông tin công ty trước khi đăng tin tuyển dụng.
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => navigate("/register-recruiter")} leftIcon={<Building2 size={15} />}>
+              Đăng ký Nhà tuyển dụng
+            </Button>
+          </div>
+        )}
         {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
         {loading ? <p className="text-sm text-slate-500">Đang tải...</p> : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

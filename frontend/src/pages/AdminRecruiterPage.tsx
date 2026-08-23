@@ -75,6 +75,25 @@ export default function AdminRecruiterPage() {
       if (sbErr) throw sbErr;
       if (decision === "approved" && targetForm) {
         await supabase.from("profiles").update({ role: "recruiter" }).eq("id", targetForm.user_id);
+        if (targetForm.company_name) {
+          const rawSlug = targetForm.company_name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+          const slug = `${rawSlug || "company"}-${targetForm.user_id.slice(0, 5)}`;
+          const { data: comp } = await supabase.from("companies").insert({
+            name: targetForm.company_name,
+            slug,
+            website_url: targetForm.company_website_url,
+            created_by_user_id: targetForm.user_id,
+            verification_status: "verified",
+          }).select("*").maybeSingle();
+          if (comp) {
+            await supabase.from("company_members").insert({
+              company_id: comp.id,
+              user_id: targetForm.user_id,
+              role: "owner",
+              is_active: true,
+            });
+          }
+        }
       }
       await load();
       success(`Đã ${decision === "approved" ? "phê duyệt" : "từ chối"} đơn thành công!`);

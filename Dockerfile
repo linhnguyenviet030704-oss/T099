@@ -4,7 +4,7 @@ FROM python:3.11-slim AS builder
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --prefer-binary --default-timeout=100 --user -r requirements.txt
 
 # ---- Stage 2: Production ----
 FROM python:3.11-slim

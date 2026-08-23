@@ -25,7 +25,7 @@ grant all on public.resume_embeddings to service_role;
 
 create index resume_embeddings_hnsw
   on public.resume_embeddings
-  using hnsw (embedding vector_cosine_ops);
+  using hnsw (embedding extensions.vector_cosine_ops);
 
 create or replace function public.match_resumes_for_job (
   query_embedding extensions.vector(384),

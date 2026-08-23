@@ -14,7 +14,7 @@ alter table public.embedded_resumes
 
 create index embedded_resumes_hnsw
   on public.embedded_resumes
-  using hnsw (embedding vector_cosine_ops);
+  using hnsw (embedding extensions.vector_cosine_ops);
 
 drop function if exists public.match_resumes_for_job(extensions.vector, uuid, int);
 drop function if exists public.match_resumes_for_job(extensions.vector(384), uuid, int);

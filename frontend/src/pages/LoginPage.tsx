@@ -47,12 +47,6 @@ export default function LoginPage() {
     }
   };
 
-  const demoAccounts = [
-    { label: "Ứng viên", email: "candidate@example.com", color: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-    { label: "Recruiter", email: "recruiter@example.com", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    { label: "Admin", email: "admin@example.com", color: "bg-red-50 text-red-700 border-red-200" },
-  ];
-
   return (
     <AnimatedPage className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 py-16 px-4">
       <div className="w-full max-w-md">
@@ -67,24 +61,6 @@ export default function LoginPage() {
           </Link>
           <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white mt-6 mb-2">Chào mừng trở lại</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Đăng nhập để tiếp tục hành trình tìm việc</p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 mb-6">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3">Tài khoản seed (mật khẩu: password123)</p>
-          <div className="flex gap-2">
-            {demoAccounts.map((acc) => (
-              <motion.button
-                key={acc.email}
-                type="button"
-                whileTap={{ scale: 0.95 }}
-                whileHover={{ scale: 1.02 }}
-                onClick={() => { setEmail(acc.email); setPassword("password123"); }}
-                className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${acc.color}`}
-              >
-                {acc.label}
-              </motion.button>
-            ))}
-          </div>
         </div>
 
         <motion.div

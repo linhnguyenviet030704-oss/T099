@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -80,6 +81,50 @@ async def test_retrieve_for_job_blocks_before_touching_data_when_unauthorized(mo
         await retrieve_for_job(client, actor_id, job_id)
 
     assert calls == [(client, actor_id, job_id)]
+
+
+class _FakeInQuery:
+    def __init__(self, rows: list[dict]) -> None:
+        self._rows = rows
+        self.in_args: tuple | None = None
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def in_(self, column: str, values: list[str]):
+        self.in_args = (column, values)
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=self._rows)
+
+
+class _FakeInClient:
+    def __init__(self, rows: list[dict]) -> None:
+        self.query = _FakeInQuery(rows)
+
+    def table(self, _name: str):
+        return self.query
+
+
+def test_embedded_batch_fetches_all_ids_in_one_query():
+    from backend.app.services.matching.retrieve import _embedded_batch
+
+    rows = [
+        {"resume_id": "r1", "metadata": {"skills": ["python"]}},
+        {"resume_id": "r2", "metadata": {"skills": ["java"]}},
+    ]
+    client = _FakeInClient(rows)
+    result = _embedded_batch(client, ["r1", "r2"])
+    assert client.query.in_args == ("resume_id", ["r1", "r2"])
+    assert result["r1"]["metadata"]["skills"] == ["python"]
+    assert result["r2"]["metadata"]["skills"] == ["java"]
+
+
+def test_embedded_batch_returns_empty_dict_for_empty_ids():
+    from backend.app.services.matching.retrieve import _embedded_batch
+
+    assert _embedded_batch(_FakeInClient([]), []) == {}
 
 
 @pytest.mark.asyncio

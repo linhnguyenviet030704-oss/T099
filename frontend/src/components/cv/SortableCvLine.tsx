@@ -42,10 +42,10 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
       ref={setNodeRef}
       style={style}
       onClick={() => onSelect(line.key)}
-      className={`group flex items-start gap-2 rounded-xl border p-3 bg-white cursor-pointer transition ${
+      className={`group flex items-start gap-2 rounded-xl border p-3 bg-white dark:bg-slate-800 cursor-pointer transition ${
         isActive
-          ? 'border-emerald-400 ring-2 ring-emerald-200'
-          : 'border-slate-200 hover:border-slate-300'
+          ? 'border-emerald-400 dark:border-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-900/40'
+          : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
       } ${line.selected ? '' : 'opacity-50'}`}
     >
       <button
@@ -53,21 +53,21 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
-        className="mt-0.5 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing touch-none"
+        className="mt-0.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-grab active:cursor-grabbing touch-none"
         title="Kéo để sắp xếp"
       >
         <GripVertical className="h-4 w-4" />
       </button>
 
       <div className="flex-1 min-w-0">
-        <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100 mb-1">
+        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 mb-1">
           {lineTypeLabel(line.name)}
         </span>
-        <p className="text-xs font-bold text-slate-800 line-clamp-3 whitespace-pre-line">
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-3 whitespace-pre-line">
           {line.value || '(Chưa có nội dung)'}
         </p>
         {line.sourceId === null && (
-          <span className="inline-block mt-1 text-[8px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+          <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 px-1.5 py-0.5 rounded">
             Dòng mới
           </span>
         )}
@@ -81,7 +81,7 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
             onToggleSelect(line.key);
           }}
           title={line.selected ? 'Bỏ khỏi CV' : 'Đưa vào CV'}
-          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-emerald-600 cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
         >
           {line.selected ? (
             <Eye className="h-3.5 w-3.5" />
@@ -96,7 +96,7 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
             onRemove(line.key);
           }}
           title="Xóa khỏi CV (không xóa hồ sơ gốc)"
-          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

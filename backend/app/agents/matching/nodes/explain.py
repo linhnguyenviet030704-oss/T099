@@ -22,10 +22,12 @@ def make_explain_node(
 
         candidates = list(state.get("candidates") or [])
         jd_text = state.get("job_description") or state.get("jd_query") or ""
+        jd_skills = list(state.get("jd_skills") or [])
         reasons = explain_matches(
             jd_text=jd_text,
             candidates=candidates,
             complete=_complete,
+            jd_skills=jd_skills,
         )
         enriched = [
             {**row, "match_reason": reasons.get(str(row.get("application_id") or ""))}

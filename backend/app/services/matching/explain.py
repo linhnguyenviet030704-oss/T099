@@ -94,11 +94,59 @@ def _parse_map(raw: str) -> dict[str, str]:
     return out
 
 
+def _extract_skills(row: dict[str, Any]) -> list[str]:
+    seen: list[str] = []
+    for skill in row.get("skills") or []:
+        token = str(skill).strip()
+        if token and token not in seen:
+            seen.append(token)
+    return seen
+
+
+def deterministic_reason(
+    *,
+    row: dict[str, Any],
+    jd_skills: list[str],
+    rank: int,
+    total: int,
+) -> str:
+    """Ponytail: evidence-grounded 1-sentence reason when LLM is unavailable.
+    Ceiling: no deep relative ranking narrative — only matched-skill list
+    and ordinal position in the shortlist."""
+    candidate_skills = _extract_skills(row)
+    wanted = [str(s).strip() for s in jd_skills if str(s).strip()]
+    matched = [s for s in candidate_skills if s in wanted]
+    missing = [s for s in wanted if s in matched][:0]  # keep for future use
+    del missing
+    score_pick = row.get("rerank_score")
+    if score_pick is None:
+        score_pick = row.get("rrf_score")
+    score_phrase = ""
+    if score_pick is not None:
+        score_phrase = f", điểm rerank {float(score_pick):.2f}"
+
+    if matched:
+        skills_phrase = ", ".join(matched[:5])
+        rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
+        return (
+            f"Có các kỹ năng trùng JD: {skills_phrase}{rank_phrase}{score_phrase}."
+        )
+    if candidate_skills:
+        skills_phrase = ", ".join(candidate_skills[:3])
+        rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
+        return (
+            f"Khớp một phần JD nhờ các kỹ năng {skills_phrase}{rank_phrase}{score_phrase}."
+        )
+    rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
+    return f"Được đánh giá phù hợp JD dựa trên tổng điểm matching{rank_phrase}{score_phrase}."
+
+
 def explain_matches(
     *,
     jd_text: str,
     candidates: list[dict[str, Any]],
     complete: CompleteFn | None = None,
+    jd_skills: list[str] | None = None,
 ) -> dict[str, str]:
     """Return {application_id: reasoning} for the given candidates, or {} on failure.
 
@@ -106,6 +154,10 @@ def explain_matches(
     context of each other (relative ranking is part of the prompt).
     Only ids present in the input `candidates` are kept — the LLM is
     free to invent ids, and we never trust those.
+
+    If the LLM fails (no API key, network error, JSON parse, etc.) we
+    fall back to a deterministic per-candidate reason so the recruiter
+    always sees something better than `null`.
     """
     if not candidates:
         return {}
@@ -113,9 +165,29 @@ def explain_matches(
     allowed_ids.discard("")
     fn = complete or chat_complete
     prompt = _build_prompt(jd_text, candidates)
+    parsed: dict[str, str] = {}
     try:
         raw = fn(prompt, json_object=True)
+        parsed = _parse_map(raw)
     except Exception:
-        return {}
-    parsed = _parse_map(raw)
-    return {cid: reason for cid, reason in parsed.items() if cid in allowed_ids}
+        parsed = {}
+    llm_reasons = {cid: reason for cid, reason in parsed.items() if cid in allowed_ids}
+    if len(llm_reasons) == len(allowed_ids) and allowed_ids:
+        return llm_reasons
+    # ponytail: deterministic fallback so the recruiter still gets an
+    # evidence-grounded explanation when LLM is unavailable (no API key,
+    # network error, JSON garbled, or partial response). Ceiling: no deep
+    # relative-ranking narrative; only matched-skill list and ordinal
+    # position. Upgrade path: keep retrying LLM with exponential backoff
+    # before falling back if richer prose is required.
+    skills = jd_skills or []
+    total = len(allowed_ids)
+    out: dict[str, str] = dict(llm_reasons)
+    for rank, row in enumerate(candidates[:_MAX_CANDIDATES], start=1):
+        cid = str(row.get("application_id") or "")
+        if not cid or cid in out:
+            continue
+        out[cid] = deterministic_reason(
+            row=row, jd_skills=skills, rank=rank, total=total
+        )
+    return out

@@ -102,5 +102,29 @@ def constraint_status(row: dict[str, Any], constraints: dict[str, Any], *, confi
     return "fail"
 
 
+def job_constraint_status(
+    *,
+    verified: set[str],
+    has_evidence: bool,
+    constraints: dict[str, Any],
+    confirmed: bool,
+) -> str:
+    """Same pass/unknown/fail rule as constraint_status, but for the
+    reverse (CV -> JD) direction: the row being gated (a job) is never the
+    evidence source (the CV). Evidence quality (`has_evidence`) and the
+    skill set being checked (`verified`) both come from the CV, constant
+    across every job row; `constraints`/`confirmed` come from the job row."""
+    if not confirmed:
+        return "ungated"
+    if not has_evidence:
+        return "unknown"
+    excluded = set(constraints.get("excluded") or [])
+    if verified & excluded:
+        return "fail"
+    if _must_satisfied(verified, constraints):
+        return "pass"
+    return "fail"
+
+
 def partition_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: _STATUS_ORDER.get(str(row.get("constraint_status") or "ungated"), 0))

@@ -1,6 +1,7 @@
 from backend.app.services.matching.constraints import (
     constraint_status,
     empty_constraints,
+    job_constraint_status,
     partition_rows,
     propose_skill_constraints,
     soft_delta,
@@ -67,3 +68,44 @@ def test_partition_orders_pass_unknown_fail_without_dropping():
     ordered = partition_rows(rows)
     assert [row["id"] for row in ordered] == ["p", "p2", "u", "f"]
     assert len(ordered) == 4
+
+
+def test_job_constraint_status_ungated_when_job_constraints_unconfirmed():
+    assert (
+        job_constraint_status(
+            verified={"java"}, has_evidence=True, constraints=empty_constraints(), confirmed=False
+        )
+        == "ungated"
+    )
+
+
+def test_job_constraint_status_unknown_when_cv_lacks_evidence():
+    constraints = {"must": [{"any_of": ["java"]}], "preferred": [], "mentioned": [], "excluded": []}
+    assert (
+        job_constraint_status(verified={"java"}, has_evidence=False, constraints=constraints, confirmed=True)
+        == "unknown"
+    )
+
+
+def test_job_constraint_status_pass_when_verified_covers_must_have():
+    constraints = {"must": [{"any_of": ["java", "kotlin"]}], "preferred": [], "mentioned": [], "excluded": []}
+    assert (
+        job_constraint_status(verified={"java"}, has_evidence=True, constraints=constraints, confirmed=True)
+        == "pass"
+    )
+
+
+def test_job_constraint_status_fail_when_verified_misses_must_have():
+    constraints = {"must": [{"any_of": ["kotlin"]}], "preferred": [], "mentioned": [], "excluded": []}
+    assert (
+        job_constraint_status(verified={"java"}, has_evidence=True, constraints=constraints, confirmed=True)
+        == "fail"
+    )
+
+
+def test_job_constraint_status_fail_when_verified_hits_excluded():
+    constraints = {"must": [], "preferred": [], "mentioned": [], "excluded": ["php"]}
+    assert (
+        job_constraint_status(verified={"php"}, has_evidence=True, constraints=constraints, confirmed=True)
+        == "fail"
+    )

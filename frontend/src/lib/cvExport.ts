@@ -67,7 +67,7 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
   const blob =
     options.mode === 'wysiwyg'
       ? await generateWysiwygPdf(docNode)
-      : await generateTextPdf(header, lines, accent);
+      : await generateTextPdf(header, lines, accent, docNode);
 
   const resumeId = crypto.randomUUID();
   const safeTitle = options.title.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'cv';

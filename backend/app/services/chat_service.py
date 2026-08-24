@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
-from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
+from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate, RecommendedJob
 from backend.app.config.models import FINAL_CANDIDATE_K
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger
@@ -16,6 +16,7 @@ FetchJobs = Callable[[], Awaitable[list[dict[str, Any]]]]
 FetchCandidates = Callable[[UUID, UUID], Awaitable[list[dict[str, Any]]]]
 AssertJobAccess = Callable[[UUID, UUID], Awaitable[None]]
 MatchCandidates = Callable[[UUID, UUID, str, str], Awaitable[ChatResponse]]
+RecommendJobs = Callable[[UUID, str, str], Awaitable[ChatResponse]]
 
 
 def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
@@ -43,6 +44,32 @@ def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
     return ChatResponse(response=str(result.get("response") or ""), candidates=candidates)
 
 
+def jobs_response_from_graph(result: dict[str, Any]) -> ChatResponse:
+    jobs: list[RecommendedJob] = []
+    for row in (result.get("candidates") or [])[:FINAL_CANDIDATE_K]:
+        rerank_status = str(row.get("rerank_status") or "not_requested")
+        rerank_score = row.get("rerank_score")
+        reason_raw = row.get("match_reason")
+        reason_clean = str(reason_raw).strip() if reason_raw else ""
+        jobs.append(
+            RecommendedJob(
+                id=UUID(str(row["job_id"])),
+                title=row.get("title") or "",
+                company_name=row.get("company_name"),
+                location=row.get("location"),
+                employment_type=row.get("employment_type"),
+                salary_min=row.get("salary_min"),
+                salary_max=row.get("salary_max"),
+                currency=row.get("currency") or "VND",
+                score=float(row.get("rrf_score") or 0.0),
+                rerank_score=None if rerank_score is None else float(rerank_score),
+                rerank_status=rerank_status,  # type: ignore[arg-type]
+                match_reason=reason_clean or None,
+            )
+        )
+    return ChatResponse(response=str(result.get("response") or ""), jobs=jobs)
+
+
 class ChatService:
     def __init__(
         self,
@@ -50,18 +77,28 @@ class ChatService:
         fetch_candidates: FetchCandidates | None = None,
         assert_job_access: AssertJobAccess | None = None,
         match_candidates: MatchCandidates | None = None,
+        recommend_jobs: RecommendJobs | None = None,
     ) -> None:
         self._fetch_jobs = fetch_jobs
         self._fetch_candidates = fetch_candidates
         self._assert_job_access = assert_job_access
         self._match_candidates = match_candidates
+        self._recommend_jobs_fn = recommend_jobs
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
         if request.job_id is not None:
             return await self._recommend_candidates(request, actor_id)
-        return await self._recommend_jobs()
+        return await self._recommend_jobs(request, actor_id)
 
-    async def _recommend_jobs(self) -> ChatResponse:
+    async def _recommend_jobs(self, request: ChatRequest, actor_id: UUID | None) -> ChatResponse:
+        if self._recommend_jobs_fn is not None and actor_id is not None:
+            try:
+                return await self._recommend_jobs_fn(actor_id, request.message, request.rerank)
+            except AppError:
+                raise
+            except Exception as exc:
+                logger.exception("recommend_jobs failed")
+                raise AppError(502, "Không lấy được danh sách việc làm", "JOBS_UNAVAILABLE") from exc
         try:
             rows = await self._fetch_jobs()
         except AppError:

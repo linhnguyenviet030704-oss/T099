@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from functools import lru_cache
 
 from backend.app.services.matching.skills import _normalize_text, extract_skills, load_skills_catalog, skill_variants
 
@@ -75,7 +76,8 @@ def competition_ranks(keys: list) -> list[int]:
     return ranks
 
 
-def _protect_aliases(text: str) -> str:
+@lru_cache(maxsize=1)
+def _alias_patterns() -> tuple[tuple[re.Pattern, str], ...]:
     pairs: list[tuple[str, str]] = []
     for ids in load_skills_catalog().values():
         for skill_id in ids:
@@ -84,13 +86,20 @@ def _protect_aliases(text: str) -> str:
                     continue
                 pairs.append((variant, skill_id))
     pairs.sort(key=lambda item: len(item[0]), reverse=True)
-    out = text
+    compiled: list[tuple[re.Pattern, str]] = []
     for variant, skill_id in pairs:
         if re.fullmatch(r"[a-z0-9]+", variant, flags=re.IGNORECASE):
             pattern = rf"(?<![a-z0-9_]){re.escape(variant)}(?![a-z0-9_])"
         else:
             pattern = re.escape(variant)
-        out = re.sub(pattern, f" {skill_id} ", out, flags=re.IGNORECASE)
+        compiled.append((re.compile(pattern, re.IGNORECASE), skill_id))
+    return tuple(compiled)
+
+
+def _protect_aliases(text: str) -> str:
+    out = text
+    for pattern, skill_id in _alias_patterns():
+        out = pattern.sub(f" {skill_id} ", out)
     return out
 
 

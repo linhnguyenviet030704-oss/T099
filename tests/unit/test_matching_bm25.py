@@ -51,3 +51,12 @@ def test_bm25_query_and_document_append_skill_ids():
     doc = bm25_document("Built APIs", ["fastapi"])
     assert "Built APIs" in doc
     assert "fastapi" in doc
+
+
+def test_protect_aliases_patterns_are_cached():
+    from backend.app.services.matching.bm25 import _alias_patterns
+
+    first = _alias_patterns()
+    second = _alias_patterns()
+    assert first is second
+    assert len(first) > 0

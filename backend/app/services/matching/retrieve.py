@@ -26,6 +26,7 @@ from backend.app.services.recommend import assert_recruiter_job_access
 from supabase import Client
 
 POOL_WARN_N = 500
+INGEST_CONCURRENCY_LIMIT = 8
 
 
 def job_query_text(job: dict[str, Any]) -> str:
@@ -100,6 +101,28 @@ def _as_embedding(raw: Any) -> list[float] | None:
     except (TypeError, ValueError):
         return None
     return vector
+
+
+_EMBEDDED_BATCH_CHUNK_SIZE = 100
+
+
+def _embedded_batch(client: Client, resume_ids: list[str]) -> dict[str, dict[str, Any]]:
+    if not resume_ids:
+        return {}
+    merged: dict[str, dict[str, Any]] = {}
+    for i in range(0, len(resume_ids), _EMBEDDED_BATCH_CHUNK_SIZE):
+        chunk = resume_ids[i : i + _EMBEDDED_BATCH_CHUNK_SIZE]
+        result = (
+            client.table("embedded_resumes")
+            .select("resume_id, metadata, markdown, clean_markdown, embedding, model")
+            .in_("resume_id", chunk)
+            .execute()
+        )
+        rows = result.data or []
+        for row in rows:
+            if row.get("resume_id"):
+                merged[str(row["resume_id"])] = row
+    return merged
 
 
 async def persist_match_resume_rows(
@@ -215,17 +238,22 @@ async def retrieve_for_job(
         return result.data or []
 
     submits = await asyncio.to_thread(_submits)
-    for row in submits:
-        resume_id = row.get("resume_id")
-        if resume_id:
+    resume_uuids = [UUID(str(row["resume_id"])) for row in submits if row.get("resume_id")]
+
+    ingest_semaphore = asyncio.Semaphore(INGEST_CONCURRENCY_LIMIT)
+
+    async def _ingest_bounded(resume_uuid: UUID) -> None:
+        async with ingest_semaphore:
             await try_ingest_resume(
                 resume_store,
-                UUID(str(resume_id)),
+                resume_uuid,
                 encode=encode,
                 complete=complete,
                 api_key=api_key,
                 base_url=base_url,
             )
+
+    await asyncio.gather(*(_ingest_bounded(resume_uuid) for resume_uuid in resume_uuids))
 
     constraints = _parse_constraints(job.get("skill_constraints"))
     confirmed = job.get("skill_constraints_confirmed_at") is not None
@@ -235,22 +263,15 @@ async def retrieve_for_job(
     bm25_q = bm25_query(str(job.get("title") or ""), bm25_skills)
     query_embedding = embed_text(dense_q, encode=encode, api_key=api_key, base_url=base_url)
 
-    def _embedded(resume_id: str) -> dict[str, Any] | None:
-        result = (
-            client.table("embedded_resumes")
-            .select("metadata, markdown, clean_markdown, embedding, model")
-            .eq("resume_id", resume_id)
-            .maybe_single()
-            .execute()
-        )
-        return _row(result)
+    resume_ids = [str(row.get("resume_id") or "") for row in submits if row.get("resume_id")]
+    embedded_by_id = await asyncio.to_thread(_embedded_batch, client, resume_ids)
 
     candidates: list[dict[str, Any]] = []
     docs: list[str] = []
     mismatch = 0
     for row in submits:
         resume_id = str(row.get("resume_id") or "")
-        parsed = await asyncio.to_thread(_embedded, resume_id) if resume_id else None
+        parsed = embedded_by_id.get(resume_id)
         metadata = (parsed or {}).get("metadata") or {}
         verified = list(metadata.get("verified_skills") or [])
         inferred = list(metadata.get("inferred_skills") or [])

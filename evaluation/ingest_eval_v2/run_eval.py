@@ -34,7 +34,9 @@ from evaluation.ingest_eval_v2.pipeline import run_ingest_pipeline  # noqa: E402
 
 MANIFEST_PATH = Path(__file__).resolve().parent / "manifest.json"
 REPORT_PATH = Path(__file__).resolve().parent / "results" / "report.md"
-PROMPT_VERSION = "v2-redesign"
+PROMPT_VERSION = "v3-skill-taxonomy-slugs"  # bumped: 25e5bd8 (2026-08-23) changed skill_graph.json
+# canonical IDs from display names ("AWS") to slugs ("aws"); the pre-bump runs_v2 cache holds
+# skills lists in the old format, which desyncs from a live extract_skills() call in metrics.py
 
 
 def _run_pipeline_cached(cv_entry: dict) -> dict:
@@ -105,12 +107,16 @@ def build_report(results: list[dict]) -> str:
     lines: list[str] = []
     lines.append("# Báo cáo đánh giá Ingest Agent")
     lines.append("")
-    lines.append("- Ngày chạy: 2026-08-22")
+    lines.append("- Ngày chạy: 2026-08-24")
     n_hard = sum(1 for r in results if r["cv"]["quality_profile"] == "hard_real_world")
+    n_vi_translated = sum(1 for r in results if r["cv"].get("paired_with"))
+    n_en = n - n_hard - n_vi_translated
     lines.append(
         f"- Mẫu: {n} CV (xem `evaluation/ingest_eval_v2/manifest.json`) — "
-        f"{n - n_hard} CV tổng hợp từ `data_find/generated_cv/` + {n_hard} CV thật cấu trúc khó từ "
-        "`evaluation/cv_hard/`"
+        f"{n_en} CV tổng hợp tiếng Anh từ `data_find/generated_cv/` + "
+        f"{n_vi_translated} bản dịch tiếng Việt cặp với đúng {n_vi_translated} CV tiếng Anh ở trên "
+        f"(từ `data_find/generated_cv_vi/`, xem mục 10) + {n_hard} CV thật cấu trúc khó từ "
+        "`evaluation/cv_hard/` (tiếng Việt, TopCV.vn)"
     )
     lines.append(f"- Chat model: `{CHAT_MODEL}` (OpenAI) — LLM-judge cũng dùng model này")
     lines.append(f"- Embedding model: `{EMBED_MODEL}` (OpenAI, dim=1536)")
@@ -311,6 +317,66 @@ def build_report(results: list[dict]) -> str:
                 f"| {cv['candidate_name'] or cv['cv_id']} | {m['parse']['chars']} | "
                 f"{'có' if low_content else 'không'} | {_fmt(f['score'])} | "
                 f"{_fmt(sp['precision_est'])}/{_fmt(sp['recall_est'])} | {pii} |"
+            )
+        lines.append("")
+
+    by_cv_id = {r["cv"]["cv_id"]: r for r in results}
+    pairs = [
+        (by_cv_id[r["cv"]["paired_with"]], r)
+        for r in results
+        if r["cv"].get("paired_with") and r["cv"]["paired_with"] in by_cv_id
+    ]
+    if pairs:
+        lines.append("## 10. So sánh CV tiếng Việt (dịch) vs CV tiếng Anh gốc (cặp cùng nội dung)")
+        lines.append("")
+        lines.append(
+            f"{len(pairs)} cặp CV: mỗi cặp là cùng một ứng viên/kỹ năng, chỉ khác ngôn ngữ viết "
+            "(bản dịch tiếng Việt tạo bởi `evaluation/ingest_eval_v2/translate_cvs_vi.py` từ đúng "
+            "36 CV tiếng Anh tổng hợp đang dùng ở các mục trên). Vì nội dung/kỹ năng giống hệt nhau, "
+            "chênh lệch số liệu ở đây phản ánh ảnh hưởng của **ngôn ngữ CV**, không phải khác biệt "
+            "về nội dung."
+        )
+        lines.append("")
+
+        def _pair_mean(key_fn) -> tuple[float | None, float | None]:
+            en_vals = [key_fn(en) for en, _ in pairs]
+            vi_vals = [key_fn(vi) for _, vi in pairs]
+            return _mean(en_vals), _mean(vi_vals)
+
+        en_faith, vi_faith = _pair_mean(lambda r: r["faithfulness"]["score"])
+        en_prec, vi_prec = _pair_mean(lambda r: r["skills_pii"]["precision_est"])
+        en_rec, vi_rec = _pair_mean(lambda r: r["skills_pii"]["recall_est"])
+        en_chars, vi_chars = _pair_mean(lambda r: r["metrics"]["parse"]["chars"])
+        en_ms, vi_ms = _pair_mean(lambda r: r["metrics"]["total_ms"])
+        vi_low_content = sum(1 for _, vi in pairs if vi["run"]["metadata"].get("low_content"))
+        vi_pii_hits = sum(1 for _, vi in pairs if vi["metrics"]["pii"]["regex_hits_total"] > 0)
+        en_pii_hits = sum(1 for en, _ in pairs if en["metrics"]["pii"]["regex_hits_total"] > 0)
+
+        lines.append("| Metric | CV tiếng Anh (gốc) | CV tiếng Việt (dịch) |")
+        lines.append("|---|---|---|")
+        lines.append(f"| Faithfulness trung bình | {_fmt(en_faith)} | {_fmt(vi_faith)} |")
+        lines.append(f"| Skill precision trung bình (LLM-judge) | {_fmt(en_prec)} | {_fmt(vi_prec)} |")
+        lines.append(f"| Skill recall trung bình (LLM-judge) | {_fmt(en_rec)} | {_fmt(vi_rec)} |")
+        lines.append(f"| Số ký tự parse trung bình | {_fmt(en_chars)} | {_fmt(vi_chars)} |")
+        lines.append(f"| CV bị gắn cờ `low_content` | 0/{len(pairs)} | {vi_low_content}/{len(pairs)} |")
+        lines.append(f"| CV còn PII (regex) trong text cuối | {en_pii_hits}/{len(pairs)} | {vi_pii_hits}/{len(pairs)} |")
+        lines.append(f"| Latency trung bình toàn pipeline | {_fmt(en_ms)} ms | {_fmt(vi_ms)} ms |")
+        lines.append("")
+
+        lines.append("### 10.1 Chi tiết từng cặp")
+        lines.append("")
+        lines.append(
+            "| Cặp | Faithfulness EN/VI | Skill P/R EN | Skill P/R VI | low_content VI | Ký tự parse EN/VI |"
+        )
+        lines.append("|---|---|---|---|---|---|")
+        for en, vi in sorted(pairs, key=lambda p: p[0]["cv"]["cv_id"]):
+            en_low = vi["run"]["metadata"].get("low_content")
+            lines.append(
+                f"| {en['cv']['cv_id']} | {_fmt(en['faithfulness']['score'])}/{_fmt(vi['faithfulness']['score'])} | "
+                f"{_fmt(en['skills_pii']['precision_est'])}/{_fmt(en['skills_pii']['recall_est'])} | "
+                f"{_fmt(vi['skills_pii']['precision_est'])}/{_fmt(vi['skills_pii']['recall_est'])} | "
+                f"{'có' if en_low else 'không'} | "
+                f"{en['metrics']['parse']['chars']}/{vi['metrics']['parse']['chars']} |"
             )
         lines.append("")
 

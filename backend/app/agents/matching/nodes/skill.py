@@ -7,10 +7,12 @@ async def skill_node(state: AgentState) -> dict:
     jd_skills = list(state.get("jd_skills") or [])
     ranked: list[dict] = []
     for row in state.get("candidates") or []:
+        verified = row.get("verified_skills")
+        scoring_skills = verified if verified is not None else (row.get("skills") or [])
         ranked.append(
             {
                 **row,
-                "skill_score": coverage_score(row.get("skills") or [], jd_skills, index),
+                "skill_score": coverage_score(scoring_skills, jd_skills, index),
             }
         )
     return {"candidates": ranked}

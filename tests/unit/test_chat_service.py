@@ -262,3 +262,85 @@ def test_recommended_job_accepts_rerank_and_match_reason_optional():
     assert job.rerank_status == "not_requested"
     assert job.match_reason is None
 
+
+def test_jobs_response_from_graph_maps_rrf_score_to_score_field():
+    from backend.app.services.chat_service import jobs_response_from_graph
+
+    job_id = uuid4()
+    result = jobs_response_from_graph(
+        {
+            "response": "Gợi ý 1 việc làm phù hợp.",
+            "candidates": [
+                {
+                    "job_id": str(job_id),
+                    "title": "Backend Engineer",
+                    "company_name": "Acme",
+                    "location": "Hà Nội",
+                    "employment_type": "full_time",
+                    "salary_min": None,
+                    "salary_max": None,
+                    "currency": "VND",
+                    "rrf_score": 0.77,
+                    "rerank_score": None,
+                    "rerank_status": "not_requested",
+                    "match_reason": "Có Python và FastAPI.",
+                }
+            ],
+        }
+    )
+    assert result.response == "Gợi ý 1 việc làm phù hợp."
+    assert len(result.jobs) == 1
+    assert result.jobs[0].id == job_id
+    assert result.jobs[0].score == 0.77
+    assert result.jobs[0].match_reason == "Có Python và FastAPI."
+
+
+@pytest.mark.asyncio
+async def test_chat_job_id_none_uses_recommend_runner_not_mock():
+    actor_id = uuid4()
+    job_id = uuid4()
+
+    async def fetch_jobs():
+        raise AssertionError("mock fetch_jobs must not run when recommend_jobs runner is set")
+
+    async def recommend(requested_actor, message, rerank):
+        assert requested_actor == actor_id
+        assert message == "Gợi ý việc phù hợp"
+        assert rerank == "qwen"
+        return ChatResponse(
+            response="Gợi ý 1 việc làm phù hợp.",
+            jobs=[
+                RecommendedJob(
+                    id=job_id,
+                    title="Backend Engineer",
+                    score=0.9,
+                    rerank_score=None,
+                    rerank_status="not_requested",
+                )
+            ],
+        )
+
+    result = await ChatService(fetch_jobs, recommend_jobs=recommend).chat(
+        ChatRequest(message="Gợi ý việc phù hợp"), actor_id
+    )
+    assert result.jobs[0].id == job_id
+    assert "mock matching" not in result.response
+
+
+@pytest.mark.asyncio
+async def test_chat_recommend_runner_failure_is_502():
+    actor_id = uuid4()
+
+    async def fetch_jobs():
+        raise AssertionError("must not fall back to mock on real-runner failure")
+
+    async def recommend(_actor, _message, _rerank):
+        raise RuntimeError("db down")
+
+    with pytest.raises(AppError) as exc:
+        await ChatService(fetch_jobs, recommend_jobs=recommend).chat(
+            ChatRequest(message="hello"), actor_id
+        )
+    assert exc.value.status_code == 502
+    assert exc.value.code == "JOBS_UNAVAILABLE"
+

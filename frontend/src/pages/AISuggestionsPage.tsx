@@ -21,6 +21,7 @@ type ChatJob = {
   salary_max: number | null;
   currency: string;
   score: number;
+  match_reason?: string | null;
 };
 
 type Message = { id: string; role: "user" | "system"; text: string; jobs?: ChatJob[] };
@@ -87,23 +88,38 @@ export default function AISuggestionsPage() {
                     <div className={`rounded-2xl px-4 py-3 text-sm whitespace-pre-line ${msg.role === "user" ? "bg-indigo-600 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200"}`}>
                       {msg.text}
                     </div>
-                    {msg.jobs?.map((job) => (
-                      <div key={job.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{Math.round(job.score * 100)}% phù hợp</span>
-                          {job.employment_type && <Badge variant="primary">{ENUM_LABELS.employment_type[job.employment_type as keyof typeof ENUM_LABELS.employment_type] || job.employment_type}</Badge>}
+                    {msg.jobs?.map((job) => {
+                      const pct = Math.round(job.score * 100);
+                      return (
+                        <div key={job.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300 px-2 py-0.5 rounded-full">{pct}% phù hợp</span>
+                            {job.employment_type && <Badge variant="primary">{ENUM_LABELS.employment_type[job.employment_type as keyof typeof ENUM_LABELS.employment_type] || job.employment_type}</Badge>}
+                          </div>
+                          <p className="font-semibold text-sm">{job.title}</p>
+                          <p className="text-xs text-slate-500">{job.company_name}</p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                            <span className="flex items-center gap-1"><MapPin size={11} />{job.location || "Toàn quốc"}</span>
+                            <span className="flex items-center gap-1 text-emerald-600"><DollarSign size={11} />{formatCurrency(job.salary_min, job.currency)}</span>
+                          </div>
+
+                          {/* Dynamic AI Match Reason / Score Explanation */}
+                          <div className="mt-3 p-2.5 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-xl text-xs space-y-1">
+                            <div className="flex items-center gap-1 font-semibold text-indigo-700 dark:text-indigo-300 text-[11px]">
+                              <Sparkles size={12} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                              <span>Giải thích điểm phù hợp ({pct}%):</span>
+                            </div>
+                            <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+                              {job.match_reason || `Được AI đánh giá ${pct}% phù hợp với CV của bạn dựa trên phân tích kỹ năng và yêu cầu công việc.`}
+                            </p>
+                          </div>
+
+                          <button onClick={() => navigate(`/jobs/${job.id}`)} className="mt-3 w-full py-2 text-xs font-medium text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-center gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors">
+                            Xem tin <ExternalLink size={11} />
+                          </button>
                         </div>
-                        <p className="font-semibold text-sm">{job.title}</p>
-                        <p className="text-xs text-slate-500">{job.company_name}</p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
-                          <span className="flex items-center gap-1"><MapPin size={11} />{job.location || "Toàn quốc"}</span>
-                          <span className="flex items-center gap-1 text-emerald-600"><DollarSign size={11} />{formatCurrency(job.salary_min, job.currency)}</span>
-                        </div>
-                        <button onClick={() => navigate(`/jobs/${job.id}`)} className="mt-3 w-full py-2 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-xl flex items-center justify-center gap-1">
-                          Xem tin <ExternalLink size={11} />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </motion.div>
               ))}

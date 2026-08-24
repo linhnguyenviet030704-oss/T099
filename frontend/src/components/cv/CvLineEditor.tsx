@@ -15,15 +15,15 @@ export const CvLineEditor: React.FC<CvLineEditorProps> = ({
   onClose,
 }) => {
   return (
-    <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-4 space-y-4 animate-slide-up">
+    <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-4 space-y-4 animate-slide-up shadow-sm">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest">
+        <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
           Chỉnh sửa dòng {line.sourceId === null ? '(dòng mới)' : ''}
         </h4>
         <button
           type="button"
           onClick={onClose}
-          className="p-1 text-slate-500 hover:text-slate-300 cursor-pointer"
+          className="p-1 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
         >
           <X className="h-4 w-4" />
         </button>
@@ -31,7 +31,7 @@ export const CvLineEditor: React.FC<CvLineEditorProps> = ({
 
       <div className="space-y-3">
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             Phân loại
           </label>
           <select
@@ -39,7 +39,7 @@ export const CvLineEditor: React.FC<CvLineEditorProps> = ({
             onChange={(e) =>
               onChange({ name: e.target.value as CvLine['name'] })
             }
-            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
           >
             {LINE_TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -50,7 +50,7 @@ export const CvLineEditor: React.FC<CvLineEditorProps> = ({
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
             Nội dung
           </label>
           <textarea
@@ -58,7 +58,7 @@ export const CvLineEditor: React.FC<CvLineEditorProps> = ({
             value={line.value}
             onChange={(e) => onChange({ value: e.target.value })}
             placeholder="Ví dụ: Tốt nghiệp đại học quốc gia HCM"
-            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
+            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none resize-none"
           />
         </div>
       </div>

@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.clients.llm import chat_complete
+from backend.app.services.matching.anonymize import (
+    AnonymizationResult,
+    anonymize_candidates,
+    deanonymize_reasons,
+)
 
 CompleteFn = Callable[..., str]
 
@@ -24,8 +29,8 @@ RECOMMEND_EXPLAIN_PROMPT_TEMPLATE = _RECOMMEND_PROMPT_PATH.read_text(encoding="u
 RECOMMEND_EXPLAIN_PROMPT_VERSION = "2026-08-24.v1"
 
 _MAX_JD_CHARS = 4000
-_MAX_BRIEF_CHARS = 400
-_MAX_CANDIDATES = 10
+_MAX_BRIEF_CHARS = 500
+_MAX_CANDIDATES = 50
 
 
 def _truncate(text: str | None, limit: int) -> str:
@@ -41,9 +46,25 @@ def _brief(row: dict[str, Any]) -> tuple[str, str]:
     """Return (candidate_id, brief) for the prompt. The brief uses facts
     that are already extracted and known-safe (skill names, summary, body
     fragment) — never raw markdown that may contain PII. The markdown
-    passed to retrieve() is already PII-redacted."""
-    cid = str(row.get("application_id") or row.get("job_id") or "")
+    passed to retrieve() is already PII-redacted.
+
+    Uses _anon_id if available (from anonymize_candidates), otherwise falls
+    back to real application_id. LLM never sees real identifiers.
+
+    For Job posts (CV -> JD flow): includes title and company_name.
+    For CVs (JD -> CV flow): uses anonymized format."""
+    # Use anonymous ID if available, otherwise use real ID
+    cid = str(row.get("_anon_id") or row.get("application_id") or row.get("job_id") or "")
     parts: list[str] = []
+
+    # For Job posts, include title and company_name (not PII, helps LLM explain)
+    title = row.get("title")
+    if title:
+        parts.append(f"job_title={title}")
+    company_name = row.get("company_name")
+    if company_name:
+        parts.append(f"company={company_name}")
+
     skills = row.get("skills") or []
     if skills:
         parts.append("skills=" + ", ".join(str(s) for s in skills))
@@ -115,34 +136,44 @@ def deterministic_reason(
     jd_skills: list[str],
     rank: int,
     total: int,
+    mode: str = "recruiter",
 ) -> str:
-    """Ponytail: evidence-grounded 1-sentence reason when LLM is unavailable.
-    Ceiling: no deep relative ranking narrative — only matched-skill list
-    and ordinal position in the shortlist."""
+    """Evidence-grounded 1-sentence reason when LLM is unavailable.
+    Provides matched-skill list, match score percentage and ordinal position in the shortlist.
+
+    Args:
+        mode: "recruiter" (JD→CV) or "candidate" (CV→JD) - changes voice and phrasing.
+    """
     candidate_skills = _extract_skills(row)
     wanted = [str(s).strip() for s in jd_skills if str(s).strip()]
     matched = [s for s in candidate_skills if s in wanted]
     score_pick = row.get("rerank_score")
     if score_pick is None:
         score_pick = row.get("rrf_score")
-    score_phrase = ""
-    if score_pick is not None:
-        score_phrase = f", điểm rerank {float(score_pick):.2f}"
+    pct_phrase = f" ({round(float(score_pick) * 100)}%)" if score_pick is not None else ""
+    rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
 
     if matched:
         skills_phrase = ", ".join(matched[:5])
-        rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
+        if mode == "candidate":
+            return (
+                f"Công việc này phù hợp với CV của bạn{pct_phrase} nhờ đáp ứng các kỹ năng: {skills_phrase}{rank_phrase}."
+            )
         return (
-            f"Có các kỹ năng trùng JD: {skills_phrase}{rank_phrase}{score_phrase}."
+            f"Đạt điểm phù hợp{pct_phrase} nhờ đáp ứng các kỹ năng cốt lõi: {skills_phrase}{rank_phrase}."
         )
     if candidate_skills:
         skills_phrase = ", ".join(candidate_skills[:3])
-        rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
+        if mode == "candidate":
+            return (
+                f"Công việc này phù hợp với CV của bạn{pct_phrase} nhờ các kỹ năng liên quan: {skills_phrase}{rank_phrase}."
+            )
         return (
-            f"Khớp một phần JD nhờ các kỹ năng {skills_phrase}{rank_phrase}{score_phrase}."
+            f"Đạt điểm phù hợp{pct_phrase} nhờ các kỹ năng liên quan: {skills_phrase}{rank_phrase}."
         )
-    rank_phrase = "" if total <= 1 else f", xếp thứ {rank}/{total} trong shortlist"
-    return f"Được đánh giá phù hợp JD dựa trên tổng điểm matching{rank_phrase}{score_phrase}."
+    if mode == "candidate":
+        return f"Công việc này được đánh giá phù hợp với CV của bạn{pct_phrase}{rank_phrase}."
+    return f"Được đánh giá phù hợp JD{pct_phrase} dựa trên phân tích tổng thể hồ sơ{rank_phrase}."
 
 
 def explain_matches(
@@ -162,6 +193,9 @@ def explain_matches(
     Only ids present in the input `candidates` are kept — the LLM is
     free to invent ids, and we never trust those.
 
+    Uses anonymous IDs (CAND_001, CAND_002, etc.) for LLM calls to prevent
+    PII leakage. Real identifiers are restored after LLM returns.
+
     If the LLM fails (no API key, network error, JSON parse, etc.) we
     fall back to a deterministic per-row reason so the reader —
     recruiter or candidate — always sees something better than `null`.
@@ -172,16 +206,27 @@ def explain_matches(
     allowed_ids.discard("")
     fn = complete or chat_complete
     template = prompt_template or EXPLAIN_PROMPT_TEMPLATE
-    prompt = _build_prompt(jd_text, candidates, template)
+
+    # Anonymize candidates before LLM call
+    anon_result: AnonymizationResult = anonymize_candidates(candidates)
+    prompt = _build_prompt(jd_text, anon_result.candidates, template)
     parsed: dict[str, str] = {}
     try:
         raw = fn(prompt, json_object=True)
         parsed = _parse_map(raw)
     except Exception:
         parsed = {}
-    llm_reasons = {cid: reason for cid, reason in parsed.items() if cid in allowed_ids}
+
+    # Map anonymous IDs back to real application_ids
+    llm_reasons = deanonymize_reasons(parsed, anon_result.id_map)
+
+    # Filter to only allowed IDs
+    llm_reasons = {cid: reason for cid, reason in llm_reasons.items() if cid in allowed_ids}
     if len(llm_reasons) == len(allowed_ids) and allowed_ids:
         return llm_reasons
+    # Determine voice mode based on template
+    mode = "candidate" if template == RECOMMEND_EXPLAIN_PROMPT_TEMPLATE else "recruiter"
+
     # ponytail: deterministic fallback so the recruiter still gets an
     # evidence-grounded explanation when LLM is unavailable (no API key,
     # network error, JSON garbled, or partial response). Ceiling: no deep
@@ -196,6 +241,6 @@ def explain_matches(
         if not cid or cid in out:
             continue
         out[cid] = deterministic_reason(
-            row=row, jd_skills=skills, rank=rank, total=total
+            row=row, jd_skills=skills, rank=rank, total=total, mode=mode
         )
     return out

@@ -12,7 +12,7 @@ from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.admin_service import AdminService
 from backend.app.services.chat_service import ChatService, chat_response_from_graph, jobs_response_from_graph
 from backend.app.services.matching.retrieve import persist_match_resume_rows, retrieve_for_job
-from backend.app.services.matching.retrieve_jobs import retrieve_jobs_for_resume
+from backend.app.services.matching.retrieve_jobs import persist_recommend_job_rows, retrieve_jobs_for_resume
 from backend.app.services.matching.store import SupabaseResumeStore
 from backend.app.services.profile_service import ProfileService
 from backend.app.services.recommend import (
@@ -90,6 +90,7 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
         payload = await retrieve_jobs_for_resume(
             client,
             actor_id,
+            query=message,
             store=store,
             api_key=settings.qwen_api_key,
             base_url=settings.qwen_base_url,
@@ -109,6 +110,22 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
             explain_base_url=settings.qwen_base_url,
         )
         result = await graph.ainvoke({"query": message, "rerank_mode": rerank})
+
+        # Persist audit log for analytics
+        ranked = result.get("candidates") or []
+        status = str((ranked[0].get("rerank_status") if ranked else None) or "not_requested")
+        try:
+            await persist_recommend_job_rows(
+                client,
+                actor_id,
+                ranked,
+                candidate_message=message,
+                rerank_mode=rerank,
+                rerank_status=status,
+            )
+        except Exception:
+            logger.exception("recommend_job persist failed")
+
         return jobs_response_from_graph(result)
 
     return ChatService(fetch_jobs, fetch_candidates, assert_access, match_candidates, recommend_jobs)

@@ -1,41 +1,30 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useCurrentProfile } from '../profile/ProfileProvider';
-import { ProfileRole } from '../types';
-import ProtectedRoute from './ProtectedRoute';
+import type { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthProvider";
+import { useCurrentProfile } from "../profile/ProfileProvider";
+import type { ProfileRole } from "../types";
+import LoadingScreen from "./LoadingScreen";
+import ProtectedRoute from "./ProtectedRoute";
 
-interface RoleRouteProps {
-  children: React.ReactNode;
-  allowedRoles: ProfileRole[];
+function RoleRouteContent({ children, allowedRoles }: { children: ReactNode; allowedRoles: ProfileRole[] }) {
+  const { user } = useAuth();
+  const { profile, loading, error } = useCurrentProfile();
+  // ponytail: ProfileProvider loading starts false; wait until fetch finishes so a hard reload doesn't bounce to /.
+  if (loading || (user && !profile && !error)) return <LoadingScreen text="Đang kiểm tra quyền truy cập..." />;
+  if (!profile || !allowedRoles.includes(profile.role)) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
-const RoleRouteContent: React.FC<RoleRouteProps> = ({ children, allowedRoles }) => {
-  const { profile, loading } = useCurrentProfile();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-slate-200">
-        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="mt-4 text-emerald-400 font-medium">Đang kiểm tra quyền truy cập...</p>
-      </div>
-    );
-  }
-
-  // If we have a profile, check if its role is inside allowed list
-  if (!profile || !allowedRoles.includes(profile.role)) {
-    console.warn(`Access denied. Role ${profile?.role} not allowed for this route.`);
-    return <Navigate to="/" replace />;
-  }
-
-  return <>{children}</>;
-};
-
-export const RoleRoute: React.FC<RoleRouteProps> = ({ children, allowedRoles }) => {
+export default function RoleRoute({
+  children,
+  allowedRoles,
+}: {
+  children: ReactNode;
+  allowedRoles: ProfileRole[];
+}) {
   return (
     <ProtectedRoute>
       <RoleRouteContent allowedRoles={allowedRoles}>{children}</RoleRouteContent>
     </ProtectedRoute>
   );
-};
-
-export default RoleRoute;
+}

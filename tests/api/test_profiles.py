@@ -212,9 +212,15 @@ async def test_chat_requires_auth(api_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_chat_empty_message(api_client: AsyncClient):
+    user_id = uuid4()
+    profile = Profile(
+        id=user_id, email="user@example.com", full_name="Ada", phone=None, avatar_url=None, role="candidate"
+    )
+    app.dependency_overrides[get_profile_service] = lambda: _FakeProfileService(profile)
+    app.dependency_overrides[get_chat_service] = lambda: ChatService(lambda: [])
     response = await api_client.post(
         "/api/v1/chat",
-        headers={"Authorization": f"Bearer {_make_token()}"},
+        headers={"Authorization": f"Bearer {_make_token(sub=str(user_id))}"},
         json={"message": ""},
     )
     assert response.status_code == 422

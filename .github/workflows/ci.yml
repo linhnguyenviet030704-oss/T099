@@ -33,6 +33,7 @@ jobs:
         env:
           APP_ENV: test
           SUPABASE_JWT_SECRET: test-jwt-secret-key-must-be-long-enough-32-chars
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key-must-be-long-enough-32-chars
           QWEN_API_KEY: test-key
 
   frontend-ci:

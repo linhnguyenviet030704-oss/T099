@@ -1,4 +1,8 @@
+import pytest
+
 from evaluation.golden.select_cvs import (
+    METADATA_CSV_PATH,
+    VI_CV_ROOT,
     build_manifest,
     choose_vi_jd_ids,
     load_metadata,
@@ -7,6 +11,7 @@ from evaluation.golden.select_cvs import (
 )
 
 
+@pytest.mark.skipif(not METADATA_CSV_PATH.exists(), reason="Requires local data_find dataset (gitignored)")
 def test_load_metadata_returns_432_rows_with_expected_columns():
     rows = load_metadata()
     assert len(rows) == 432
@@ -15,6 +20,7 @@ def test_load_metadata_returns_432_rows_with_expected_columns():
         assert col in row
 
 
+@pytest.mark.skipif(not VI_CV_ROOT.exists(), reason="Requires local data_find dataset (gitignored)")
 def test_load_vi_cv_ids_returns_known_ids():
     vi_ids = load_vi_cv_ids()
     # spot-checked in design doc: these VI files are translations of exact
@@ -117,6 +123,7 @@ def _fake_jds():
     ]
 
 
+@pytest.mark.skipif(not METADATA_CSV_PATH.exists(), reason="Requires local data_find dataset (gitignored)")
 def test_build_manifest_produces_two_cvs_per_jd():
     manifest = build_manifest(_fake_jds(), load_metadata(), load_vi_cv_ids())
     assert len(manifest) == 2
@@ -131,6 +138,7 @@ def test_build_manifest_produces_two_cvs_per_jd():
             assert cv["md_path"].startswith("data_find/generated_cv")
 
 
+@pytest.mark.skipif(not METADATA_CSV_PATH.exists(), reason="Requires local data_find dataset (gitignored)")
 def test_build_manifest_no_duplicate_cv_ids_across_whole_pool():
     manifest = build_manifest(_fake_jds(), load_metadata(), load_vi_cv_ids())
     all_ids = [cv["cv_id"] for entry in manifest for cv in entry["cvs"]]

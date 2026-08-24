@@ -69,7 +69,11 @@ def test_production_accepts_service_role_key():
     assert settings.supabase_service_role_key == "a-prod-service-role-key"
 
 
-def test_qwen_cloud_defaults():
+def test_qwen_cloud_defaults(monkeypatch):
+    monkeypatch.delenv("QWEN_API_KEY", raising=False)
+    monkeypatch.delenv("QWEN_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("EMBEDDING_MODEL", raising=False)
     settings = Settings(_env_file=None)
     assert settings.llm_model == "qwen3.7-flash"
     assert settings.embedding_model == "qwen3.7-text-embedding"

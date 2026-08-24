@@ -2,6 +2,7 @@ import pytest
 
 from backend.app.services.matching.skills import load_taxonomy_index
 from evaluation.golden.select_jds import (
+    METADATA_CSV_PATH,
     VIETJOBS_CSV_PATH,
     compute_group_quota,
     guess_subgroup,
@@ -65,6 +66,10 @@ def test_guess_subgroup_raises_on_unknown_group():
         guess_subgroup("anything", 999, _FAKE_GROUP1_ROWS)
 
 
+@pytest.mark.skipif(
+    not (METADATA_CSV_PATH.exists() and VIETJOBS_CSV_PATH.exists()),
+    reason="Requires local data_find dataset (gitignored)",
+)
 def test_select_jds_produces_20_jds_matching_quota():
     metadata_rows = load_metadata_rows()
     index = load_taxonomy_index()
@@ -87,6 +92,10 @@ def test_select_jds_produces_20_jds_matching_quota():
         assert len(jd["description"]) >= 250
 
 
+@pytest.mark.skipif(
+    not (METADATA_CSV_PATH.exists() and VIETJOBS_CSV_PATH.exists()),
+    reason="Requires local data_find dataset (gitignored)",
+)
 def test_select_jds_group1_picks_distinct_subgroups_when_possible():
     metadata_rows = load_metadata_rows()
     index = load_taxonomy_index()

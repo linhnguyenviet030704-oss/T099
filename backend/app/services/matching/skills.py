@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import re
 import unicodedata
-import functools
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path

@@ -5,7 +5,11 @@ import re
 from typing import Any
 from uuid import UUID
 
-from backend.app.config.models import DEFAULT_EMBED_DIM, DEFAULT_EMBED_MODEL, DEFAULT_RERANK_MODEL, RERANK_CONFIG_VERSION
+from backend.app.config.models import (
+    DEFAULT_EMBED_MODEL,
+    DEFAULT_RERANK_MODEL,
+    RERANK_CONFIG_VERSION,
+)
 from backend.app.services.matching.bm25 import bm25_document, bm25_query, bm25_scores
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.ingest_jobs import _embedded_jobs_batch, try_ingest_job

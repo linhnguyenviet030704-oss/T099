@@ -6,9 +6,9 @@ Use `anonymize_candidates()` before LLM calls, `deanonymize_reasons()` after.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
-from uuid import UUID
 
 
 @dataclass
@@ -31,8 +31,6 @@ class AnonymizationResult:
     # Map from anonymous ID → real identity
     id_map: dict[str, CandidateIdentity] = field(default_factory=dict)
 
-
-import re
 
 _ANON_PAT = re.compile(r"\b(CAND|JOB)_(\d{3})\b")
 

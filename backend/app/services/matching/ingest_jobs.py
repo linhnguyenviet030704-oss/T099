@@ -25,7 +25,7 @@ _NOT_PREFETCHED: Any = object()
 
 def _job_content_hash(job: dict[str, Any]) -> str:
     text = job_query_text(job)
-    blob = f"{job.get('title') or ''}\n{text}".encode("utf-8")
+    blob = f"{job.get('title') or ''}\n{text}".encode()
     return hashlib.sha256(blob).hexdigest()
 
 

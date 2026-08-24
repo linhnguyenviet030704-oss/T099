@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from supabase import Client, create_client
-
 from backend.app.config.env import settings
 from backend.app.core.exceptions import AppError
+from supabase import Client, create_client
 
 
 @lru_cache

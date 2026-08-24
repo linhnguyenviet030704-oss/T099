@@ -49,10 +49,22 @@ def _brief(row: dict[str, Any]) -> tuple[str, str]:
     passed to retrieve() is already PII-redacted.
 
     Uses _anon_id if available (from anonymize_candidates), otherwise falls
-    back to real application_id. LLM never sees real identifiers."""
+    back to real application_id. LLM never sees real identifiers.
+
+    For Job posts (CV -> JD flow): includes title and company_name.
+    For CVs (JD -> CV flow): uses anonymized format."""
     # Use anonymous ID if available, otherwise use real ID
     cid = str(row.get("_anon_id") or row.get("application_id") or row.get("job_id") or "")
     parts: list[str] = []
+
+    # For Job posts, include title and company_name (not PII, helps LLM explain)
+    title = row.get("title")
+    if title:
+        parts.append(f"job_title={title}")
+    company_name = row.get("company_name")
+    if company_name:
+        parts.append(f"company={company_name}")
+
     skills = row.get("skills") or []
     if skills:
         parts.append("skills=" + ", ".join(str(s) for s in skills))
@@ -124,9 +136,14 @@ def deterministic_reason(
     jd_skills: list[str],
     rank: int,
     total: int,
+    mode: str = "recruiter",
 ) -> str:
     """Evidence-grounded 1-sentence reason when LLM is unavailable.
-    Provides matched-skill list, match score percentage and ordinal position in the shortlist."""
+    Provides matched-skill list, match score percentage and ordinal position in the shortlist.
+
+    Args:
+        mode: "recruiter" (JD→CV) or "candidate" (CV→JD) - changes voice and phrasing.
+    """
     candidate_skills = _extract_skills(row)
     wanted = [str(s).strip() for s in jd_skills if str(s).strip()]
     matched = [s for s in candidate_skills if s in wanted]
@@ -138,14 +155,24 @@ def deterministic_reason(
 
     if matched:
         skills_phrase = ", ".join(matched[:5])
+        if mode == "candidate":
+            return (
+                f"Công việc này phù hợp với CV của bạn{pct_phrase} nhờ đáp ứng các kỹ năng: {skills_phrase}{rank_phrase}."
+            )
         return (
             f"Đạt điểm phù hợp{pct_phrase} nhờ đáp ứng các kỹ năng cốt lõi: {skills_phrase}{rank_phrase}."
         )
     if candidate_skills:
         skills_phrase = ", ".join(candidate_skills[:3])
+        if mode == "candidate":
+            return (
+                f"Công việc này phù hợp với CV của bạn{pct_phrase} nhờ các kỹ năng liên quan: {skills_phrase}{rank_phrase}."
+            )
         return (
             f"Đạt điểm phù hợp{pct_phrase} nhờ các kỹ năng liên quan: {skills_phrase}{rank_phrase}."
         )
+    if mode == "candidate":
+        return f"Công việc này được đánh giá phù hợp với CV của bạn{pct_phrase}{rank_phrase}."
     return f"Được đánh giá phù hợp JD{pct_phrase} dựa trên phân tích tổng thể hồ sơ{rank_phrase}."
 
 
@@ -197,6 +224,9 @@ def explain_matches(
     llm_reasons = {cid: reason for cid, reason in llm_reasons.items() if cid in allowed_ids}
     if len(llm_reasons) == len(allowed_ids) and allowed_ids:
         return llm_reasons
+    # Determine voice mode based on template
+    mode = "candidate" if template == RECOMMEND_EXPLAIN_PROMPT_TEMPLATE else "recruiter"
+
     # ponytail: deterministic fallback so the recruiter still gets an
     # evidence-grounded explanation when LLM is unavailable (no API key,
     # network error, JSON garbled, or partial response). Ceiling: no deep
@@ -211,6 +241,6 @@ def explain_matches(
         if not cid or cid in out:
             continue
         out[cid] = deterministic_reason(
-            row=row, jd_skills=skills, rank=rank, total=total
+            row=row, jd_skills=skills, rank=rank, total=total, mode=mode
         )
     return out

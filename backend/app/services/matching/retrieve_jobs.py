@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from backend.app.config.models import DEFAULT_EMBED_MODEL
+from backend.app.config.models import DEFAULT_EMBED_DIM, DEFAULT_EMBED_MODEL, DEFAULT_RERANK_MODEL, RERANK_CONFIG_VERSION
 from backend.app.services.matching.bm25 import bm25_document, bm25_query, bm25_scores
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.ingest_jobs import _embedded_jobs_batch, try_ingest_job
@@ -22,10 +22,67 @@ from supabase import Client
 JOB_POOL_LIMIT = 200
 
 
+async def persist_recommend_job_rows(
+    client: Client,
+    user_id: UUID,
+    ranked: list[dict[str, Any]],
+    *,
+    candidate_message: str,
+    rerank_mode: str,
+    rerank_status: str,
+    cv_id: UUID | None = None,
+) -> None:
+    """Persist recommend job run to database for analytics/observability."""
+    job_ids = [str(row.get("job_id") or "") for row in ranked if row.get("job_id")]
+    evidence = []
+    for rank, row in enumerate(ranked, start=1):
+        job_id = row.get("job_id")
+        if not job_id:
+            continue
+        cv_skills = list(row.get("skills") or [])
+        evidence.append(
+            {
+                "job_id": str(job_id),
+                "rank": rank,
+                "rrf_score": row.get("rrf_score"),
+                "rerank_score": row.get("rerank_score"),
+                "semantic_score": row.get("distance_expanded"),
+                "bm25_score": row.get("bm25_score"),
+                "matched_skill_names": cv_skills[:10],
+                "related_skill_names": [],
+                "raw_factors": {
+                    "location": row.get("location"),
+                    "employment_type": row.get("employment_type"),
+                },
+            }
+        )
+
+    def _insert_run() -> None:
+        client.rpc(
+            "insert_recommend_job_run",
+            {
+                "p_user_id": str(user_id),
+                "p_candidate_message": candidate_message,
+                "p_rerank_mode": rerank_mode,
+                "p_rerank_status": rerank_status,
+                "p_rerank_model": DEFAULT_RERANK_MODEL if rerank_mode == "qwen" else None,
+                "p_rerank_config_version": RERANK_CONFIG_VERSION,
+                "p_embedding_model": DEFAULT_EMBED_MODEL,
+                "p_pool_size": len(ranked),
+                "p_matched_job_ids": job_ids,
+                "p_cv_id": str(cv_id) if cv_id else None,
+                "p_evidence": evidence,
+            },
+        ).execute()
+
+    await asyncio.to_thread(_insert_run)
+
+
 async def retrieve_jobs_for_resume(
     client: Client,
     actor_id: UUID,
     *,
+    query: str = "",
     encode=None,
     complete=None,
     store: SupabaseResumeStore | None = None,
@@ -35,12 +92,27 @@ async def retrieve_jobs_for_resume(
     resume_store = store or SupabaseResumeStore(client)
 
     def _default_resume() -> dict[str, Any] | None:
+        # Try to find explicitly marked default resume first
         result = (
             client.table("resumes")
             .select("id")
             .eq("user_id", str(actor_id))
             .eq("is_default", True)
             .is_("deleted_at", "null")
+            .maybe_single()
+            .execute()
+        )
+        if result and result.data and result.data.get("id"):
+            return result.data
+
+        # Fallback: get the most recent non-deleted resume
+        result = (
+            client.table("resumes")
+            .select("id")
+            .eq("user_id", str(actor_id))
+            .is_("deleted_at", "null")
+            .order("created_at", desc=True)
+            .limit(1)
             .maybe_single()
             .execute()
         )
@@ -124,6 +196,11 @@ async def retrieve_jobs_for_resume(
                 base_url=base_url,
             )
 
+    # ponytail: For issue #3, consider pre-embedding jobs at publish time via
+    # a background worker or Supabase Edge Functions instead of on-the-fly here.
+    # This prevents potential HTTP Gateway Timeout (504) when many jobs lack
+    # embeddings and the user request must wait for sequential Qwen API calls.
+    # Current on-the-fly approach is acceptable for MVP with reasonable cache hit rate.
     refreshed = await asyncio.gather(*(_ingest_bounded(job) for job in jobs))
     for row in refreshed:
         if row and row.get("job_post_id"):
@@ -172,10 +249,29 @@ async def retrieve_jobs_for_resume(
             }
         )
 
-    bm25_q = bm25_query("", cv_skills)
+    bm25_q = bm25_query(cv_text, cv_skills)
     scores = bm25_scores(docs, bm25_q) if docs else []
     for row, score in zip(candidates, scores, strict=False):
         row["bm25_score"] = score
+
+    # If user provided a query message, boost jobs matching keywords
+    if query and query.strip():
+        query_lower = query.lower()
+        for candidate in candidates:
+            boost = 0.0
+            title = (candidate.get("title") or "").lower()
+            location = (candidate.get("location") or "").lower()
+            company = (candidate.get("company_name") or "").lower()
+            # Boost if query keywords appear in title/location/company
+            if any(kw in title for kw in query_lower.split()):
+                boost += 0.1
+            if any(kw in location for kw in query_lower.split()):
+                boost += 0.05
+            if any(kw in company for kw in query_lower.split()):
+                boost += 0.03
+            # Apply boost to BM25 score (as multiplicative factor)
+            if candidate["bm25_score"] > 0 and boost > 0:
+                candidate["bm25_score"] = candidate["bm25_score"] * (1 + boost)
 
     return {
         "candidates": candidates,

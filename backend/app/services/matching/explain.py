@@ -153,16 +153,18 @@ def explain_matches(
     jd_skills: list[str] | None = None,
     prompt_template: str | None = None,
 ) -> dict[str, str]:
-    """Return {application_id: reasoning} for the given candidates, or {} on failure.
+    """Return {row_id: reasoning} for the given rows, keyed by whichever of
+    `application_id` (JD -> CV) or `job_id` (CV -> JD) each row carries, or {} on
+    failure.
 
-    Runs a single LLM call so all candidates are reasoned about in
+    Runs a single LLM call so all rows are reasoned about in
     context of each other (relative ranking is part of the prompt).
     Only ids present in the input `candidates` are kept — the LLM is
     free to invent ids, and we never trust those.
 
     If the LLM fails (no API key, network error, JSON parse, etc.) we
-    fall back to a deterministic per-candidate reason so the recruiter
-    always sees something better than `null`.
+    fall back to a deterministic per-row reason so the reader —
+    recruiter or candidate — always sees something better than `null`.
     """
     if not candidates:
         return {}

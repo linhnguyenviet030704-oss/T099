@@ -9,6 +9,7 @@ from backend.app.services.matching.bm25 import bm25_document, bm25_query, bm25_s
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.ingest_jobs import _embedded_jobs_batch, try_ingest_job
 from backend.app.services.matching.retrieve import (
+    INGEST_CONCURRENCY_LIMIT,
     _as_embedding,
     _parse_constraints,
     _try_cosine,
@@ -101,11 +102,32 @@ async def retrieve_jobs_for_resume(
         return result.data or []
 
     jobs = await asyncio.to_thread(_published_jobs)
-    await asyncio.gather(
-        *(try_ingest_job(client, job, encode=encode, api_key=api_key, base_url=base_url) for job in jobs)
+
+    # One batched read of embedded_jobs serves both purposes: it tells each
+    # try_ingest_job whether its cached embedding is still current (so no
+    # per-job point read), and it carries the scoring data below. Jobs that
+    # actually get re-embedded hand back their fresh row, which we merge in.
+    embedded_by_id = await asyncio.to_thread(
+        _embedded_jobs_batch, client, [str(job["id"]) for job in jobs]
     )
 
-    embedded_by_id = await asyncio.to_thread(_embedded_jobs_batch, client, [str(job["id"]) for job in jobs])
+    ingest_semaphore = asyncio.Semaphore(INGEST_CONCURRENCY_LIMIT)
+
+    async def _ingest_bounded(job: dict[str, Any]) -> dict[str, Any] | None:
+        async with ingest_semaphore:
+            return await try_ingest_job(
+                client,
+                job,
+                existing_row=embedded_by_id.get(str(job["id"])),
+                encode=encode,
+                api_key=api_key,
+                base_url=base_url,
+            )
+
+    refreshed = await asyncio.gather(*(_ingest_bounded(job) for job in jobs))
+    for row in refreshed:
+        if row and row.get("job_post_id"):
+            embedded_by_id[str(row["job_post_id"])] = row
 
     candidates: list[dict[str, Any]] = []
     docs: list[str] = []

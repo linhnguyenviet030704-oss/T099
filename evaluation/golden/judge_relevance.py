@@ -46,7 +46,7 @@ Requirements: {requirements}
 
 
 def load_cv_body(md_path: str) -> str:
-    text = (GOLDEN_DIR / md_path).read_text(encoding="utf-8")
+    text = (ROOT / md_path).read_text(encoding="utf-8")
     parts = text.split("---", 2)
     return parts[2].strip() if len(parts) >= 3 else text
 

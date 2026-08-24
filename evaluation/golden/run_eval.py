@@ -76,7 +76,7 @@ def ingest_all_cvs(manifest: list[dict], index: dict) -> dict:
     for entry in manifest:
         for cv in entry["cvs"]:
             cv_id = cv["cv_id"]
-            pdf_path = GOLDEN_DIR / cv["md_path"].replace(".md", ".pdf")
+            pdf_path = ROOT / cv["pdf_path"]
             pdf_bytes = pdf_path.read_bytes()
 
             parsed = parse_resume_bytes(pdf_bytes, mime_type="application/pdf")

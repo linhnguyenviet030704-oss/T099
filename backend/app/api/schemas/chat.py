@@ -20,6 +20,9 @@ class RecommendedJob(BaseModel):
     salary_max: float | None = None
     currency: str = "VND"
     score: float
+    rerank_score: float | None = None
+    rerank_status: Literal["success", "fallback", "not_requested"] = "not_requested"
+    match_reason: str | None = None
 
 
 class RecommendedCandidate(BaseModel):

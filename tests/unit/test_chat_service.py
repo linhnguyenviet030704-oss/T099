@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate
+from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate, RecommendedJob
 from backend.app.core.exceptions import AppError, ForbiddenError
 from backend.app.services.chat_service import ChatService, chat_response_from_graph
 
@@ -254,4 +254,11 @@ def test_recommended_candidate_accepts_match_reason_optional():
         rrf_score=0.1,
     )
     assert rec.match_reason is None
+
+
+def test_recommended_job_accepts_rerank_and_match_reason_optional():
+    job = RecommendedJob(id=uuid4(), title="Backend Engineer", score=0.8)
+    assert job.rerank_score is None
+    assert job.rerank_status == "not_requested"
+    assert job.match_reason is None
 

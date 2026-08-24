@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT))
 from backend.app.services.matching.embed import embed_text  # noqa: E402
 from backend.app.services.matching.parse import clean_markdown, parse_resume_bytes, redact_pii  # noqa: E402
 from backend.app.services.matching.rrf import score_candidates  # noqa: E402
+from backend.app.services.matching.rrf_jobs import score_jobs_for_resume  # noqa: E402
 from backend.app.services.matching.skills import expand_query, extract_skills, load_taxonomy_index  # noqa: E402
 from backend.app.services.matching.summarize import summarize_resume  # noqa: E402
 
@@ -125,6 +126,44 @@ def rank_candidates_for_jd(jd: dict, ingest_results: dict, index: dict) -> list[
 
     ranked = score_candidates(rows, jd_skills, index)
     return [row["resume_id"] for row in ranked]
+
+
+def rank_jds_for_cv(
+    cv_id: str,
+    ingest_results: dict,
+    jd_embeddings_expanded: dict[str, list[float]],
+    jds_by_id: dict[str, dict],
+    index: dict,
+) -> list[str]:
+    cv_row = ingest_results[cv_id]
+    cv_skills = cv_row["extracted_skills"]
+    cv_emb = cv_row["embedding"]
+
+    rows = []
+    for jd_id, jd_emb in jd_embeddings_expanded.items():
+        jd = jds_by_id[jd_id]
+        rows.append(
+            {
+                "job_id": jd_id,
+                "skills": jd["taxonomy_skills"],
+                "distance_expanded": cosine_distance(cv_emb, jd_emb),
+                "bm25_score": 0.0,
+            }
+        )
+
+    ranked = score_jobs_for_resume(
+        rows, cv_skills, cv_verified=cv_skills, cv_has_evidence=True, taxonomy_index=index
+    )
+    return [str(row["job_id"]) for row in ranked]
+
+
+def transpose_qrels(qrels: dict) -> dict[str, dict[str, int]]:
+    """Flip qrels[jd_id][cv_id] = {"grade": ...} into by_cv[cv_id][jd_id] = grade."""
+    by_cv: dict[str, dict[str, int]] = {}
+    for jd_id, cv_grades in qrels.items():
+        for cv_id, row in cv_grades.items():
+            by_cv.setdefault(cv_id, {})[jd_id] = row["grade"]
+    return by_cv
 
 
 def render_report(
@@ -224,7 +263,7 @@ def main() -> int:
     jds = json.loads(JDS_PATH.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
-    print("== Step 1: Ingest Agent (real pipeline) over 20 CVs ==")
+    print("== Step 1: Ingest Agent (real pipeline) over 40 CVs ==")
     ingest_results = ingest_all_cvs(manifest, index)
 
     print("\n== Step 2: Matching Agent ranking (real skill_node + rrf) per JD ==")
@@ -234,7 +273,17 @@ def main() -> int:
         rankings[jd["jd_id"]] = ranked_ids
         print(f"{jd['jd_id']}: top5 = {ranked_ids[:5]}")
 
-    print("\n== Step 3: LLM-as-judge qrels (relevance grading, 200 pairs) ==")
+    print("\n== Step 2b: reverse ranking (score_jobs_for_resume, CV -> JD) ==")
+    jds_by_id = {jd["jd_id"]: jd for jd in jds}
+    jd_embeddings_expanded = {
+        jd["jd_id"]: oai_embed(expand_query(jd_query_text(jd))) for jd in jds
+    }
+    reverse_rankings: dict[str, list[str]] = {}
+    for cv_id in ingest_results:
+        reverse_rankings[cv_id] = rank_jds_for_cv(cv_id, ingest_results, jd_embeddings_expanded, jds_by_id, index)
+    print(f"  ranked {len(jds)} JDs for each of {len(reverse_rankings)} CVs")
+
+    print("\n== Step 3: LLM-as-judge qrels (relevance grading, 800 pairs) ==")
     if QRELS_PATH.exists():
         print(f"(reusing cached {QRELS_PATH.name})")
         qrels = json.loads(QRELS_PATH.read_text(encoding="utf-8"))
@@ -251,6 +300,14 @@ def main() -> int:
         per_jd_metrics[jd_id] = evaluate_ranking(rankings[jd_id], grades)
     macro = macro_average(per_jd_metrics)
     print("macro:", macro)
+
+    print("\n== Step 4b: reverse ranking metrics (CV -> JD) ==")
+    grades_by_cv = transpose_qrels(qrels)
+    per_cv_metrics: dict[str, dict] = {}
+    for cv_id in ingest_results:
+        per_cv_metrics[cv_id] = evaluate_ranking(reverse_rankings[cv_id], grades_by_cv[cv_id])
+    macro_cv = macro_average(per_cv_metrics)
+    print("macro (CV->JD):", macro_cv)
 
     print("\n== Step 5: LLM-as-judge Ingest Agent quality (faithfulness + skill accuracy) ==")
     if QUALITY_PATH.exists():

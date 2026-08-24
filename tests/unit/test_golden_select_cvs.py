@@ -95,3 +95,49 @@ def test_choose_vi_jd_ids_never_exceeds_eligible_count():
 
     chosen = choose_vi_jd_ids(jd_group_ids, jd_candidate_vi_ids, vi_cv_ids, target_max=10)
     assert chosen == {"JD-01"}
+
+
+from evaluation.golden.select_cvs import build_manifest
+
+
+def _fake_jds():
+    return [
+        {
+            "jd_id": "JD-01",
+            "title": "Senior Backend Developer",
+            "group_id": 1,
+            "cv_subgroup_hint": "Backend Developer",
+            "taxonomy_skills": ["Python"],
+        },
+        {
+            "jd_id": "JD-02",
+            "title": "Frontend Developer (React)",
+            "group_id": 1,
+            "cv_subgroup_hint": "Frontend Developer",
+            "taxonomy_skills": ["React"],
+        },
+    ]
+
+
+def test_build_manifest_produces_two_cvs_per_jd():
+    from evaluation.golden.select_cvs import load_metadata, load_vi_cv_ids
+
+    manifest = build_manifest(_fake_jds(), load_metadata(), load_vi_cv_ids())
+    assert len(manifest) == 2
+    for entry in manifest:
+        assert len(entry["cvs"]) == 2
+        variants = {cv["variant"] for cv in entry["cvs"]}
+        assert variants == {"a", "b"}
+        for cv in entry["cvs"]:
+            assert cv["target_jd_id"] == entry["jd_id"]
+            assert cv["language"] in ("en", "vi")
+            assert cv["source"] in ("real_pool_en", "real_pool_vi")
+            assert cv["md_path"].startswith("data_find/generated_cv")
+
+
+def test_build_manifest_no_duplicate_cv_ids_across_whole_pool():
+    from evaluation.golden.select_cvs import load_metadata, load_vi_cv_ids
+
+    manifest = build_manifest(_fake_jds(), load_metadata(), load_vi_cv_ids())
+    all_ids = [cv["cv_id"] for entry in manifest for cv in entry["cvs"]]
+    assert len(all_ids) == len(set(all_ids))

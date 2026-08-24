@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
+import time
 from pathlib import Path
 
 import httpx
@@ -23,8 +25,39 @@ EMBED_MODEL = "text-embedding-3-small"
 EMBED_DIM = 1536
 REQUEST_TIMEOUT = 120.0
 BASE_URL = "https://api.openai.com/v1"
+MAX_RETRIES = 6
 
 CACHE_DIR = Path(__file__).resolve().parent / ".cache"
+
+
+def _post_with_retry(url: str, *, json_payload: dict, headers: dict) -> httpx.Response:
+    """POST with exponential backoff + jitter on 429/5xx -- needed because
+    judge_relevance.py and run_eval.py now fan requests out across a
+    ThreadPoolExecutor, which trips OpenAI's per-minute rate limit even
+    though each individual call is well-formed."""
+    last_exc: Exception | None = None
+    for attempt in range(MAX_RETRIES):
+        response = httpx.post(url, json=json_payload, headers=headers, timeout=REQUEST_TIMEOUT)
+        if response.status_code not in (429, 500, 502, 503, 504):
+            return response
+        retry_after = response.headers.get("retry-after")
+        if retry_after is not None:
+            try:
+                delay = float(retry_after)
+            except ValueError:
+                delay = 2.0**attempt
+        else:
+            delay = 2.0**attempt
+        delay += random.uniform(0, 1)
+        last_exc = httpx.HTTPStatusError(
+            f"{response.status_code} on attempt {attempt + 1}/{MAX_RETRIES}", request=response.request, response=response
+        )
+        if attempt == MAX_RETRIES - 1:
+            break
+        time.sleep(delay)
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("unreachable")  # pragma: no cover
 
 
 def _cache_path(kind: str, key: str) -> Path:
@@ -47,11 +80,10 @@ def chat_complete(prompt: str, *, model: str = CHAT_MODEL, json_object: bool = F
     }
     if json_object:
         payload["response_format"] = {"type": "json_object"}
-    response = httpx.post(
+    response = _post_with_retry(
         f"{BASE_URL}/chat/completions",
-        json=payload,
+        json_payload=payload,
         headers={"Authorization": f"Bearer {settings.openai_api_key}", "Content-Type": "application/json"},
-        timeout=REQUEST_TIMEOUT,
     )
     response.raise_for_status()
     content = str(response.json()["choices"][0]["message"]["content"]).strip()

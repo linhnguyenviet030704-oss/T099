@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.clients.llm import chat_complete
+from backend.app.services.matching.anonymize import (
+    AnonymizationResult,
+    anonymize_candidates,
+    deanonymize_reasons,
+)
 
 CompleteFn = Callable[..., str]
 
@@ -41,8 +46,12 @@ def _brief(row: dict[str, Any]) -> tuple[str, str]:
     """Return (candidate_id, brief) for the prompt. The brief uses facts
     that are already extracted and known-safe (skill names, summary, body
     fragment) — never raw markdown that may contain PII. The markdown
-    passed to retrieve() is already PII-redacted."""
-    cid = str(row.get("application_id") or row.get("job_id") or "")
+    passed to retrieve() is already PII-redacted.
+
+    Uses _anon_id if available (from anonymize_candidates), otherwise falls
+    back to real application_id. LLM never sees real identifiers."""
+    # Use anonymous ID if available, otherwise use real ID
+    cid = str(row.get("_anon_id") or row.get("application_id") or row.get("job_id") or "")
     parts: list[str] = []
     skills = row.get("skills") or []
     if skills:
@@ -162,6 +171,9 @@ def explain_matches(
     Only ids present in the input `candidates` are kept — the LLM is
     free to invent ids, and we never trust those.
 
+    Uses anonymous IDs (CAND_001, CAND_002, etc.) for LLM calls to prevent
+    PII leakage. Real identifiers are restored after LLM returns.
+
     If the LLM fails (no API key, network error, JSON parse, etc.) we
     fall back to a deterministic per-row reason so the reader —
     recruiter or candidate — always sees something better than `null`.
@@ -172,14 +184,22 @@ def explain_matches(
     allowed_ids.discard("")
     fn = complete or chat_complete
     template = prompt_template or EXPLAIN_PROMPT_TEMPLATE
-    prompt = _build_prompt(jd_text, candidates, template)
+
+    # Anonymize candidates before LLM call
+    anon_result: AnonymizationResult = anonymize_candidates(candidates)
+    prompt = _build_prompt(jd_text, anon_result.candidates, template)
     parsed: dict[str, str] = {}
     try:
         raw = fn(prompt, json_object=True)
         parsed = _parse_map(raw)
     except Exception:
         parsed = {}
-    llm_reasons = {cid: reason for cid, reason in parsed.items() if cid in allowed_ids}
+
+    # Map anonymous IDs back to real application_ids
+    llm_reasons = deanonymize_reasons(parsed, anon_result.id_map)
+
+    # Filter to only allowed IDs
+    llm_reasons = {cid: reason for cid, reason in llm_reasons.items() if cid in allowed_ids}
     if len(llm_reasons) == len(allowed_ids) and allowed_ids:
         return llm_reasons
     # ponytail: deterministic fallback so the recruiter still gets an

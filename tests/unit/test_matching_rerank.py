@@ -112,6 +112,92 @@ def test_apply_rerank_confirmed_keeps_fail_below_pass():
     assert [r["application_id"] for r in out] == ["pass", "fail"]
 
 
+def test_apply_rerank_qwen_tie_break_falls_back_to_job_id():
+    rows = [
+        {"job_id": "j2", "rrf_score": 0.5, "markdown": "job two"},
+        {"job_id": "j1", "rrf_score": 0.5, "markdown": "job one"},
+    ]
+
+    def rerank_fn(_query: str, documents: list[str]):
+        assert documents == ["job two", "job one"]
+        return [{"index": 0, "relevance_score": 0.5}, {"index": 1, "relevance_score": 0.5}]
+
+    out = apply_rerank(rows, jd_query="Python", mode="qwen", rerank_fn=rerank_fn)
+    assert [r["job_id"] for r in out] == ["j1", "j2"]
+
+
+def test_apply_rerank_confirmed_window_includes_ungated_rows():
+    rows = [
+        {"job_id": "j1", "rrf_score": 0.9, "markdown": "a", "constraint_status": "ungated"},
+        {"job_id": "j2", "rrf_score": 0.1, "markdown": "b", "constraint_status": "ungated"},
+    ]
+
+    def rerank_fn(_query: str, documents: list[str]):
+        assert documents == ["a", "b"]
+        return [{"index": 0, "relevance_score": 0.9}, {"index": 1, "relevance_score": 0.1}]
+
+    out = apply_rerank(rows, jd_query="Python", mode="qwen", rerank_fn=rerank_fn, confirmed=True)
+    assert [r["job_id"] for r in out] == ["j1", "j2"]
+    assert out[0]["rerank_status"] == "success"
+
+
+def test_group_order_is_derived_from_status_order():
+    from backend.app.services.matching.constraints import _STATUS_ORDER
+    from backend.app.services.matching.rerank import _GROUP_ORDER
+
+    assert _GROUP_ORDER == ("pass", "ungated", "unknown", "fail")
+    # ungated is tier 0 (same as pass), fail is tier 2 -- the two constants
+    # must not be able to disagree about that again.
+    assert [_STATUS_ORDER[s] for s in _GROUP_ORDER] == sorted(_STATUS_ORDER.values())
+
+
+def test_apply_rerank_confirmed_keeps_ungated_above_fail():
+    """Regression: a job whose confirmed must-have the CV FAILS must never be
+    promoted above a merely-ungated job, even with a stronger rrf/rerank score.
+    The CV->JD graph sets constraints_confirmed=True at state level while
+    individual job rows can still be "ungated", so this combination is live."""
+    rows = [
+        {"job_id": "j-fail", "rrf_score": 0.9, "markdown": "fail-doc", "constraint_status": "fail"},
+        {"job_id": "j-ungated", "rrf_score": 0.1, "markdown": "ungated-doc", "constraint_status": "ungated"},
+    ]
+
+    seen: dict[str, list[str]] = {}
+
+    def rerank_fn(_query: str, documents: list[str]):
+        seen["documents"] = list(documents)
+        # score by document so both rows are demonstrably reranked, and give
+        # the failing row the *better* relevance score.
+        scores = {"ungated-doc": 0.10, "fail-doc": 0.99}
+        return [
+            {"index": i, "relevance_score": scores[doc]} for i, doc in enumerate(documents)
+        ]
+
+    out = apply_rerank(rows, jd_query="Python", mode="qwen", rerank_fn=rerank_fn, confirmed=True)
+
+    # both rows were actually reranked (in window, scored, status success)
+    assert sorted(seen["documents"]) == ["fail-doc", "ungated-doc"]
+    assert all(row["rerank_status"] == "success" for row in out)
+    assert out[0]["rerank_score"] == 0.10
+    assert out[1]["rerank_score"] == 0.99
+    # ungated group must precede fail group despite the worse relevance score
+    assert [row["job_id"] for row in out] == ["j-ungated", "j-fail"]
+
+
+def test_apply_rerank_confirmed_orders_pass_ungated_unknown_fail():
+    rows = [
+        {"job_id": "j-fail", "rrf_score": 0.9, "markdown": "d-fail", "constraint_status": "fail"},
+        {"job_id": "j-unknown", "rrf_score": 0.8, "markdown": "d-unknown", "constraint_status": "unknown"},
+        {"job_id": "j-ungated", "rrf_score": 0.7, "markdown": "d-ungated", "constraint_status": "ungated"},
+        {"job_id": "j-pass", "rrf_score": 0.6, "markdown": "d-pass", "constraint_status": "pass"},
+    ]
+
+    def rerank_fn(_query: str, documents: list[str]):
+        return [{"index": i, "relevance_score": 0.5} for i in range(len(documents))]
+
+    out = apply_rerank(rows, jd_query="Python", mode="qwen", rerank_fn=rerank_fn, confirmed=True)
+    assert [row["job_id"] for row in out] == ["j-pass", "j-ungated", "j-unknown", "j-fail"]
+
+
 class _RpcClient:
     def __init__(self) -> None:
         self.calls: list[dict] = []

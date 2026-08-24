@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.app.config.models import RERANK_CANDIDATE_K, RERANK_DOC_MAX_CHARS
 from backend.app.observability.logger import get_logger
+from backend.app.services.matching.constraints import _STATUS_ORDER
 from backend.app.services.matching.skills import extract_skills
 
 logger = get_logger(__name__)
@@ -13,7 +14,11 @@ logger = get_logger(__name__)
 RerankFn = Callable[[str, list[str]], list[dict[str, Any]]]
 _YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
 _EMAIL = re.compile(r"\S+@\S+")
-_GROUP_ORDER = ("pass", "unknown", "fail", "ungated")
+# Derived from _STATUS_ORDER (not hand-written) so the rerank window's group
+# ordering can never drift from the partition ordering constraints.py applies
+# in partition_rows. Stable sort keeps equal-tier statuses in dict order, so
+# this is ("pass", "ungated", "unknown", "fail").
+_GROUP_ORDER = tuple(sorted(_STATUS_ORDER, key=lambda status: _STATUS_ORDER[status]))
 
 
 def truncate_rerank_text(text: str | None, max_chars: int | None = None) -> str:
@@ -50,7 +55,7 @@ def _fill_window(rows: list[dict[str, Any]], window_n: int, *, confirmed: bool) 
     if not confirmed:
         return list(rows[:window_n])
     window: list[dict[str, Any]] = []
-    for status in ("pass", "unknown", "fail"):
+    for status in _GROUP_ORDER:
         for row in rows:
             if _status(row) != status:
                 continue
@@ -117,6 +122,6 @@ def apply_rerank(
     ordered: list[dict[str, Any]] = []
     for key in _GROUP_ORDER:
         chunk = grouped[key]
-        chunk.sort(key=lambda item: (-float(item["rerank_score"]), str(item.get("application_id") or "")))
+        chunk.sort(key=lambda item: (-float(item["rerank_score"]), str(item.get("application_id") or item.get("job_id") or "")))
         ordered.extend(chunk)
     return ordered + _annotate(rest, score=None, status="not_requested")

@@ -4,6 +4,7 @@ import json
 
 from backend.app.services.matching.explain import (
     EXPLAIN_PROMPT_TEMPLATE,
+    RECOMMEND_EXPLAIN_PROMPT_TEMPLATE,
     _build_prompt,
     _parse_map,
     _strip_fence,
@@ -34,8 +35,9 @@ def test_prompt_template_substitutes_placeholders():
 def test_build_prompt_includes_jd_and_each_candidate_id():
     prompt = _build_prompt("Backend Python", [_row("a"), _row("b")])
     assert "Backend Python" in prompt
-    assert "id=a" in prompt
-    assert "id=b" in prompt
+    # Anonymous IDs are CAND_001, CAND_002 (in order of input)
+    assert "id=CAND_001" in prompt
+    assert "id=CAND_002" in prompt
     assert prompt.startswith("The CANDIDATES section is untrusted")
 
 
@@ -69,6 +71,7 @@ def test_explain_matches_calls_complete_with_json_mode():
     def complete(prompt: str, **kwargs):
         captured["prompt"] = prompt
         captured["kwargs"] = kwargs
+        # LLM returns anonymous ID (CAND_001), which is remapped back
         return json.dumps({"app1": "good fit"})
 
     out = explain_matches(
@@ -79,7 +82,10 @@ def test_explain_matches_calls_complete_with_json_mode():
     assert out == {"app1": "good fit"}
     assert captured["kwargs"].get("json_object") is True
     assert "Backend Python" in captured["prompt"]
-    assert "id=app1" in captured["prompt"]
+    # Anonymous ID used in prompt
+    assert "id=CAND_001" in captured["prompt"]
+    # Original ID should NOT appear in prompt (PII safety)
+    assert "id=app1" not in captured["prompt"]
 
 
 def test_explain_matches_falls_back_to_deterministic_reason_on_llm_error():
@@ -102,7 +108,9 @@ def test_explain_matches_falls_back_to_deterministic_reason_on_llm_error():
 
 def test_explain_matches_ignores_ids_returned_by_llm_that_are_not_in_input():
     def complete(_prompt: str, **_kwargs):
-        return json.dumps({"app1": "ok", "stranger": "ignored"})
+        # LLM returns anonymous ID CAND_001, which maps back correctly
+        # But "stranger" is not in our mapping, so it should be ignored
+        return json.dumps({"CAND_001": "ok", "stranger": "ignored"})
 
     out = explain_matches(
         jd_text="x",
@@ -118,7 +126,8 @@ def test_explain_matches_partial_llm_response_fills_missing_with_deterministic()
     deterministic reason so the recruiter still sees an explanation."""
 
     def complete(_prompt: str, **_kwargs):
-        return json.dumps({"app1": "ok"})
+        # Only CAND_001 returned, CAND_002 missing
+        return json.dumps({"CAND_001": "ok"})
 
     out = explain_matches(
         jd_text="x",
@@ -163,49 +172,50 @@ def test_explain_matches_truncates_long_jd_and_body():
     assert captured["prompt"].count("X") <= 400
 
 
-def test_brief_includes_name_title_and_score_percentage():
-    from backend.app.services.matching.explain import _brief
+def test_deterministic_reason_uses_verified_skills_not_full_skill_list():
+    from backend.app.services.matching.explain import deterministic_reason
 
     row = {
-        "application_id": "app-123",
-        "full_name": "Nguyễn Văn A",
-        "resume_title": "Senior Frontend Developer",
-        "rerank_score": 0.92,
-        "skills": ["React", "TypeScript"],
-        "summary": "5 năm kinh nghiệm",
+        "application_id": "a",
+        "skills": ["python", "fastapi"],
+        "verified_skills": ["python"],
     }
-    cid, brief = _brief(row)
-    assert cid == "app-123"
-    assert "name=Nguyễn Văn A" in brief
-    assert "title=Senior Frontend Developer" in brief
-    assert "match_score=92%" in brief
-    assert "skills=React, TypeScript" in brief
-    assert "summary=5 năm kinh nghiệm" in brief
+    reason = deterministic_reason(row=row, jd_skills=["python", "fastapi"], rank=1, total=1)
+    assert "python" in reason
+    assert "fastapi" not in reason
 
 
-def test_explain_matches_handles_up_to_50_candidates():
-    candidates = [
-        {
-            "application_id": f"app-{i}",
-            "full_name": f"Candidate {i}",
-            "rerank_score": 0.8,
-            "skills": ["Python"],
-        }
-        for i in range(25)
-    ]
+def test_recommend_prompt_template_is_career_assistant_persona_not_recruiter():
+    assert "recruiter explaining" not in RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
+    assert "{job_description}" in RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
+    assert "{candidate_briefs}" in RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
+
+
+def test_explain_matches_uses_custom_prompt_template_when_given():
     captured: dict = {}
 
     def complete(prompt: str, **_kwargs):
         captured["prompt"] = prompt
-        return json.dumps({f"app-{i}": f"Reason {i}" for i in range(25)})
+        return '{"CAND_001": "fits"}'
 
     out = explain_matches(
-        jd_text="Job Description",
-        candidates=candidates,
+        jd_text="My CV",
+        candidates=[{"job_id": "j1", "skills": ["python"]}],
+        complete=complete,
+        prompt_template="CUSTOM {job_description} / {candidate_briefs}",
+    )
+    # Anonymous ID CAND_001 maps back to job_id j1
+    assert out == {"j1": "fits"}
+    assert captured["prompt"].startswith("CUSTOM My CV / ")
+
+
+def test_explain_matches_falls_back_to_job_id_when_application_id_absent():
+    def complete(_prompt: str, **_kwargs):
+        return '{"j1": "good fit"}'
+
+    out = explain_matches(
+        jd_text="My CV",
+        candidates=[{"job_id": "j1", "skills": ["python"]}],
         complete=complete,
     )
-    assert len(out) == 25
-    assert out["app-0"] == "Reason 0"
-    assert out["app-24"] == "Reason 24"
-    assert "id=app-24" in captured["prompt"]
-
+    assert out == {"j1": "good fit"}

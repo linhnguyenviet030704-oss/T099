@@ -12,12 +12,21 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.clients.llm import chat_complete
+from backend.app.services.matching.anonymize import (
+    AnonymizationResult,
+    anonymize_candidates,
+    deanonymize_reasons,
+)
 
 CompleteFn = Callable[..., str]
 
 _PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system" / "explain_match.txt"
 EXPLAIN_PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
 EXPLAIN_PROMPT_VERSION = "2026-08-23.v1"
+
+_RECOMMEND_PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system" / "explain_job_match.txt"
+RECOMMEND_EXPLAIN_PROMPT_TEMPLATE = _RECOMMEND_PROMPT_PATH.read_text(encoding="utf-8")
+RECOMMEND_EXPLAIN_PROMPT_VERSION = "2026-08-24.v1"
 
 _MAX_JD_CHARS = 4000
 _MAX_BRIEF_CHARS = 500
@@ -35,24 +44,15 @@ def _truncate(text: str | None, limit: int) -> str:
 
 def _brief(row: dict[str, Any]) -> tuple[str, str]:
     """Return (candidate_id, brief) for the prompt. The brief uses facts
-    that are already extracted and known-safe (name, title, match score,
-    skill names, summary, body fragment) — never raw markdown that may
-    contain PII. The markdown passed to retrieve() is already PII-redacted."""
-    cid = str(row.get("application_id") or "")
+    that are already extracted and known-safe (skill names, summary, body
+    fragment) — never raw markdown that may contain PII. The markdown
+    passed to retrieve() is already PII-redacted.
+
+    Uses _anon_id if available (from anonymize_candidates), otherwise falls
+    back to real application_id. LLM never sees real identifiers."""
+    # Use anonymous ID if available, otherwise use real ID
+    cid = str(row.get("_anon_id") or row.get("application_id") or row.get("job_id") or "")
     parts: list[str] = []
-    name = row.get("full_name")
-    if name:
-        parts.append(f"name={name}")
-    title = row.get("resume_title")
-    if title:
-        parts.append(f"title={title}")
-    score = row.get("rerank_score")
-    if score is not None:
-        pct = round(float(score) * 100)
-        parts.append(f"match_score={pct}% (rerank={float(score):.2f})")
-    elif row.get("rrf_score") is not None:
-        pct = round(float(row["rrf_score"]) * 100)
-        parts.append(f"match_score={pct}% (rrf={float(row['rrf_score']):.2f})")
     skills = row.get("skills") or []
     if skills:
         parts.append("skills=" + ", ".join(str(s) for s in skills))
@@ -62,10 +62,15 @@ def _brief(row: dict[str, Any]) -> tuple[str, str]:
     body = _truncate(row.get("clean_markdown") or row.get("markdown"), 300)
     if body:
         parts.append("body=" + body)
+    score = row.get("rerank_score")
+    if score is not None:
+        parts.append(f"rerank={float(score):.2f}")
+    elif row.get("rrf_score") is not None:
+        parts.append(f"rrf={float(row['rrf_score']):.2f}")
     return cid, "; ".join(parts)
 
 
-def _build_prompt(jd_text: str, candidates: list[dict[str, Any]]) -> str:
+def _build_prompt(jd_text: str, candidates: list[dict[str, Any]], template: str = EXPLAIN_PROMPT_TEMPLATE) -> str:
     briefs: list[str] = []
     for row in candidates[:_MAX_CANDIDATES]:
         cid, brief = _brief(row)
@@ -73,7 +78,7 @@ def _build_prompt(jd_text: str, candidates: list[dict[str, Any]]) -> str:
             continue
         briefs.append(f"- id={cid}: {brief}")
     candidate_block = "\n".join(briefs) if briefs else "(no candidates)"
-    return EXPLAIN_PROMPT_TEMPLATE.replace(
+    return template.replace(
         "{job_description}", _truncate(jd_text, _MAX_JD_CHARS)
     ).replace("{candidate_briefs}", candidate_block)
 
@@ -103,8 +108,10 @@ def _parse_map(raw: str) -> dict[str, str]:
 
 
 def _extract_skills(row: dict[str, Any]) -> list[str]:
+    verified = row.get("verified_skills")
+    source = verified if verified is not None else (row.get("skills") or [])
     seen: list[str] = []
-    for skill in row.get("skills") or []:
+    for skill in source:
         token = str(skill).strip()
         if token and token not in seen:
             seen.append(token)
@@ -148,31 +155,46 @@ def explain_matches(
     candidates: list[dict[str, Any]],
     complete: CompleteFn | None = None,
     jd_skills: list[str] | None = None,
+    prompt_template: str | None = None,
 ) -> dict[str, str]:
-    """Return {application_id: reasoning} for the given candidates, or {} on failure.
+    """Return {row_id: reasoning} for the given rows, keyed by whichever of
+    `application_id` (JD -> CV) or `job_id` (CV -> JD) each row carries, or {} on
+    failure.
 
-    Runs a single LLM call so all candidates are reasoned about in
+    Runs a single LLM call so all rows are reasoned about in
     context of each other (relative ranking is part of the prompt).
     Only ids present in the input `candidates` are kept — the LLM is
     free to invent ids, and we never trust those.
 
+    Uses anonymous IDs (CAND_001, CAND_002, etc.) for LLM calls to prevent
+    PII leakage. Real identifiers are restored after LLM returns.
+
     If the LLM fails (no API key, network error, JSON parse, etc.) we
-    fall back to a deterministic per-candidate reason so the recruiter
-    always sees something better than `null`.
+    fall back to a deterministic per-row reason so the reader —
+    recruiter or candidate — always sees something better than `null`.
     """
     if not candidates:
         return {}
-    allowed_ids = {str(row.get("application_id") or "") for row in candidates}
+    allowed_ids = {str(row.get("application_id") or row.get("job_id") or "") for row in candidates}
     allowed_ids.discard("")
     fn = complete or chat_complete
-    prompt = _build_prompt(jd_text, candidates)
+    template = prompt_template or EXPLAIN_PROMPT_TEMPLATE
+
+    # Anonymize candidates before LLM call
+    anon_result: AnonymizationResult = anonymize_candidates(candidates)
+    prompt = _build_prompt(jd_text, anon_result.candidates, template)
     parsed: dict[str, str] = {}
     try:
         raw = fn(prompt, json_object=True)
         parsed = _parse_map(raw)
     except Exception:
         parsed = {}
-    llm_reasons = {cid: reason for cid, reason in parsed.items() if cid in allowed_ids}
+
+    # Map anonymous IDs back to real application_ids
+    llm_reasons = deanonymize_reasons(parsed, anon_result.id_map)
+
+    # Filter to only allowed IDs
+    llm_reasons = {cid: reason for cid, reason in llm_reasons.items() if cid in allowed_ids}
     if len(llm_reasons) == len(allowed_ids) and allowed_ids:
         return llm_reasons
     # ponytail: deterministic fallback so the recruiter still gets an
@@ -185,7 +207,7 @@ def explain_matches(
     total = len(allowed_ids)
     out: dict[str, str] = dict(llm_reasons)
     for rank, row in enumerate(candidates[:_MAX_CANDIDATES], start=1):
-        cid = str(row.get("application_id") or "")
+        cid = str(row.get("application_id") or row.get("job_id") or "")
         if not cid or cid in out:
             continue
         out[cid] = deterministic_reason(

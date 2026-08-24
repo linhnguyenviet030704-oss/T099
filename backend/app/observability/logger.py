@@ -61,3 +61,16 @@ def get_logger(name: str) -> logging.Logger:
 def safe_extra(**kwargs: Any) -> dict[str, Any]:
     """Drop known secret-ish keys from structured log extras."""
     return {k: v for k, v in kwargs.items() if not _is_sensitive_key(k)}
+
+
+def get_current_trace_id() -> str | None:
+    """Return active LangSmith run tree id if within a traceable context, else None."""
+    try:
+        from langsmith.run_helpers import get_current_run_tree
+
+        run_tree = get_current_run_tree()
+        if run_tree:
+            return str(run_tree.id)
+    except Exception:
+        pass
+    return None

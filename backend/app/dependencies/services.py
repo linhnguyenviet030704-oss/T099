@@ -7,7 +7,7 @@ from backend.app.agents.recommend.graph import build_recommend_graph
 from backend.app.api.schemas.chat import ChatResponse
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
-from backend.app.observability.logger import get_logger
+from backend.app.observability.logger import get_logger, request_id_ctx
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.admin_service import AdminService
 from backend.app.services.chat_service import ChatService, chat_response_from_graph, jobs_response_from_graph
@@ -66,8 +66,18 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
             explain_api_key=settings.qwen_api_key,
             explain_base_url=settings.qwen_base_url,
         )
+        rid = request_id_ctx.get() or "-"
         result = await graph.ainvoke(
-            {"job_id": str(job_id), "query": message, "rerank_mode": rerank}
+            {"job_id": str(job_id), "query": message, "rerank_mode": rerank},
+            config={
+                "run_name": "match_candidates_pipeline",
+                "tags": ["matching", "recruiter", rerank],
+                "metadata": {
+                    "request_id": rid,
+                    "job_id": str(job_id),
+                    "actor_id": str(actor_id),
+                },
+            },
         )
         ranked = result.get("candidates") or []
         status = str((ranked[0].get("rerank_status") if ranked else None) or "not_requested")
@@ -109,7 +119,18 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
             explain_api_key=settings.qwen_api_key,
             explain_base_url=settings.qwen_base_url,
         )
-        result = await graph.ainvoke({"query": message, "rerank_mode": rerank})
+        rid = request_id_ctx.get() or "-"
+        result = await graph.ainvoke(
+            {"query": message, "rerank_mode": rerank},
+            config={
+                "run_name": "recommend_jobs_pipeline",
+                "tags": ["recommend", "candidate", rerank],
+                "metadata": {
+                    "request_id": rid,
+                    "actor_id": str(actor_id),
+                },
+            },
+        )
 
         # Persist audit log for analytics
         ranked = result.get("candidates") or []

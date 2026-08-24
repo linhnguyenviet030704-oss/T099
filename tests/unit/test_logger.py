@@ -30,3 +30,10 @@ def test_configure_logging_installs_sensitive_data_filter():
     configure_logging("INFO")
     root = logging.getLogger()
     assert any(isinstance(f, _SensitiveDataFilter) for f in root.filters)
+
+
+def test_get_current_trace_id_returns_none_outside_trace():
+    from backend.app.observability.logger import get_current_trace_id
+
+    # When no LangSmith run tree is active, should return None safely
+    assert get_current_trace_id() is None

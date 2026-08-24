@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
+from langsmith import traceable
 
 from backend.app.config.env import settings
 from backend.app.config.models import (
@@ -73,6 +74,7 @@ def _call_with_retries(post: PostFn, url: str, **kwargs: Any):
     raise last_exc  # pragma: no cover - loop always returns or raises
 
 
+@traceable(name="chat_complete", run_type="llm")
 def chat_complete(
     prompt: str,
     *,
@@ -102,6 +104,7 @@ def chat_complete(
     return str(content).strip()
 
 
+@traceable(name="embed_query", run_type="embedding")
 def embed_query(
     text: str,
     *,
@@ -127,6 +130,7 @@ def embed_query(
     return [float(x) for x in response.json()["data"][0]["embedding"]]
 
 
+@traceable(name="rerank_query", run_type="tool")
 def rerank_query(
     query: str,
     documents: list[str],

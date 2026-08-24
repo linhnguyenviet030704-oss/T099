@@ -7,7 +7,7 @@ from uuid import UUID
 
 from backend.app.agents.ingest.graph import build_ingest_graph
 from backend.app.core.exceptions import NotFoundError
-from backend.app.observability.logger import get_logger
+from backend.app.observability.logger import get_logger, request_id_ctx
 from backend.app.services.matching.skills import taxonomy_version
 from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_VERSION
 
@@ -54,11 +54,20 @@ async def ingest_resume(
     ):
         return "exists"
     graph = build_ingest_graph(encode=encode, complete=complete, api_key=api_key, base_url=base_url)
+    rid = request_id_ctx.get() or "-"
     result = await graph.ainvoke(
         {
             "raw_bytes": blob,
             "mime_type": resume.get("mime_type") or "",
-        }
+        },
+        config={
+            "run_name": "ingest_resume_pipeline",
+            "tags": ["ingest", "resume"],
+            "metadata": {
+                "request_id": rid,
+                "resume_id": str(resume_id),
+            },
+        },
     )
     parsed = {
         "markdown": result.get("markdown") or "",

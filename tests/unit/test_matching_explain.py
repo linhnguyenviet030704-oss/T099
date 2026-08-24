@@ -33,7 +33,10 @@ def test_prompt_template_substitutes_placeholders():
 
 
 def test_build_prompt_includes_jd_and_each_candidate_id():
-    prompt = _build_prompt("Backend Python", [_row("a"), _row("b")])
+    from backend.app.services.matching.anonymize import anonymize_candidates
+
+    anon = anonymize_candidates([_row("a"), _row("b")])
+    prompt = _build_prompt("Backend Python", anon.candidates)
     assert "Backend Python" in prompt
     # Anonymous IDs are CAND_001, CAND_002 (in order of input)
     assert "id=CAND_001" in prompt
@@ -72,7 +75,7 @@ def test_explain_matches_calls_complete_with_json_mode():
         captured["prompt"] = prompt
         captured["kwargs"] = kwargs
         # LLM returns anonymous ID (CAND_001), which is remapped back
-        return json.dumps({"app1": "good fit"})
+        return json.dumps({"CAND_001": "good fit"})
 
     out = explain_matches(
         jd_text="Backend Python",
@@ -160,7 +163,7 @@ def test_explain_matches_truncates_long_jd_and_body():
 
     def complete(prompt: str, **_kwargs):
         captured["prompt"] = prompt
-        return json.dumps({"a": "ok"})
+        return json.dumps({"CAND_001": "ok"})
 
     explain_matches(
         jd_text="J" * 5000,
@@ -211,7 +214,7 @@ def test_explain_matches_uses_custom_prompt_template_when_given():
 
 def test_explain_matches_falls_back_to_job_id_when_application_id_absent():
     def complete(_prompt: str, **_kwargs):
-        return '{"j1": "good fit"}'
+        return '{"CAND_001": "good fit"}'
 
     out = explain_matches(
         jd_text="My CV",

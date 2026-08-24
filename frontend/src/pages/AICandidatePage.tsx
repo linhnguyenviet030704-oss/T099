@@ -15,8 +15,8 @@ import AnimatedPage from "../components/AnimatedPage";
 import { useToast } from "../context/ToastContext";
 
 const QUICK_PROMPT = "Gợi ý ứng viên phù hợp";
-const FIT_GOOD = 0.75;
-const FIT_OK = 0.5;
+const FIT_GOOD = 0.45;
+const FIT_OK = 0.3;
 const LEFT_W = 256;
 const RIGHT_W = 288;
 const SIDE_T = { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const };
@@ -314,9 +314,9 @@ export default function AICandidatePage() {
           initial={false}
           animate={{ width: leftOpen ? LEFT_W : 0 }}
           transition={SIDE_T}
-          className="shrink-0 overflow-hidden self-stretch"
+          className="sticky top-16 h-[calc(100vh-4rem)] shrink-0 overflow-hidden z-20 self-start"
         >
-          <div className="h-full min-h-[calc(100vh-4rem)]" style={{ width: LEFT_W }}>{historyPane}</div>
+          <div className="h-full" style={{ width: LEFT_W }}>{historyPane}</div>
         </motion.aside>
       ) : (
         <AnimatePresence>
@@ -350,16 +350,7 @@ export default function AICandidatePage() {
 
       <div className="flex-1 min-w-0 flex flex-col py-4 gap-3">
         <div className="w-full lg:w-[90%] lg:mx-auto px-3 sm:px-4 flex flex-col flex-1 min-h-0 gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setLeftOpen((v) => !v)}
-              className={`p-2 rounded-xl border ${leftOpen ? "bg-purple-50 border-purple-200 text-purple-600" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500"}`}
-              aria-pressed={leftOpen}
-              aria-label="Hiện/ẩn lịch sử trò chuyện"
-            >
-              <PanelLeft size={16} />
-            </button>
+          <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shrink-0">
                 <Sparkles size={18} className="text-white" />
@@ -377,19 +368,10 @@ export default function AICandidatePage() {
               <option value="">-- Chọn tin tuyển dụng --</option>
               {jobs.map((j) => <option key={j.id} value={j.id}>{j.company_name ? `${j.company_name} — ${j.title}` : j.title}</option>)}
             </select>
-            <button
-              type="button"
-              onClick={() => setRightOpen((v) => !v)}
-              className={`p-2 rounded-xl border ${rightOpen ? "bg-purple-50 border-purple-200 text-purple-600" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500"}`}
-              aria-pressed={rightOpen}
-              aria-label="Hiện/ẩn tham số tùy chỉnh"
-            >
-              <PanelRight size={16} />
-            </button>
           </div>
           {jobsError && <p className="text-xs text-red-500">{jobsError}</p>}
 
-          <section className="flex-1 min-w-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden" style={{ minHeight: "60vh" }}>
+          <section className="flex-1 min-w-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col relative" style={{ minHeight: "60vh" }}>
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               <AnimatePresence initial={false}>
                 {messages.map((msg) => {
@@ -438,44 +420,48 @@ export default function AICandidatePage() {
               )}
               <div ref={bottomRef} />
             </div>
-            <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 flex-wrap">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                disabled={sending || !jobId}
-                onClick={() => void handleSend(QUICK_PROMPT)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 text-xs font-semibold rounded-full border border-purple-200 dark:border-purple-800 disabled:opacity-50 transition-colors"
-              >
-                <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {QUICK_PROMPT}
-              </motion.button>
-              {(["qwen", "agent"] as const).map((mode) => (
+
+            {/* Bottom Sticky Input Container */}
+            <div className="sticky bottom-0 z-10 bg-white dark:bg-slate-800 rounded-b-2xl border-t border-slate-100 dark:border-slate-700 shadow-md">
+              <div className="px-4 py-2.5 flex gap-2 flex-wrap">
                 <motion.button
-                  key={mode}
                   whileTap={{ scale: 0.95 }}
                   disabled={sending || !jobId}
-                  onClick={() => setRerank(mode)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${rerank === mode ? "bg-purple-600 text-white border-purple-600 shadow-sm" : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}
+                  onClick={() => void handleSend(QUICK_PROMPT)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 text-xs font-semibold rounded-full border border-purple-200 dark:border-purple-800 disabled:opacity-50 transition-colors"
                 >
-                  {mode}
+                  <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {QUICK_PROMPT}
                 </motion.button>
-              ))}
-            </div>
-            <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && void handleSend()}
-                disabled={sending || !jobId}
-                placeholder={jobId ? "Nhắn tin với AI..." : "Chọn tin tuyển dụng trước"}
-                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm disabled:opacity-60"
-              />
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => void handleSend()}
-                disabled={!input.trim() || sending || !jobId}
-                className="p-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 text-white rounded-xl transition-colors shadow-md shadow-purple-200 dark:shadow-none"
-              >
-                {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              </motion.button>
+                {(["qwen", "agent"] as const).map((mode) => (
+                  <motion.button
+                    key={mode}
+                    whileTap={{ scale: 0.95 }}
+                    disabled={sending || !jobId}
+                    onClick={() => setRerank(mode)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${rerank === mode ? "bg-purple-600 text-white border-purple-600 shadow-sm" : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}
+                  >
+                    {mode}
+                  </motion.button>
+                ))}
+              </div>
+              <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void handleSend()}
+                  disabled={sending || !jobId}
+                  placeholder={jobId ? "Nhắn tin với AI..." : "Chọn tin tuyển dụng trước"}
+                  className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm disabled:opacity-60"
+                />
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => void handleSend()}
+                  disabled={!input.trim() || sending || !jobId}
+                  className="p-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 disabled:opacity-50 text-white rounded-xl transition-colors shadow-md shadow-purple-200 dark:shadow-none"
+                >
+                  {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </motion.button>
+              </div>
             </div>
           </section>
         </div>
@@ -486,9 +472,9 @@ export default function AICandidatePage() {
           initial={false}
           animate={{ width: rightOpen ? RIGHT_W : 0 }}
           transition={SIDE_T}
-          className="shrink-0 overflow-hidden self-stretch"
+          className="sticky top-16 h-[calc(100vh-4rem)] shrink-0 overflow-hidden z-20 self-start"
         >
-          <div className="h-full min-h-[calc(100vh-4rem)]" style={{ width: RIGHT_W }}>{paramsPane}</div>
+          <div className="h-full" style={{ width: RIGHT_W }}>{paramsPane}</div>
         </motion.aside>
       ) : (
         <AnimatePresence>
@@ -519,6 +505,36 @@ export default function AICandidatePage() {
           )}
         </AnimatePresence>
       )}
+
+      {/* Sticky Margin Toggle Button - Left Sidebar */}
+      <motion.button
+        type="button"
+        initial={false}
+        animate={{ left: leftOpen && desktop ? LEFT_W : 0 }}
+        transition={SIDE_T}
+        onClick={() => setLeftOpen((v) => !v)}
+        className="fixed top-20 z-30 p-2.5 bg-white dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 shadow-md rounded-r-xl text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
+        aria-pressed={leftOpen}
+        aria-label={leftOpen ? "Thu gọn lịch sử trò chuyện" : "Hiện lịch sử trò chuyện"}
+        title={leftOpen ? "Thu gọn lịch sử trò chuyện" : "Hiện lịch sử trò chuyện"}
+      >
+        <PanelLeft size={18} />
+      </motion.button>
+
+      {/* Sticky Margin Toggle Button - Right Sidebar */}
+      <motion.button
+        type="button"
+        initial={false}
+        animate={{ right: rightOpen && desktop ? RIGHT_W : 0 }}
+        transition={SIDE_T}
+        onClick={() => setRightOpen((v) => !v)}
+        className="fixed top-20 z-30 p-2.5 bg-white dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 shadow-md rounded-l-xl text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
+        aria-pressed={rightOpen}
+        aria-label={rightOpen ? "Thu gọn tham số tùy chỉnh" : "Hiện tham số tùy chỉnh"}
+        title={rightOpen ? "Thu gọn tham số tùy chỉnh" : "Hiện tham số tùy chỉnh"}
+      >
+        <PanelRight size={18} />
+      </motion.button>
     </AnimatedPage>
   );
 }

@@ -250,8 +250,8 @@ async def test_matching_graph_explain_node_attaches_match_reason_per_candidate()
         seen_ids.append(prompt)
         return json.dumps(
             {
-                "a": "Có Python nhưng thiếu FastAPI trong JD.",
-                "b": "Đủ cả Python và FastAPI như JD yêu cầu, vượt trội hơn a.",
+                "CAND_001": "Có Python nhưng thiếu FastAPI trong JD.",
+                "CAND_002": "Đủ cả Python và FastAPI như JD yêu cầu, vượt trội hơn a.",
             }
         )
 
@@ -306,7 +306,7 @@ async def test_matching_graph_explain_node_uses_jd_query_when_description_missin
 
     def explain_complete(prompt: str, **_kwargs):
         seen_jd.append(prompt)
-        return json.dumps({"a": "ok"})
+        return json.dumps({"CAND_001": "ok"})
 
     async def retrieve_no_desc(_job_id):
         return {
@@ -353,7 +353,7 @@ async def test_explain_node_forwards_custom_prompt_template():
 
     def complete(prompt: str, **_kwargs):
         captured["prompt"] = prompt
-        return '{"a": "ok"}'
+        return '{"CAND_001": "ok"}'
 
     node = make_explain_node(complete=complete, prompt_template="CUSTOM {job_description} {candidate_briefs}")
     result = await node({"candidates": [{"application_id": "a", "skills": ["python"]}], "job_description": "JD"})

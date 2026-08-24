@@ -31,6 +31,12 @@ create table if not exists public.recommend_job_evidence (
   raw_factors jsonb not null default '{}'
 );
 
+alter table public.recommend_job enable row level security;
+grant all on public.recommend_job to service_role;
+
+alter table public.recommend_job_evidence enable row level security;
+grant all on public.recommend_job_evidence to service_role;
+
 -- Indexes for efficient queries
 create index if not exists idx_recommend_job_user_id on public.recommend_job(user_id);
 create index if not exists idx_recommend_job_created_at on public.recommend_job(created_at desc);

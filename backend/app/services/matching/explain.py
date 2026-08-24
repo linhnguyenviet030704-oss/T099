@@ -30,7 +30,7 @@ RECOMMEND_EXPLAIN_PROMPT_VERSION = "2026-08-24.v1"
 
 _MAX_JD_CHARS = 4000
 _MAX_BRIEF_CHARS = 500
-_MAX_CANDIDATES = 50
+_MAX_CANDIDATES = 10
 
 
 def _truncate(text: str | None, limit: int) -> str:
@@ -207,8 +207,9 @@ def explain_matches(
     fn = complete or chat_complete
     template = prompt_template or EXPLAIN_PROMPT_TEMPLATE
 
-    # Anonymize candidates before LLM call
-    anon_result: AnonymizationResult = anonymize_candidates(candidates)
+    # Anonymize candidates/jobs before LLM call
+    prefix = "JOB_" if template == RECOMMEND_EXPLAIN_PROMPT_TEMPLATE else "CAND_"
+    anon_result: AnonymizationResult = anonymize_candidates(candidates, prefix=prefix)
     prompt = _build_prompt(jd_text, anon_result.candidates, template)
     parsed: dict[str, str] = {}
     try:

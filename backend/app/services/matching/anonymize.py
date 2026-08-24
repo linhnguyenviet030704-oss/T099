@@ -32,11 +32,22 @@ class AnonymizationResult:
     id_map: dict[str, CandidateIdentity] = field(default_factory=dict)
 
 
-def anonymize_candidates(candidates: list[dict[str, Any]]) -> AnonymizationResult:
-    """Convert real identifiers to anonymous IDs.
+import re
+
+_ANON_PAT = re.compile(r"\b(CAND|JOB)_(\d{3})\b")
+
+
+def _replace_anon_token(match: re.Match) -> str:
+    kind = match.group(1)
+    num = int(match.group(2))
+    return f"vị trí #{num}" if kind == "JOB" else f"ứng viên #{num}"
+
+
+def anonymize_candidates(candidates: list[dict[str, Any]], prefix: str = "CAND_") -> AnonymizationResult:
+    """Convert real identifiers to anonymous IDs (e.g. CAND_001 or JOB_001).
 
     Use this BEFORE sending to LLM. LLM sees only:
-    - CAND_001, CAND_002, etc.
+    - CAND_001 / JOB_001, CAND_002 / JOB_002, etc.
     - skills, summary, clean_markdown (already PII-free)
     - scores
 
@@ -44,10 +55,10 @@ def anonymize_candidates(candidates: list[dict[str, Any]]) -> AnonymizationResul
     """
     result = AnonymizationResult(candidates=[])
     for idx, row in enumerate(candidates):
-        anon_id = f"CAND_{idx + 1:03d}"
+        anon_id = f"{prefix}{idx + 1:03d}"
 
         identity = CandidateIdentity(
-            application_id=str(row.get("application_id") or ""),
+            application_id=str(row.get("application_id") or row.get("job_id") or ""),
             applicant_user_id=str(row.get("applicant_user_id") or ""),
             full_name=row.get("full_name"),
             email=row.get("email"),
@@ -74,15 +85,13 @@ def deanonymize_reasons(
     reasons: dict[str, str],
     id_map: dict[str, CandidateIdentity],
 ) -> dict[str, str]:
-    """Map anonymous IDs back to application_ids.
-
-    Call this AFTER LLM returns to get reasons keyed by real application_id.
-    """
+    """Map anonymous IDs back to application_ids and clean up internal tokens."""
     out: dict[str, str] = {}
     for anon_id, reason in reasons.items():
         identity = id_map.get(anon_id)
         if identity and identity.application_id:
-            out[identity.application_id] = reason
+            cleaned_reason = _ANON_PAT.sub(_replace_anon_token, reason)
+            out[identity.application_id] = cleaned_reason
     return out
 
 

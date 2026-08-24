@@ -40,7 +40,12 @@ def rerank_document(row: dict[str, Any], jd_query: str) -> str:
         quote = str(record.get("quote") or "").strip()
         if quote:
             quotes.append(quote)
-    blob = "\n".join(part for part in ((row.get("markdown") or ""), *quotes) if part)
+    title = str(row.get("title") or "").strip()
+    company = str(row.get("company_name") or "").strip()
+    header = f"{title} - {company}" if title and company else (title or company)
+    markdown = str(row.get("markdown") or "").strip()
+    blob_parts = [header, markdown, *quotes] if header else [markdown, *quotes]
+    blob = "\n".join(part for part in blob_parts if part)
     blob = _EMAIL.sub(" ", blob)
     blob = _YEAR.sub(" ", blob)
     return truncate_rerank_text(blob)

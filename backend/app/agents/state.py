@@ -26,3 +26,10 @@ class AgentState(TypedDict, total=False):
     job_description: str
     cv_verified: list[str]
     cv_has_evidence: bool
+    # Intent & Query Routing
+    intent: str
+    needs_db_query: bool
+    db_query_params: dict[str, Any]
+    kg_params: dict[str, Any]
+    kg_context: dict[str, Any]
+    target_entity: dict[str, Any]

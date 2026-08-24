@@ -66,6 +66,39 @@ async def test_recommend_graph_empty_pool():
         }
 
     graph = build_recommend_graph(retrieve=retrieve)
-    result = await graph.ainvoke({"query": "hello"})
-    assert result["response"] == "Hiện chưa có tin tuyển dụng phù hợp với CV của bạn."
+    result = await graph.ainvoke({"query": "Gợi ý việc phù hợp"})
     assert result["candidates"] == []
+
+
+@pytest.mark.asyncio
+async def test_recommend_graph_skill_gap_advice_routes_to_advice_node():
+    async def retrieve():
+        return {
+            "cv_skills": ["figma", "ui design"],
+            "cv_verified": ["figma", "ui design"],
+            "cv_has_evidence": True,
+            "cv_text": "UI Designer với kinh nghiệm Figma và làm việc nhóm.",
+            "candidates": [
+                {
+                    "job_id": str(uuid4()),
+                    "title": "Product Designer #4",
+                    "company_name": "Tiki Corporation",
+                    "skills": ["figma", "ux principles", "wireframe", "prototype"],
+                    "clean_markdown": "Tuyển Product Designer kinh nghiệm UX/UI",
+                }
+            ],
+        }
+
+    def fake_explain_complete(prompt: str, **_kwargs):
+        assert "CANDIDATE CV" in prompt or "TARGET JOB" in prompt
+        return "Báo cáo phân tích: Bạn cần bổ sung kiến thức UX Principles và Wireframing."
+
+    graph = build_recommend_graph(retrieve=retrieve, explain_complete=fake_explain_complete)
+    result = await graph.ainvoke({
+        "query": "Tôi muốn làm việc ở Product Designer #4 Tiki Corporation thì nên bổ sung kỹ năng gì?",
+        "rerank_mode": "agent",
+    })
+
+    assert "Bạn cần bổ sung kiến thức UX Principles" in result["response"]
+    assert result["candidates"] == []
+

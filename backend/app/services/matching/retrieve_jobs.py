@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 from uuid import UUID
 
@@ -254,29 +255,39 @@ async def retrieve_jobs_for_resume(
     for row, score in zip(candidates, scores, strict=False):
         row["bm25_score"] = score
 
-    # If user provided a query message, boost jobs matching keywords
+    # If user provided a query message, boost jobs matching keywords or job numbers
     if query and query.strip():
         query_lower = query.lower()
+        match_num = re.search(r"#(\d+)", query_lower)
+        target_num = match_num.group(1) if match_num else None
+
         for candidate in candidates:
             boost = 0.0
             title = (candidate.get("title") or "").lower()
             location = (candidate.get("location") or "").lower()
             company = (candidate.get("company_name") or "").lower()
-            # Boost if query keywords appear in title/location/company
-            if any(kw in title for kw in query_lower.split()):
-                boost += 0.1
-            if any(kw in location for kw in query_lower.split()):
-                boost += 0.05
-            if any(kw in company for kw in query_lower.split()):
-                boost += 0.03
-            # Apply boost to BM25 score (as multiplicative factor)
-            if candidate["bm25_score"] > 0 and boost > 0:
-                candidate["bm25_score"] = candidate["bm25_score"] * (1 + boost)
+
+            if target_num and (f"#{target_num}" in title or f"#{target_num}" in (candidate.get("id") or "")):
+                boost += 5.0  # Dominant boost for exact job number match like #4 or #2
+
+            for word in query_lower.split():
+                clean_word = word.strip("#,?.!").lower()
+                if len(clean_word) > 1:
+                    if clean_word in title:
+                        boost += 0.4
+                    if clean_word in company:
+                        boost += 0.4
+                    if clean_word in location:
+                        boost += 0.2
+
+            if boost > 0:
+                current_bm25 = float(candidate.get("bm25_score") or 0.0)
+                candidate["bm25_score"] = (current_bm25 if current_bm25 > 0 else 0.5) + boost
 
     return {
         "candidates": candidates,
         "cv_skills": cv_skills,
+        "cv_text": cv_text,
         "cv_verified": verified,
         "cv_has_evidence": cv_has_evidence,
-        "cv_text": cv_text,
     }

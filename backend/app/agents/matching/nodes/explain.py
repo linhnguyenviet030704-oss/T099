@@ -12,6 +12,7 @@ def make_explain_node(
     api_key: str | None = None,
     base_url: str | None = None,
     prompt_template: str | None = None,
+    max_candidates: int = 10,
 ):
     async def explain_node(state: AgentState) -> dict:
         def _complete(prompt: str, **kwargs):
@@ -22,6 +23,8 @@ def make_explain_node(
             return chat_complete(prompt, api_key=api_key, base_url=base_url, json_object=True)
 
         candidates = list(state.get("candidates") or [])
+        if max_candidates is not None and max_candidates > 0:
+            candidates = candidates[:max_candidates]
         jd_text = state.get("job_description") or state.get("jd_query") or ""
         jd_skills = list(state.get("jd_skills") or [])
         reasons = explain_matches(

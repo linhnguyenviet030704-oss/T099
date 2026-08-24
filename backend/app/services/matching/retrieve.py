@@ -94,6 +94,12 @@ def _try_cosine(left: list[float], right: list[float]) -> float | None:
 
 
 def _as_embedding(raw: Any) -> list[float] | None:
+    if isinstance(raw, str):
+        try:
+            import json
+            raw = json.loads(raw)
+        except Exception:
+            return None
     if not isinstance(raw, list) or not raw:
         return None
     try:

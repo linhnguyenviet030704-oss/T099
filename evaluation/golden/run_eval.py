@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import math
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -73,31 +74,38 @@ def ingest_all_cvs(manifest: list[dict], index: dict) -> dict:
         print(f"(reusing cached {INGEST_RESULTS_PATH.name})")
         return json.loads(INGEST_RESULTS_PATH.read_text(encoding="utf-8"))
 
-    results = {}
-    for entry in manifest:
-        for cv in entry["cvs"]:
-            cv_id = cv["cv_id"]
-            pdf_path = ROOT / cv["pdf_path"]
-            pdf_bytes = pdf_path.read_bytes()
+    all_cvs = [cv for entry in manifest for cv in entry["cvs"]]
 
-            parsed = parse_resume_bytes(pdf_bytes, mime_type="application/pdf")
-            original_markdown = clean_markdown(parsed["markdown"])
+    def ingest_one(cv: dict) -> tuple[str, dict]:
+        cv_id = cv["cv_id"]
+        pdf_path = ROOT / cv["pdf_path"]
+        pdf_bytes = pdf_path.read_bytes()
 
-            meta = summarize_resume(original_markdown, complete=_complete_wrapper)
-            summarized_body = redact_pii(meta.get("body") or "")
-            text_for_skills = summarized_body or original_markdown
+        parsed = parse_resume_bytes(pdf_bytes, mime_type="application/pdf")
+        original_markdown = clean_markdown(parsed["markdown"])
 
-            skills = extract_skills(text_for_skills, index)
-            embedding = embed_text(text_for_skills or " ", encode=lambda t: oai_embed(t))
+        meta = summarize_resume(original_markdown, complete=_complete_wrapper)
+        summarized_body = redact_pii(meta.get("body") or "")
+        text_for_skills = summarized_body or original_markdown
 
-            results[cv_id] = {
-                "target_jd_id": cv["target_jd_id"],
-                "original_markdown": original_markdown,
-                "summarized_body": summarized_body,
-                "extracted_skills": skills,
-                "embedding": embedding,
-            }
-            print(f"ingested {cv_id}: skills={skills}")
+        skills = extract_skills(text_for_skills, index)
+        embedding = embed_text(text_for_skills or " ", encode=lambda t: oai_embed(t))
+
+        return cv_id, {
+            "target_jd_id": cv["target_jd_id"],
+            "original_markdown": original_markdown,
+            "summarized_body": summarized_body,
+            "extracted_skills": skills,
+            "embedding": embedding,
+        }
+
+    results: dict[str, dict] = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(ingest_one, cv) for cv in all_cvs]
+        for future in as_completed(futures):
+            cv_id, row = future.result()
+            results[cv_id] = row
+            print(f"ingested {cv_id}: skills={row['extracted_skills']}")
 
     INGEST_RESULTS_PATH.write_text(json.dumps(results, ensure_ascii=False), encoding="utf-8")
     return results
@@ -314,8 +322,10 @@ def main() -> int:
         print(f"(reusing cached {QUALITY_PATH.name})")
         quality = json.loads(QUALITY_PATH.read_text(encoding="utf-8"))
     else:
-        quality = {}
-        for cv_id, row in ingest_results.items():
+        all_cv_rows = list(ingest_results.items())
+
+        def judge_one(item: tuple[str, dict]) -> tuple[str, dict]:
+            cv_id, row = item
             faith = judge_quality.judge_faithfulness(
                 row["original_markdown"], row["summarized_body"], cache_key=f"judge_faith|{cv_id}"
             )
@@ -327,8 +337,16 @@ def main() -> int:
             skill_acc = judge_quality.judge_skill_accuracy(
                 skill_text, row["extracted_skills"], cache_key=f"judge_skill_v2|{cv_id}"
             )
-            quality[cv_id] = {"faithfulness": faith, "skill_accuracy": skill_acc}
-            print(f"{cv_id}: faithfulness={faith['faithfulness_score']}")
+            return cv_id, {"faithfulness": faith, "skill_accuracy": skill_acc}
+
+        quality = {}
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = [pool.submit(judge_one, item) for item in all_cv_rows]
+            for future in as_completed(futures):
+                cv_id, result = future.result()
+                quality[cv_id] = result
+                print(f"{cv_id}: faithfulness={result['faithfulness']['faithfulness_score']}")
+
         QUALITY_PATH.write_text(json.dumps(quality, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print("\n== Step 6: write report ==")

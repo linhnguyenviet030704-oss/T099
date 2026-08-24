@@ -1,4 +1,13 @@
-from evaluation.golden.select_jds import compute_group_quota
+import pytest
+
+from backend.app.services.matching.skills import load_taxonomy_index
+from evaluation.golden.select_jds import (
+    VIETJOBS_CSV_PATH,
+    compute_group_quota,
+    guess_subgroup,
+    load_metadata_rows,
+    select_jds,
+)
 
 
 def test_compute_group_quota_matches_real_distribution():
@@ -23,12 +32,9 @@ def test_compute_group_quota_every_group_gets_at_least_one_seat():
 
 
 def test_compute_group_quota_rejects_total_below_group_count():
-    import pytest
     with pytest.raises(ValueError):
         compute_group_quota({1: 10, 2: 10, 3: 10}, total=2)
 
-
-from evaluation.golden.select_jds import guess_subgroup
 
 _FAKE_GROUP1_ROWS = [
     {"group_id": "1", "subgroup": "Backend Developer", "target_role": "Backend Engineer"},
@@ -55,22 +61,11 @@ def test_guess_subgroup_falls_back_to_largest_subgroup():
 
 
 def test_guess_subgroup_raises_on_unknown_group():
-    import pytest
     with pytest.raises(ValueError):
         guess_subgroup("anything", 999, _FAKE_GROUP1_ROWS)
 
 
-from evaluation.golden.select_jds import (
-    METADATA_CSV_PATH,
-    VIETJOBS_CSV_PATH,
-    load_metadata_rows,
-    select_jds,
-)
-
-
 def test_select_jds_produces_20_jds_matching_quota():
-    from backend.app.services.matching.skills import load_taxonomy_index
-
     metadata_rows = load_metadata_rows()
     index = load_taxonomy_index()
     jds = select_jds(VIETJOBS_CSV_PATH, metadata_rows, index, n=20)
@@ -93,8 +88,6 @@ def test_select_jds_produces_20_jds_matching_quota():
 
 
 def test_select_jds_group1_picks_distinct_subgroups_when_possible():
-    from backend.app.services.matching.skills import load_taxonomy_index
-
     metadata_rows = load_metadata_rows()
     index = load_taxonomy_index()
     jds = select_jds(VIETJOBS_CSV_PATH, metadata_rows, index, n=20)

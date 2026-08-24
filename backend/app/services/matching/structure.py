@@ -12,9 +12,11 @@ from backend.app.services.matching.parse import (
     PHONE_RE,
     URL_RE,
     _clean_text_artifacts,
-    _detect_section as _detect_section_tuple,
     _looks_like_person_name,
     redact_pii,
+)
+from backend.app.services.matching.parse import (
+    _detect_section as _detect_section_tuple,
 )
 from backend.app.services.matching.skills import categories_for, extract_skills
 
@@ -388,7 +390,8 @@ def _as_content(lines: list[str]) -> list[str]:
                 out.append(f"- {content}")
             continue
         if re.match(r"^\d+[.)]\s+", line):
-            out.append(f"- {re.sub(r'^\d+[.)]\s+', '', line)}")
+            cleaned = re.sub(r"^\d+[.)]\s+", "", line)
+            out.append(f"- {cleaned}")
             continue
         out.append(line)
     return out

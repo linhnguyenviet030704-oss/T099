@@ -1,4 +1,10 @@
-from evaluation.golden.select_cvs import load_metadata, load_vi_cv_ids
+from evaluation.golden.select_cvs import (
+    build_manifest,
+    choose_vi_jd_ids,
+    load_metadata,
+    load_vi_cv_ids,
+    pick_candidate,
+)
 
 
 def test_load_metadata_returns_432_rows_with_expected_columns():
@@ -17,8 +23,6 @@ def test_load_vi_cv_ids_returns_known_ids():
         assert cv_id in vi_ids
     assert 30 <= len(vi_ids) <= 40
 
-
-from evaluation.golden.select_cvs import pick_candidate
 
 _FAKE_ROWS = [
     {"cv_id": "G1-BE-01", "group_id": "1", "subgroup": "Backend Developer", "quality_profile": "polished"},
@@ -62,9 +66,6 @@ def test_pick_candidate_deterministic_lowest_cv_id():
     assert result["cv_id"] == "G1-BE-00"
 
 
-from evaluation.golden.select_cvs import choose_vi_jd_ids
-
-
 def test_choose_vi_jd_ids_spreads_across_groups_before_repeating():
     jd_group_ids = {
         "JD-01": 1, "JD-02": 1,   # group 1 has 2 eligible JDs
@@ -97,9 +98,6 @@ def test_choose_vi_jd_ids_never_exceeds_eligible_count():
     assert chosen == {"JD-01"}
 
 
-from evaluation.golden.select_cvs import build_manifest
-
-
 def _fake_jds():
     return [
         {
@@ -120,8 +118,6 @@ def _fake_jds():
 
 
 def test_build_manifest_produces_two_cvs_per_jd():
-    from evaluation.golden.select_cvs import load_metadata, load_vi_cv_ids
-
     manifest = build_manifest(_fake_jds(), load_metadata(), load_vi_cv_ids())
     assert len(manifest) == 2
     for entry in manifest:
@@ -136,8 +132,6 @@ def test_build_manifest_produces_two_cvs_per_jd():
 
 
 def test_build_manifest_no_duplicate_cv_ids_across_whole_pool():
-    from evaluation.golden.select_cvs import load_metadata, load_vi_cv_ids
-
     manifest = build_manifest(_fake_jds(), load_metadata(), load_vi_cv_ids())
     all_ids = [cv["cv_id"] for entry in manifest for cv in entry["cvs"]]
     assert len(all_ids) == len(set(all_ids))

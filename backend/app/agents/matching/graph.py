@@ -11,11 +11,10 @@ from backend.app.agents.matching.nodes.rerank import make_rerank_node
 from backend.app.agents.matching.nodes.respond import respond_node
 from backend.app.agents.matching.nodes.rrf import rrf_node
 from backend.app.agents.matching.nodes.skill import skill_node
-from backend.app.agents.state import AgentState
-from backend.app.services.matching.rerank import RerankFn
-
 from backend.app.agents.nodes.retrieval import kg_retrieval_node
 from backend.app.agents.nodes.router import router_node
+from backend.app.agents.state import AgentState
+from backend.app.services.matching.rerank import RerankFn
 
 RetrieveFn = Callable[[UUID], Awaitable[dict[str, Any]]]
 ExplainComplete = Callable[..., str]

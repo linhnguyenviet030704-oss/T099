@@ -1,5 +1,4 @@
 from backend.app.services.matching.skills import (
-    allowlist_token,
     coverage_score,
     expand_query,
     extract_skills,
@@ -9,7 +8,6 @@ from backend.app.services.matching.skills import (
     major_for_skills,
     normalize_skill,
     related_skills,
-    taxonomy_version,
 )
 
 

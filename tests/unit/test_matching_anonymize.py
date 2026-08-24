@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from backend.app.services.matching.anonymize import (
-    AnonymizationResult,
     anonymize_candidates,
     deanonymize_candidates,
     deanonymize_reasons,

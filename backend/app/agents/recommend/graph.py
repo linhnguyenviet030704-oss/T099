@@ -7,15 +7,14 @@ from langgraph.graph import END, StateGraph
 
 from backend.app.agents.matching.nodes.explain import make_explain_node
 from backend.app.agents.matching.nodes.rerank import make_rerank_node
+from backend.app.agents.nodes.retrieval import kg_retrieval_node
+from backend.app.agents.nodes.router import router_node
+from backend.app.agents.recommend.nodes.advice import make_advice_node
 from backend.app.agents.recommend.nodes.respond import respond_node
 from backend.app.agents.recommend.nodes.score import score_node
 from backend.app.agents.state import AgentState
 from backend.app.services.matching.explain import RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
 from backend.app.services.matching.rerank import RerankFn
-
-from backend.app.agents.nodes.retrieval import kg_retrieval_node
-from backend.app.agents.nodes.router import router_node
-from backend.app.agents.recommend.nodes.advice import make_advice_node
 
 RetrieveFn = Callable[[], Awaitable[dict[str, Any]]]
 ExplainComplete = Callable[..., str]

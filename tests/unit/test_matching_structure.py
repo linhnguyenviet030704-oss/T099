@@ -127,13 +127,13 @@ def test_metadata_senior_from_title_and_span():
 
 def test_parse_resume_bytes_fills_metadata_and_keeps_skills_in_body():
     raw = (
-        "Backend intern\n"
-        "SKILLS\n"
-        "Python FastAPI PostgreSQL\n"
-        "WORK EXPERIENCE\n"
-        "Intern | Startup | Jun 2024 - Aug 2024\n"
-        "- Built APIs in Python FastAPI\n"
-    ).encode()
+        b"Backend intern\n"
+        b"SKILLS\n"
+        b"Python FastAPI PostgreSQL\n"
+        b"WORK EXPERIENCE\n"
+        b"Intern | Startup | Jun 2024 - Aug 2024\n"
+        b"- Built APIs in Python FastAPI\n"
+    )
     parsed = parse_resume_bytes(raw, mime_type="text/plain")
     md = parsed["markdown"]
     meta = parsed["metadata"]

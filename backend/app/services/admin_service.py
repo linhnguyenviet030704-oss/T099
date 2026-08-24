@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from backend.app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
-from backend.app.models.domain import Profile
-from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.api.schemas.profile import (
     ProfileRoleUpdateRequest,
     RecruiterReviewRequest,
     RecruiterReviewResponse,
 )
+from backend.app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
+from backend.app.models.domain import Profile
+from backend.app.repositories.profile_repository import ProfileRepository
 
 
 class AdminService:

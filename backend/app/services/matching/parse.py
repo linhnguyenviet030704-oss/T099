@@ -345,15 +345,12 @@ def _normalize_markdown_sections(markdown: str) -> str:
     lines = markdown.splitlines()
     output: list[str] = []
 
-    previous_blank = True
-
     for raw_line in lines:
         line = raw_line.strip()
 
         if not line:
             if output and output[-1] != "":
                 output.append("")
-            previous_blank = True
             continue
 
         detected = _detect_section(line)
@@ -367,7 +364,6 @@ def _normalize_markdown_sections(markdown: str) -> str:
             output.append("")
             if remainder:
                 output.append(remainder)
-            previous_blank = True
             continue
 
         heading_match = MARKDOWN_HEADING_RE.match(line)
@@ -382,7 +378,6 @@ def _normalize_markdown_sections(markdown: str) -> str:
             output.append(
                 f"{'#' * level} {title.strip()}"
             )
-            previous_blank = False
             continue
 
         # Clean weird bullet symbols while preserving Markdown bullets.
@@ -392,11 +387,9 @@ def _normalize_markdown_sections(markdown: str) -> str:
             if content:
                 output.append(f"- {content}")
 
-            previous_blank = False
             continue
 
         output.append(line)
-        previous_blank = False
 
     result = "\n".join(output)
 

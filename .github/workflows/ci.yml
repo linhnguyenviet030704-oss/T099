@@ -1,4 +1,4 @@
-name: CI
+name: CI Pipeline
 
 on:
   push:
@@ -7,26 +7,61 @@ on:
     branches: [main]
 
 jobs:
-  lint-and-test:
+  backend-ci:
+    name: Backend Lint & Test
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Lint with ruff
-        run: ruff check backend/ agent/ tests/
+        run: ruff check backend/ tests/
 
-      - name: Run tests
+      - name: Run Pytest suite
         run: pytest tests/ -v --tb=short
         env:
           APP_ENV: test
-          OPENAI_API_KEY: test-key
+          SUPABASE_JWT_SECRET: test-jwt-secret-key-must-be-long-enough-32-chars
+          QWEN_API_KEY: test-key
+
+  frontend-ci:
+    name: Frontend Typecheck & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install Frontend dependencies
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck TypeScript
+        working-directory: ./frontend
+        run: pnpm lint
+
+      - name: Build Frontend bundle
+        working-directory: ./frontend
+        run: pnpm build
+        env:
+          VITE_API_BASE_URL: https://recruitment-portal-backend.onrender.com

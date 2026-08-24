@@ -58,3 +58,48 @@ def test_guess_subgroup_raises_on_unknown_group():
     import pytest
     with pytest.raises(ValueError):
         guess_subgroup("anything", 999, _FAKE_GROUP1_ROWS)
+
+
+from evaluation.golden.select_jds import (
+    METADATA_CSV_PATH,
+    VIETJOBS_CSV_PATH,
+    load_metadata_rows,
+    select_jds,
+)
+
+
+def test_select_jds_produces_20_jds_matching_quota():
+    from backend.app.services.matching.skills import load_taxonomy_index
+
+    metadata_rows = load_metadata_rows()
+    index = load_taxonomy_index()
+    jds = select_jds(VIETJOBS_CSV_PATH, metadata_rows, index, n=20)
+
+    assert len(jds) == 20
+    assert [jd["jd_id"] for jd in jds] == [f"JD-{i:02d}" for i in range(1, 21)]
+
+    group_counts: dict[int, int] = {}
+    for jd in jds:
+        group_counts[jd["group_id"]] = group_counts.get(jd["group_id"], 0) + 1
+    for g in (1, 2, 3, 4, 5):
+        assert group_counts.get(g) == 2, f"group {g}: expected 2 JDs, got {group_counts.get(g)}"
+    for g in range(6, 16):
+        assert group_counts.get(g) == 1, f"group {g}: expected 1 JD, got {group_counts.get(g)}"
+
+    for jd in jds:
+        assert jd["cv_subgroup_hint"]
+        assert len(jd["taxonomy_skills"]) >= 1
+        assert len(jd["description"]) >= 250
+
+
+def test_select_jds_group1_picks_distinct_subgroups_when_possible():
+    from backend.app.services.matching.skills import load_taxonomy_index
+
+    metadata_rows = load_metadata_rows()
+    index = load_taxonomy_index()
+    jds = select_jds(VIETJOBS_CSV_PATH, metadata_rows, index, n=20)
+
+    group1_jds = [jd for jd in jds if jd["group_id"] == 1]
+    assert len(group1_jds) == 2
+    subgroups = {jd["cv_subgroup_hint"] for jd in group1_jds}
+    assert len(subgroups) == 2, f"expected 2 distinct subgroups, got {subgroups}"

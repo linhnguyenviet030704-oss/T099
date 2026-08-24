@@ -32,6 +32,92 @@ EXCLUDE_TITLE_KEYWORDS = [
     "trợ lý", "kế hoạch", "pmo", "điều hành", "thư ký", "hỗ trợ khách hàng",
 ]
 
+# Inlined from the (now-deleted, was untracked/local-only) scripts/
+# build_vietjobs_it_seed.py -- title-keyword classifier for the same 15 IT
+# groups data_find/generated_cv/metadata.csv uses. Kept here as the single
+# source of truth since there's no longer a shared script to import from.
+GROUPS = [
+    (1, "Software Development", [
+        "frontend", "front-end", "backend", "back-end", "full-stack", "fullstack",
+        "full stack", "mobile developer", "ios developer", "android developer",
+        "game developer", "desktop application", "web developer",
+        "flutter developer", "react developer", "node developer", "java developer",
+        ".net developer", "php developer", "lập trình viên", "software developer",
+        "software engineer", "unity developer", "developer",
+    ], [], 12),
+    (2, "DevOps/Infrastructure", [
+        "devops", "site reliability", "sre", "release engineer", "platform engineer",
+    ], [], 8),
+    (3, "System Administration", [
+        "network administrator", "server administrator", "it support", "helpdesk",
+        "help desk", "it operations", "system administrator", "quản trị hệ thống",
+        "quản trị mạng", "nhân viên it", "it staff", "kỹ thuật mạng máy tính",
+    ], ["devops", "developer"], 7),
+    (4, "Cybersecurity", [
+        "security analyst", "penetration tester", "security engineer", "soc analyst",
+        "incident response", "malware analyst", "grc", "an toàn thông tin",
+        "bảo mật", "pentest", "redteam", "red team",
+    ], [], 8),
+    (5, "Data", [
+        "data analyst", "data engineer", "data scientist", "database administrator",
+        " dba ", "bi developer", "business intelligence", "phân tích dữ liệu",
+        "kỹ sư dữ liệu", "nhà phân tích dữ liệu",
+    ], [], 7),
+    (6, "AI/ML", [
+        "machine learning", "ai engineer", "ai leader", "ai research", "nlp engineer",
+        "computer vision", "mlops", "trí tuệ nhân tạo", "ml engineer", "kỹ sư ai",
+        "kỹ sư trí tuệ nhân tạo",
+    ], ["camera ai", "kinh doanh"], 7),
+    (7, "QA/Testing", [
+        "tester", " qa ", "qa engineer", "automation test", "performance tester",
+        "kiểm thử", "quality assurance",
+    ], [], 6),
+    (8, "Project/Product Management", [
+        "project manager", "product manager", "scrum master", "product owner",
+        "business analyst", "quản lý dự án", "phân tích nghiệp vụ",
+        "nhà phân tích kinh doanh",
+    ], ["marketing", "bán hàng", "sales"], 6),
+    (9, "Architecture", [
+        "solution architect", "software architect", "enterprise architect",
+        "cloud architect", "kiến trúc sư giải pháp", "kiến trúc sư hệ thống",
+        "kiến trúc sư phần mềm", "kiến trúc sư web",
+    ], [], 5),
+    (10, "Networking", [
+        "network engineer", "network security engineer", "telecom engineer",
+        "voip engineer", "kỹ sư mạng",
+    ], [], 5),
+    (11, "Cloud Computing", [
+        "cloud engineer", "cloud architect", "cloud consultant", "cloud security",
+        "aws ", "azure", "đám mây",
+    ], ["marketing"], 3),
+    (12, "Blockchain & Web3", [
+        "blockchain", "smart contract", "solidity", "web3",
+    ], ["marketing", "content", "video editor", "affiliate", "giám đốc", "giảng viên"], 2),
+    (13, "UI/UX & Design", [
+        "ui/ux", "ui designer", "ux designer", "ux researcher", "interaction designer",
+        "product designer",
+    ], [], 6),
+    (14, "ERP/CRM", [
+        "sap consultant", "sap fico", "sap fi", "sap mm", "sap abap", "salesforce",
+        "odoo", "oracle erp", "erp consultant",
+    ], [], 6),
+    (15, "IoT & Embedded", [
+        "embedded", "firmware", "iot ", "robotics engineer", "kỹ sư nhúng",
+        "lập trình nhúng", "hệ thống nhúng", "fpga", "vi mạch",
+    ], [], 7),
+]
+
+
+def classify(title: str) -> list[int]:
+    t = f" {title.lower()} "
+    hits = []
+    for gid, _name, includes, excludes, _quota in GROUPS:
+        if any(ex in t for ex in excludes):
+            continue
+        if any(inc in t for inc in includes):
+            hits.append(gid)
+    return hits
+
 
 def compute_group_quota(group_counts: dict[int, int], total: int = 20) -> dict[int, int]:
     """Largest-remainder apportionment of `total` seats over `group_counts`,
@@ -74,15 +160,6 @@ def guess_subgroup(jd_title: str, group_id: int, metadata_rows: list[dict]) -> s
     return counts.most_common(1)[0][0]
 
 
-def _classify_module():
-    scripts_dir = str(ROOT / "scripts")
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-    import build_vietjobs_it_seed as module
-
-    return module
-
-
 def select_jds(
     vietjobs_csv_path: Path,
     metadata_rows: list[dict],
@@ -90,9 +167,6 @@ def select_jds(
     n: int = 20,
 ) -> list[dict]:
     from backend.app.services.matching.skills import extract_skills
-
-    seed_module = _classify_module()
-    classify = seed_module.classify
 
     group_counts = Counter(int(r["group_id"]) for r in metadata_rows)
     quota = compute_group_quota(dict(group_counts), total=n)
@@ -139,7 +213,10 @@ def select_jds(
                 "_score": len(matched) * 100_000 + len(desc),
             }
             for g in hits:
-                candidates_by_group[g].append(candidate)
+                # A row can classify into multiple groups; each group's list
+                # needs its own dict copy since the per-group loop below
+                # mutates it (pops _score/_matched_taxonomy).
+                candidates_by_group[g].append(dict(candidate))
 
     jds: list[dict] = []
     for group_id in sorted(quota):

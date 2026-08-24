@@ -60,3 +60,38 @@ def test_pick_candidate_deterministic_lowest_cv_id():
     ]
     result = pick_candidate(rows, 1, "Backend Developer", ["polished"], set())
     assert result["cv_id"] == "G1-BE-00"
+
+
+from evaluation.golden.select_cvs import choose_vi_jd_ids
+
+
+def test_choose_vi_jd_ids_spreads_across_groups_before_repeating():
+    jd_group_ids = {
+        "JD-01": 1, "JD-02": 1,   # group 1 has 2 eligible JDs
+        "JD-03": 2,               # group 2 has 1 eligible JD
+        "JD-04": 3,               # group 3 has 1 eligible JD
+        "JD-05": 4,               # not eligible (no vi candidate)
+    }
+    jd_candidate_vi_ids = {
+        "JD-01": {"G1-BE-01"},
+        "JD-02": {"G1-FE-01"},
+        "JD-03": {"G2-DO-01"},
+        "JD-04": {"G3-NA-01"},
+        "JD-05": set(),
+    }
+    vi_cv_ids = {"G1-BE-01", "G1-FE-01", "G2-DO-01", "G3-NA-01"}
+
+    chosen = choose_vi_jd_ids(jd_group_ids, jd_candidate_vi_ids, vi_cv_ids, target_max=3)
+
+    assert len(chosen) == 3
+    chosen_groups = {jd_group_ids[jd_id] for jd_id in chosen}
+    assert chosen_groups == {1, 2, 3}, "should prefer covering distinct groups first"
+
+
+def test_choose_vi_jd_ids_never_exceeds_eligible_count():
+    jd_group_ids = {"JD-01": 1}
+    jd_candidate_vi_ids = {"JD-01": {"G1-BE-01"}}
+    vi_cv_ids = {"G1-BE-01"}
+
+    chosen = choose_vi_jd_ids(jd_group_ids, jd_candidate_vi_ids, vi_cv_ids, target_max=10)
+    assert chosen == {"JD-01"}

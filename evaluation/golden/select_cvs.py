@@ -48,17 +48,45 @@ def pick_candidate(
     subgroup: str,
     quality_preference: list[str],
     exclude_ids: set[str],
+    *,
+    prefer_ids: set[str] | None = None,
 ) -> dict | None:
     """Pick a CV row for (group_id, subgroup) preferring, in order, each
     quality_profile in `quality_preference`, first within `subgroup`, then
     (for each quality in turn) anywhere else in the same group. Deterministic:
-    lowest cv_id wins ties. Returns None if nothing matches at all."""
+    lowest cv_id wins ties. When `prefer_ids` is given, a row whose cv_id is
+    in that set wins over any row that isn't, within each quality/subgroup
+    tier (still lowest cv_id among the preferred rows) -- used to steer
+    selection toward a CV that has a Vietnamese translation available.
+    Returns None if nothing matches at all."""
     group_rows = [r for r in metadata_rows if int(r["group_id"]) == group_id and r["cv_id"] not in exclude_ids]
 
     def best(rows: list[dict]) -> dict | None:
         if not rows:
             return None
         return min(rows, key=lambda r: r["cv_id"])
+
+    if prefer_ids:
+        # Search every quality tier (same-subgroup first, then
+        # other-subgroup) for a preferred row before falling back to the
+        # ordinary selection -- a preferred row in a *later* quality tier
+        # must still win over a non-preferred row in an *earlier* tier.
+        for quality in quality_preference:
+            same_subgroup_preferred = [
+                r
+                for r in group_rows
+                if r["subgroup"] == subgroup and r["quality_profile"] == quality and r["cv_id"] in prefer_ids
+            ]
+            found = best(same_subgroup_preferred)
+            if found is not None:
+                return found
+        for quality in quality_preference:
+            other_preferred = [
+                r for r in group_rows if r["quality_profile"] == quality and r["cv_id"] in prefer_ids
+            ]
+            found = best(other_preferred)
+            if found is not None:
+                return found
 
     for quality in quality_preference:
         same_subgroup = [r for r in group_rows if r["subgroup"] == subgroup and r["quality_profile"] == quality]
@@ -168,32 +196,64 @@ def _build_cv_entry(row: dict, jd: dict, variant: str, use_vi: bool) -> dict:
     }
 
 
+def _vi_options(jd: dict, metadata_rows: list[dict], vi_cv_ids: set[str]) -> tuple[set[str], set[str]]:
+    """cv_ids in jd's own group+subgroup that (a) are polished and have a VI
+    translation, (b) are sparse/cross_domain and have a VI translation --
+    i.e. what pick_candidate could plausibly land on before any exclusion."""
+    group_rows = [
+        r
+        for r in metadata_rows
+        if int(r["group_id"]) == jd["group_id"] and r["subgroup"] == jd["cv_subgroup_hint"]
+    ]
+    a_opts = {r["cv_id"] for r in group_rows if r["quality_profile"] == "polished" and r["cv_id"] in vi_cv_ids}
+    b_opts = {
+        r["cv_id"]
+        for r in group_rows
+        if r["quality_profile"] in ("sparse", "cross_domain") and r["cv_id"] in vi_cv_ids
+    }
+    return a_opts, b_opts
+
+
 def build_manifest(jds: list[dict], metadata_rows: list[dict], vi_cv_ids: set[str]) -> list[dict]:
-    # First pass: pick variant a/b cv rows for every JD (English identity;
-    # language is decided in the second pass).
+    # Decide which JDs *could* get a Vietnamese variant (their own
+    # subgroup has >=1 CV with a VI translation at the needed quality),
+    # then pick a spread-across-groups subset of those -- before picking
+    # any actual candidates, so the pick itself can be steered toward the
+    # VI-covered row instead of leaving it to chance.
+    jd_group_ids = {jd["jd_id"]: jd["group_id"] for jd in jds}
+    jd_vi_options = {jd["jd_id"]: _vi_options(jd, metadata_rows, vi_cv_ids) for jd in jds}
+    jd_candidate_vi_ids = {jd_id: (a | b) for jd_id, (a, b) in jd_vi_options.items()}
+    vi_jd_ids = choose_vi_jd_ids(jd_group_ids, jd_candidate_vi_ids, vi_cv_ids, target_max=10)
+
     picks: dict[str, dict[str, dict]] = {}
     used_ids: set[str] = set()
     for jd in jds:
-        row_a = pick_candidate(metadata_rows, jd["group_id"], jd["cv_subgroup_hint"], ["polished"], used_ids)
+        jd_id = jd["jd_id"]
+        a_opts, b_opts = jd_vi_options[jd_id]
+        want_vi = jd_id in vi_jd_ids
+        # Prefer steering variant b to VI first (keeps "a" as the plain
+        # high-match anchor); fall back to steering "a" only if "b" has no
+        # VI-covered candidate in this subgroup at all.
+        prefer_b_ids = b_opts if (want_vi and b_opts) else None
+        prefer_a_ids = a_opts if (want_vi and not prefer_b_ids and a_opts) else None
+
+        row_a = pick_candidate(
+            metadata_rows, jd["group_id"], jd["cv_subgroup_hint"], ["polished"], used_ids,
+            prefer_ids=prefer_a_ids,
+        )
         if row_a is None:
-            raise RuntimeError(f"{jd['jd_id']}: no polished CV available in group {jd['group_id']}")
+            raise RuntimeError(f"{jd_id}: no polished CV available in group {jd['group_id']}")
         used_ids.add(row_a["cv_id"])
 
         row_b = pick_candidate(
-            metadata_rows, jd["group_id"], jd["cv_subgroup_hint"], ["sparse", "cross_domain"], used_ids
+            metadata_rows, jd["group_id"], jd["cv_subgroup_hint"], ["sparse", "cross_domain"], used_ids,
+            prefer_ids=prefer_b_ids,
         )
         if row_b is None:
-            raise RuntimeError(f"{jd['jd_id']}: no sparse/cross_domain CV available in group {jd['group_id']}")
+            raise RuntimeError(f"{jd_id}: no sparse/cross_domain CV available in group {jd['group_id']}")
         used_ids.add(row_b["cv_id"])
 
-        picks[jd["jd_id"]] = {"a": row_a, "b": row_b}
-
-    # Decide which JDs get a Vietnamese variant.
-    jd_group_ids = {jd["jd_id"]: jd["group_id"] for jd in jds}
-    jd_candidate_vi_ids = {
-        jd_id: {picks[jd_id]["a"]["cv_id"], picks[jd_id]["b"]["cv_id"]} for jd_id in picks
-    }
-    vi_jd_ids = choose_vi_jd_ids(jd_group_ids, jd_candidate_vi_ids, vi_cv_ids, target_max=10)
+        picks[jd_id] = {"a": row_a, "b": row_b}
 
     manifest: list[dict] = []
     for jd in jds:

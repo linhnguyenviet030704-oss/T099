@@ -26,3 +26,35 @@ def test_compute_group_quota_rejects_total_below_group_count():
     import pytest
     with pytest.raises(ValueError):
         compute_group_quota({1: 10, 2: 10, 3: 10}, total=2)
+
+
+from evaluation.golden.select_jds import guess_subgroup
+
+_FAKE_GROUP1_ROWS = [
+    {"group_id": "1", "subgroup": "Backend Developer", "target_role": "Backend Engineer"},
+    {"group_id": "1", "subgroup": "Backend Developer", "target_role": ".NET Backend Developer"},
+    {"group_id": "1", "subgroup": "Frontend Developer", "target_role": "Frontend Engineer"},
+    {"group_id": "1", "subgroup": "Frontend Developer", "target_role": "React Developer"},
+    {"group_id": "1", "subgroup": "Frontend Developer", "target_role": "React Developer"},
+]
+
+
+def test_guess_subgroup_matches_subgroup_name_in_title():
+    result = guess_subgroup("Senior Backend Developer (Python/FastAPI)", 1, _FAKE_GROUP1_ROWS)
+    assert result == "Backend Developer"
+
+
+def test_guess_subgroup_matches_target_role_when_subgroup_name_absent():
+    result = guess_subgroup("React Developer - 2 years experience", 1, _FAKE_GROUP1_ROWS)
+    assert result == "Frontend Developer"
+
+
+def test_guess_subgroup_falls_back_to_largest_subgroup():
+    result = guess_subgroup("IT Generalist, mixed duties", 1, _FAKE_GROUP1_ROWS)
+    assert result == "Frontend Developer"  # 3 rows vs 2 for Backend Developer
+
+
+def test_guess_subgroup_raises_on_unknown_group():
+    import pytest
+    with pytest.raises(ValueError):
+        guess_subgroup("anything", 999, _FAKE_GROUP1_ROWS)

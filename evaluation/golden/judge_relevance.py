@@ -1,9 +1,10 @@
-"""LLM-as-judge relevance grading for the 20-CV x 10-JD pool -> qrels.json.
+"""LLM-as-judge relevance grading for the 40-CV x 20-JD pool -> qrels.json.
 
 Grade scale: 0 = not relevant, 1 = partially relevant (adjacent skills/role),
-2 = strongly relevant. The 20 "own JD" pairs (each CV's target_jd_id) already
-have a ground-truth coverage_score from generate_cvs.py's verify loop and are
-used only as a calibration sanity check, not fed into the judge prompt.
+2 = strongly relevant. The 40 "own JD" pairs (each CV's target_jd_id) already
+have a coverage_score computed against the CV's real, pre-existing text (see
+select_cvs.py) and are used only as a calibration sanity check, not fed into
+the judge prompt.
 
 Usage: python -m evaluation.golden.judge_relevance
 Writes evaluation/golden/qrels.json
@@ -14,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -78,17 +80,32 @@ def build_qrels() -> dict:
         for cv in entry["cvs"]:
             all_cvs.append(cv)
 
-    qrels: dict[str, dict[str, dict]] = {}
+    jobs = []
     for jd in jds:
-        jd_id = jd["jd_id"]
-        qrels[jd_id] = {}
         for cv in all_cvs:
-            cv_id = cv["cv_id"]
-            cv_body = load_cv_body(cv["md_path"])
-            cache_key = f"judge_rel|{jd_id}|{cv_id}"
-            grade, reason = judge_pair(jd, cv_body, cache_key=cache_key)
-            qrels[jd_id][cv_id] = {"grade": grade, "reason": reason, "is_own_jd": cv["target_jd_id"] == jd_id}
-        print(f"{jd_id}: graded {len(qrels[jd_id])} CVs")
+            jobs.append((jd, cv))
+
+    qrels: dict[str, dict[str, dict]] = {jd["jd_id"]: {} for jd in jds}
+
+    def run_one(job: tuple[dict, dict]) -> tuple[str, str, int, str, bool]:
+        jd, cv = job
+        cv_body = load_cv_body(cv["md_path"])
+        cache_key = f"judge_rel|{jd['jd_id']}|{cv['cv_id']}"
+        grade, reason = judge_pair(jd, cv_body, cache_key=cache_key)
+        return jd["jd_id"], cv["cv_id"], grade, reason, cv["target_jd_id"] == jd["jd_id"]
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(run_one, job) for job in jobs]
+        for future in as_completed(futures):
+            jd_id, cv_id, grade, reason, is_own_jd = future.result()
+            qrels[jd_id][cv_id] = {"grade": grade, "reason": reason, "is_own_jd": is_own_jd}
+            completed += 1
+            if completed % 50 == 0:
+                print(f"  graded {completed}/{len(jobs)} pairs")
+
+    for jd in jds:
+        print(f"{jd['jd_id']}: graded {len(qrels[jd['jd_id']])} CVs")
 
     return qrels
 

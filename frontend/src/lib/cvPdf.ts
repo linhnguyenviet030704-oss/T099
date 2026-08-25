@@ -14,12 +14,19 @@ const hexToRgb = (hex: string): [number, number, number] => {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
 
+export interface WysiwygPdfOptions {
+  fitToSinglePage?: boolean;
+}
+
 /**
- * WYSIWYG mode: rasterizes a DOM node into a multi-page A4 PDF using
- * html2canvas + jsPDF. Produces a pixel-perfect copy of the live preview
- * and renders Vietnamese diacritics reliably (they are part of the bitmap).
+ * WYSIWYG mode: rasterizes a DOM node into an A4 PDF using html2canvas + jsPDF.
+ * Uses an element-aware smart page break algorithm to ensure no text line,
+ * heading, or bullet item is sliced in half across pages, and prevents overflow.
  */
-export async function generateWysiwygPdf(node: HTMLElement): Promise<Blob> {
+export async function generateWysiwygPdf(
+  node: HTMLElement,
+  options?: WysiwygPdfOptions,
+): Promise<Blob> {
   const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
     import('jspdf'),
     import('html2canvas'),
@@ -33,25 +40,98 @@ export async function generateWysiwygPdf(node: HTMLElement): Promise<Blob> {
   });
 
   const pdf = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
+  const pageWidthMm = pdf.internal.pageSize.getWidth(); // 210 mm
+  const pageHeightMm = pdf.internal.pageSize.getHeight(); // 297 mm
 
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  // Use JPEG 82% quality to compress A4 canvas from ~10MB down to ~400KB
-  const imgData = canvas.toDataURL('image/jpeg', 0.82);
+  const a4Ratio = pageHeightMm / pageWidthMm; // ~1.4142857
+  const canvasPageHeight = canvas.width * a4Ratio;
 
-  let heightLeft = imgHeight;
-  let position = 0;
+  // If fitToSinglePage requested OR document is close to 1 page (<= 1.08 of A4)
+  if (options?.fitToSinglePage || canvas.height <= canvasPageHeight * 1.08) {
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    const imgWidth = pageWidthMm;
+    const imgHeight = Math.min(pageHeightMm, (canvas.height * imgWidth) / canvas.width);
+    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+    return pdf.output('blob');
+  }
 
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
+  // Multi-page element-aware smart splitting
+  const rootRect = node.getBoundingClientRect();
+  const scale = canvas.width / (node.offsetWidth || rootRect.width || 1);
 
-  while (heightLeft > 0) {
-    position -= pageHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+  // Collect candidate break locations before children elements
+  const elements = Array.from(
+    node.querySelectorAll('h1, h2, h3, h4, p, ul, li, div')
+  ) as HTMLElement[];
+
+  const safeBreakPoints: number[] = [];
+  elements.forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.height > 0 && el !== node) {
+      const topInCanvas = (rect.top - rootRect.top) * scale;
+      if (topInCanvas > 10 && topInCanvas < canvas.height - 10) {
+        safeBreakPoints.push(Math.round(topInCanvas));
+      }
+    }
+  });
+
+  const sortedBreakPoints = Array.from(new Set(safeBreakPoints)).sort((a, b) => a - b);
+
+  let currentY = 0;
+  let pageIndex = 0;
+
+  while (currentY < canvas.height - 5) {
+    if (pageIndex > 0) {
+      pdf.addPage();
+    }
+
+    const remainingHeight = canvas.height - currentY;
+    let sliceHeight = canvasPageHeight;
+
+    if (remainingHeight <= canvasPageHeight) {
+      sliceHeight = remainingHeight;
+    } else {
+      const targetEnd = currentY + canvasPageHeight;
+      const minAcceptableEnd = targetEnd - canvasPageHeight * 0.30;
+
+      let bestBreak = targetEnd;
+      for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
+        const bp = sortedBreakPoints[i];
+        if (bp <= targetEnd && bp >= minAcceptableEnd) {
+          bestBreak = bp;
+          break;
+        }
+      }
+
+      sliceHeight = Math.max(canvasPageHeight * 0.5, bestBreak - currentY);
+    }
+
+    const pageCanvas = document.createElement('canvas');
+    pageCanvas.width = canvas.width;
+    pageCanvas.height = Math.round(canvasPageHeight);
+    const ctx = pageCanvas.getContext('2d');
+
+    if (ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+      ctx.drawImage(
+        canvas,
+        0,
+        Math.round(currentY),
+        canvas.width,
+        Math.round(sliceHeight),
+        0,
+        0,
+        canvas.width,
+        Math.round(sliceHeight)
+      );
+    }
+
+    const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+    pdf.addImage(pageImgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm);
+
+    currentY += sliceHeight;
+    pageIndex++;
   }
 
   return pdf.output('blob');

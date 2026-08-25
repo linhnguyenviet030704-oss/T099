@@ -71,7 +71,7 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
     CV_TEMPLATES.find((t) => t.id === templateId)?.accent || '#10b981';
   const blob =
     options.mode === 'wysiwyg'
-      ? await generateWysiwygPdf(docNode)
+      ? await generateWysiwygPdf(docNode, { fitToSinglePage: options.fitToSinglePage })
       : await generateTextPdf(header, lines, accent, docNode, lang, customTitles);
 
 

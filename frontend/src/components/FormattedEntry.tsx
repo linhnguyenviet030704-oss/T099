@@ -30,12 +30,15 @@ export const FormattedEntry: React.FC<FormattedEntryProps> = ({
   if (parsed.length === 1 && parsed[0].level === 0 && !parsed[0].isBullet) {
     return (
       <div
+        data-entry-item="true"
         className={className}
         style={{
           fontSize: dense ? 11 : 12,
           color: textColor || '#374151',
           lineHeight: 1.5,
           marginBottom: dense ? 4 : 8,
+          breakInside: 'avoid',
+          pageBreakInside: 'avoid',
           ...style,
         }}
       >
@@ -46,9 +49,12 @@ export const FormattedEntry: React.FC<FormattedEntryProps> = ({
 
   return (
     <div
+      data-entry-item="true"
       className={className}
       style={{
         marginBottom: dense ? 5 : 8,
+        breakInside: 'avoid',
+        pageBreakInside: 'avoid',
         ...style,
       }}
     >

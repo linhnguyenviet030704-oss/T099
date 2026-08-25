@@ -7,6 +7,7 @@ export interface ExportOptions {
   title: string;
   saveEditedToSource: boolean;
   addNewToSource: boolean;
+  fitToSinglePage?: boolean;
 }
 
 interface CvExportModalProps {
@@ -35,6 +36,7 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
   const isEn = lang === 'en';
   const [mode, setMode] = useState<CvPdfMode>('wysiwyg');
   const [title, setTitle] = useState('');
+  const [fitToSinglePage, setFitToSinglePage] = useState(false);
   const [saveEditedToSource, setSaveEditedToSource] = useState(editedCount > 0);
   const [addNewToSource, setAddNewToSource] = useState(newCount > 0);
   const [busy, setBusy] = useState(false);
@@ -62,6 +64,7 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
         title: title.trim() || defaultTitle,
         saveEditedToSource,
         addNewToSource,
+        fitToSinglePage,
       });
     } catch (err: any) {
       setError(err?.message || (isEn ? 'Failed to create CV.' : 'Không thể tạo CV.'));
@@ -152,6 +155,28 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
             placeholder={defaultTitle}
             className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
           />
+        </div>
+
+        {/* Fit to single page option */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl">
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={fitToSinglePage}
+              onChange={(e) => setFitToSinglePage(e.target.checked)}
+              className="mt-1 accent-indigo-600 h-4 w-4 rounded"
+            />
+            <div>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {isEn ? 'Auto-fit neatly to 1 page (A4)' : 'Tự động co giãn vừa trọn 1 trang A4'}
+              </span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                {isEn
+                  ? 'Optimizes dimensions so the entire CV fits onto a single page without breaking or spilling.'
+                  : 'Tự động căn chỉnh kích thước để toàn bộ CV nằm vừa trong 1 trang duy nhất, không bị tràn viền hoặc ngắt sang trang 2.'}
+              </p>
+            </div>
+          </label>
         </div>
 
         {/* Write-back prompts */}

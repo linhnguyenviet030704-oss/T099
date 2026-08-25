@@ -8,6 +8,7 @@ import {
   SECTION_ORDER,
 } from '../../lib/cvTemplates';
 import { LineType } from '../../lib/profileLines';
+import { FormattedEntry } from '../FormattedEntry';
 
 const A4: React.CSSProperties = {
   width: '210mm',
@@ -84,34 +85,21 @@ const ModernTemplate: React.FC<TemplateProps> = ({
   );
 };
 
-const parseItems = (value: string): string[] => {
-  if (!value) return [];
-  const rawLines = value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-  if (rawLines.length === 0) return [];
-  return rawLines.map((s) => s.replace(/^[-*•\s]+/, '').trim()).filter(Boolean);
-};
-
-const Entry: React.FC<{ line: CvLine; dense?: boolean }> = ({ line, dense }) => {
-  const items = parseItems(line.value);
-  if (items.length <= 1) {
-    return (
-      <div style={{ marginBottom: dense ? 6 : 10 }}>
-        <p style={{ fontSize: dense ? 11 : 12, color: '#374151', lineHeight: 1.5, margin: 0, whiteSpace: 'pre-line' }}>
-          {line.value}
-        </p>
-      </div>
-    );
-  }
+const Entry: React.FC<{
+  line: CvLine;
+  dense?: boolean;
+  textColor?: string;
+  accentColor?: string;
+  bulletColor?: string;
+}> = ({ line, dense, textColor, accentColor, bulletColor }) => {
   return (
-    <div style={{ marginBottom: dense ? 6 : 10 }}>
-      <ul style={{ margin: 0, paddingLeft: 18, listStyleType: 'disc' }}>
-        {items.map((item, idx) => (
-          <li key={idx} style={{ fontSize: dense ? 11 : 12, color: '#374151', lineHeight: 1.5, marginBottom: 3 }}>
-            {item}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <FormattedEntry
+      value={line.value}
+      dense={dense}
+      textColor={textColor}
+      accentColor={accentColor}
+      bulletColor={bulletColor}
+    />
   );
 };
 
@@ -172,9 +160,13 @@ const SidebarTemplate: React.FC<TemplateProps> = ({
           <div key={s.type} style={{ marginBottom: 16 }}>
             <h2 style={sideHeading}>{s.label}</h2>
             {s.lines.map((line) => (
-              <div key={line.key} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11.5, lineHeight: 1.45, whiteSpace: 'pre-line' }}>{line.value}</div>
-              </div>
+              <Entry
+                key={line.key}
+                line={line}
+                dense
+                textColor="#ffffff"
+                bulletColor="rgba(255,255,255,0.75)"
+              />
             ))}
           </div>
         ))}
@@ -256,11 +248,7 @@ const ClassicTemplate: React.FC<TemplateProps> = ({
               {s.label}
             </h2>
             {s.lines.map((line) => (
-              <div key={line.key} style={{ marginBottom: 12 }}>
-                <p style={{ fontSize: 11.5, color: '#374151', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-line' }}>
-                  {line.value}
-                </p>
-              </div>
+              <Entry key={line.key} line={line} />
             ))}
           </div>
         ))}

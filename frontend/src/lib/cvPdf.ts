@@ -1,6 +1,7 @@
 import { CvHeader, CvLine } from './cv';
 import { LineType } from './profileLines';
 import { SECTION_ORDER, sectionLabel } from './cvTemplates';
+import { parseIndentedEntry } from './entryFormat';
 
 const hexToRgb = (hex: string): [number, number, number] => {
   const m = hex.replace('#', '');
@@ -161,23 +162,35 @@ export async function generateTextPdf(
 
     for (const line of inType) {
       const rawText = line.value || '';
-      const items = rawText
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const parsedItems = parseIndentedEntry(rawText);
 
-      for (const itemStr of items) {
+      for (const item of parsedItems) {
         ensureSpace(12);
-        pdf.setFont(fontName, 'normal');
-        pdf.setFontSize(10);
-        pdf.setTextColor(55, 65, 81);
 
-        const cleanItem = itemStr.replace(/^[-*•\s]+/, '').trim();
-        const displayStr = items.length > 1 ? `•  ${cleanItem}` : itemStr;
-        const valueLines = pdf.splitTextToSize(displayStr, contentWidth - 4);
-        ensureSpace(valueLines.length * 5);
-        pdf.text(valueLines, marginX + (items.length > 1 ? 2 : 0), y);
-        y += valueLines.length * 5 + 3;
+        if (item.level === 0) {
+          pdf.setFont(fontName, item.isHeader ? 'bold' : 'normal');
+          pdf.setFontSize(item.isHeader ? 10.5 : 10);
+          pdf.setTextColor(17, 24, 39);
+
+          const valueLines = pdf.splitTextToSize(item.text, contentWidth);
+          ensureSpace(valueLines.length * 5);
+          pdf.text(valueLines, marginX, y);
+          y += valueLines.length * 5 + (item.isHeader ? 2 : 3);
+        } else {
+          pdf.setFont(fontName, 'normal');
+          pdf.setFontSize(item.level > 2 ? 9.5 : 10);
+          pdf.setTextColor(55, 65, 81);
+
+          const bulletChar = item.level === 2 ? '◦' : item.level >= 3 ? '▪' : '•';
+          const indentOffset = (item.level - 1) * 6 + 4;
+          const availWidth = contentWidth - indentOffset - 4;
+          const displayStr = item.isBullet ? `${bulletChar}  ${item.text}` : item.text;
+
+          const valueLines = pdf.splitTextToSize(displayStr, availWidth);
+          ensureSpace(valueLines.length * 5);
+          pdf.text(valueLines, marginX + indentOffset, y);
+          y += valueLines.length * 5 + 2;
+        }
       }
       y += 3;
     }

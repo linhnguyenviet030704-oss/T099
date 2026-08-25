@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Plus, Trash2, Save, AlertCircle, X, Copy } from 'lucide-react';
 import {
   LineDraft,
@@ -6,6 +6,9 @@ import {
   createEmptyDraft,
   validateDraft,
 } from '../lib/profileLines';
+import { handleTextareaTabKey } from '../lib/entryFormat';
+import EntryIndentToolbar from './EntryIndentToolbar';
+import EntryLivePreview from './EntryLivePreview';
 
 interface BatchLineFormProps {
   onSubmit: (drafts: LineDraft[]) => Promise<void>;
@@ -35,6 +38,8 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
+
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   const updateDraft = (key: string, patch: Partial<LineDraft>) => {
     setDrafts((prev) =>
@@ -77,13 +82,13 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
     });
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      setGlobalError('Một số dòng chưa hợp lệ. Vui lòng kiểm tra lại.');
+      setGlobalError(isEn ? 'Some entries are invalid. Please check again.' : 'Một số dòng chưa hợp lệ. Vui lòng kiểm tra lại.');
       return;
     }
 
     const validDrafts = drafts.filter((d) => d.value && d.value.trim() !== '');
     if (validDrafts.length === 0) {
-      setGlobalError('Không có dòng nội dung hợp lệ nào để lưu.');
+      setGlobalError(isEn ? 'No valid entry content to save.' : 'Không có dòng nội dung hợp lệ nào để lưu.');
       return;
     }
 
@@ -91,7 +96,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
       setSubmitting(true);
       await onSubmit(validDrafts);
     } catch (err: any) {
-      setGlobalError(err?.message || 'Không thể lưu các dòng hồ sơ.');
+      setGlobalError(err?.message || (isEn ? 'Failed to save entries.' : 'Không thể lưu các dòng hồ sơ.'));
     } finally {
       setSubmitting(false);
     }
@@ -101,7 +106,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-5 animate-slide-up">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-bold text-slate-200 uppercase tracking-widest">
-          Thêm nhiều dòng hồ sơ ({drafts.length})
+          {isEn ? `Add multiple profile entries (${drafts.length})` : `Thêm nhiều dòng hồ sơ (${drafts.length})`}
         </h4>
         <button
           type="button"
@@ -120,99 +125,125 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {drafts.map((draft, index) => (
-          <div
-            key={draft.key}
-            className="border border-slate-850 rounded-2xl p-4 bg-slate-900/40 space-y-4 relative"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
-                Dòng #{index + 1}
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => duplicateRow(draft.key)}
-                  title="Nhân bản dòng"
-                  className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-emerald-400 rounded-lg cursor-pointer"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeRow(draft.key)}
-                  disabled={drafts.length === 1}
-                  title="Xóa dòng khỏi danh sách"
-                  className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-red-400 rounded-lg cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+        {drafts.map((draft, index) => {
+          const rowRefObj = {
+            get current() {
+              return textareaRefs.current[draft.key] || null;
+            },
+          };
+
+          return (
+            <div
+              key={draft.key}
+              className="border border-slate-850 rounded-2xl p-4 bg-slate-900/40 space-y-4 relative"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                  {isEn ? `Entry #${index + 1}` : `Dòng #${index + 1}`}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => duplicateRow(draft.key)}
+                    title={isEn ? 'Duplicate entry' : 'Nhân bản dòng'}
+                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-emerald-400 rounded-lg cursor-pointer"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeRow(draft.key)}
+                    disabled={drafts.length === 1}
+                    title={isEn ? 'Remove entry' : 'Xóa dòng khỏi danh sách'}
+                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-red-400 rounded-lg cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {errors[draft.key] && (
+                <p className="text-[10px] text-red-400 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors[draft.key]}
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {isEn ? 'Category' : 'Phân loại'} <span className="text-emerald-500">*</span>
+                  </label>
+                  <select
+                    value={draft.name}
+                    onChange={(e) =>
+                      updateDraft(draft.key, {
+                        name: e.target.value as LineDraft['name'],
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    {options.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {isEn ? 'Display order' : 'Thứ tự hiển thị'}
+                  </label>
+                  <input
+                    type="number"
+                    value={draft.display_order}
+                    onChange={(e) =>
+                      updateDraft(draft.key, {
+                        display_order: Number(e.target.value),
+                      })
+                    }
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    {isEn ? 'Content' : 'Nội dung'} <span className="text-emerald-500">*</span>
+                  </label>
+                  <EntryIndentToolbar
+                    textareaRef={rowRefObj}
+                    value={draft.value}
+                    onChange={(val) => updateDraft(draft.key, { value: val })}
+                    lang={lang}
+                  />
+                  <textarea
+                    ref={(el) => {
+                      textareaRefs.current[draft.key] = el;
+                    }}
+                    rows={3}
+                    value={draft.value}
+                    onChange={(e) =>
+                      updateDraft(draft.key, { value: e.target.value })
+                    }
+                    onKeyDown={(e) =>
+                      handleTextareaTabKey(e, (val) =>
+                        updateDraft(draft.key, { value: val }),
+                      )
+                    }
+                    placeholder={
+                      isEn
+                        ? 'e.g.\nWork skills:\n- Project management\n  - Agile methodology'
+                        : 'Ví dụ:\nWork skills:\n- Project management, time management\n  - Agile & Scrum'
+                    }
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
+                  />
+                  <EntryLivePreview value={draft.value} lang={lang} />
+                </div>
               </div>
             </div>
-
-            {errors[draft.key] && (
-              <p className="text-[10px] text-red-400 flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                {errors[draft.key]}
-              </p>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  {isEn ? 'Category' : 'Phân loại'} <span className="text-emerald-500">*</span>
-                </label>
-                <select
-                  value={draft.name}
-                  onChange={(e) =>
-                    updateDraft(draft.key, {
-                      name: e.target.value as LineDraft['name'],
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                >
-                  {options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  {isEn ? 'Display order' : 'Thứ tự hiển thị'}
-                </label>
-                <input
-                  type="number"
-                  value={draft.display_order}
-                  onChange={(e) =>
-                    updateDraft(draft.key, {
-                      display_order: Number(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="space-y-1.5 sm:col-span-2">
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  {isEn ? 'Content' : 'Nội dung'} <span className="text-emerald-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  value={draft.value}
-                  onChange={(e) =>
-                    updateDraft(draft.key, { value: e.target.value })
-                  }
-                  placeholder={isEn ? "e.g. Graduated from National University" : "Ví dụ: Tốt nghiệp đại học quốc gia HCM"}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
-                />
-              </div>
-
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         <button
           type="button"
@@ -220,7 +251,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
           className="w-full border-2 border-dashed border-slate-800 hover:border-emerald-500/40 text-slate-400 hover:text-emerald-400 rounded-2xl py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
         >
           <Plus className="h-4 w-4" />
-          Thêm một dòng nữa
+          {isEn ? 'Add another entry' : 'Thêm một dòng nữa'}
         </button>
 
         <div className="flex items-center justify-end gap-2 pt-1">
@@ -229,7 +260,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
             onClick={onCancel}
             className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-xl text-xs font-semibold cursor-pointer"
           >
-            Hủy bỏ
+            {isEn ? 'Cancel' : 'Hủy bỏ'}
           </button>
           <button
             type="submit"
@@ -238,8 +269,8 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
           >
             <Save className="h-3.5 w-3.5" />
             {submitting
-              ? 'Đang lưu...'
-              : `Lưu ${drafts.length} dòng cùng lúc`}
+              ? (isEn ? 'Saving...' : 'Đang lưu...')
+              : (isEn ? `Save ${drafts.length} entries` : `Lưu ${drafts.length} dòng cùng lúc`)}
           </button>
         </div>
       </form>

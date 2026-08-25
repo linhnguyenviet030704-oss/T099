@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Eye, EyeOff } from 'lucide-react';
 import { CvLine } from '../../lib/cv';
 import { getLineTypeLabel } from '../../lib/profileLines';
+import { FormattedEntry } from '../FormattedEntry';
 
 interface SortableCvLineProps {
   line: CvLine;
@@ -65,9 +66,13 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
         <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 mb-1">
           {getLineTypeLabel(line.name, lang)}
         </span>
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-3 whitespace-pre-line">
-          {line.value || (isEn ? '(No content)' : '(Chưa có nội dung)')}
-        </p>
+        {line.value ? (
+          <FormattedEntry value={line.value} dense />
+        ) : (
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+            {isEn ? '(No content)' : '(Chưa có nội dung)'}
+          </p>
+        )}
         {line.sourceId === null && (
           <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 px-1.5 py-0.5 rounded">
             {isEn ? 'New' : 'Dòng mới'}

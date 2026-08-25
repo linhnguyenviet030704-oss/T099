@@ -27,11 +27,12 @@ export default function CVBuilderPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!supabase || !user) return;
+    const client = supabase;
+    if (!client || !user) return;
 
     const loadData = async () => {
       // 1. Load user profile lines
-      const { data: profileLinesData } = await supabase
+      const { data: profileLinesData } = await client
         .from("profile_lines")
         .select("*")
         .eq("user_id", user.id)
@@ -43,7 +44,7 @@ export default function CVBuilderPage() {
       // 2. If editing or cloning an existing resume, load its content
       if (targetResumeId) {
         try {
-          const { data: resumeData } = await supabase
+          const { data: resumeData } = await client
             .from("resumes")
             .select("*")
             .eq("id", targetResumeId)
@@ -56,7 +57,7 @@ export default function CVBuilderPage() {
             setInitialTitle(cloneId ? `[Bản sao] ${rawTitle}` : rawTitle);
 
             // Fetch parsed markdown from embedded_resumes
-            const { data: embeddedData } = await supabase
+            const { data: embeddedData } = await client
               .from("embedded_resumes")
               .select("markdown, clean_markdown, metadata")
               .eq("resume_id", targetResumeId)

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { User, Phone, Plus, Trash2, Edit2, FileText, Check, X, Save } from "lucide-react";
+import { User, Phone, Plus, Trash2, Edit2, FileText, Check, X, Save, Camera, Upload, Loader2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
+import { uploadAvatar, removeAvatarFile } from "../lib/storage";
 import type { Profile, UserProfileLine } from "../types";
 import { getEnumLabels } from "../lib/format";
 import { getLineTypeOptions, getLineTypeLabel } from "../lib/profileLines";
@@ -42,6 +43,9 @@ export default function ProfilePage() {
   const [editValue, setEditValue] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const addTextareaRef = useRef<HTMLTextAreaElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,6 +71,68 @@ export default function ProfilePage() {
     if (!isAdmin || !supabase) return;
     void supabase.from("profiles").select("*").order("updated_at", { ascending: false }).limit(50).then(({ data }) => setAdminUsers((data || []) as Profile[]));
   }, [isAdmin]);
+
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile || !supabase || !user) return;
+
+    setUploadingAvatar(true);
+    const oldAvatarUrl = avatarUrl;
+    try {
+      const newUrl = await uploadAvatar(user.id, selectedFile);
+      const { error } = await supabase.from("profiles").update({
+        avatar_url: newUrl,
+        updated_at: new Date().toISOString(),
+      }).eq("id", user.id);
+      if (error) throw error;
+
+      setAvatarUrl(newUrl);
+      await refreshProfile();
+      success(t.avatarUploadSuccess || (lang === "en" ? "Avatar updated!" : "Đã cập nhật ảnh đại diện!"));
+
+      if (oldAvatarUrl && oldAvatarUrl !== newUrl) {
+        void removeAvatarFile(user.id, oldAvatarUrl);
+      }
+    } catch (err: unknown) {
+      toastError(
+        lang === "en" ? "Upload Failed" : "Tải ảnh thất bại",
+        err instanceof Error ? err.message : handleSupabaseError(err)
+      );
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!supabase || !user) return;
+    setUploadingAvatar(true);
+    const oldAvatarUrl = avatarUrl;
+    try {
+      const { error } = await supabase.from("profiles").update({
+        avatar_url: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", user.id);
+      if (error) throw error;
+
+      setAvatarUrl("");
+      await refreshProfile();
+      success(t.avatarRemoveSuccess || (lang === "en" ? "Avatar removed!" : "Đã gỡ ảnh đại diện!"));
+
+      if (oldAvatarUrl) {
+        void removeAvatarFile(user.id, oldAvatarUrl);
+      }
+    } catch (err: unknown) {
+      toastError(
+        lang === "en" ? "Remove Failed" : "Gỡ ảnh thất bại",
+        err instanceof Error ? err.message : handleSupabaseError(err)
+      );
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!supabase || !user) return;
@@ -192,19 +258,87 @@ export default function ProfilePage() {
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 sm:p-7 mb-6">
           <h2 className="font-semibold text-slate-900 dark:text-white mb-5">{t.personalInfo}</h2>
-          <div className="space-y-3">
-            <label className="block text-xs text-slate-500">{t.fullName}</label>
-            <div className="relative">
-              <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white" />
+          
+          {/* Avatar Upload Section */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 pb-6 mb-5 border-b border-slate-100 dark:border-slate-700">
+            <div className="relative group shrink-0">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600 ring-4 ring-indigo-50 dark:ring-slate-700/60 flex items-center justify-center text-white text-2xl font-bold shadow-md select-none">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={fullName || "Avatar"} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{(fullName || profile?.email || "U")[0]?.toUpperCase()}</span>
+                )}
+              </div>
+              {uploadingAvatar && (
+                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                  <Loader2 size={24} className="text-white animate-spin" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                className="absolute bottom-0 right-0 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg transition-transform active:scale-95 cursor-pointer disabled:opacity-50"
+                title={avatarUrl ? t.changeAvatar : t.uploadAvatar}
+              >
+                <Camera size={15} />
+              </button>
             </div>
-            <label className="block text-xs text-slate-500">{t.phone}</label>
-            <div className="relative">
-              <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white" />
+
+            <div className="flex-1 text-center sm:text-left space-y-2">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t.avatarTitle}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.avatarHint}</p>
+              </div>
+              <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(e) => void handleAvatarSelect(e)}
+                  className="hidden"
+                />
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  leftIcon={<Upload size={13} />}
+                  onClick={() => fileInputRef.current?.click()}
+                  isLoading={uploadingAvatar}
+                  loadingText={t.uploadingAvatar}
+                >
+                  {avatarUrl ? t.changeAvatar : t.uploadAvatar}
+                </Button>
+                {avatarUrl && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    leftIcon={<Trash2 size={13} />}
+                    onClick={() => void handleRemoveAvatar()}
+                    disabled={uploadingAvatar}
+                  >
+                    {t.removeAvatar}
+                  </Button>
+                )}
+              </div>
             </div>
-            <label className="block text-xs text-slate-500">{t.avatarUrl}</label>
-            <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white" />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t.fullName}</label>
+              <div className="relative">
+                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">{t.phone}</label>
+              <div className="relative">
+                <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+              </div>
+            </div>
             <div className="pt-2">
               <Button
                 onClick={() => void handleSaveProfile()}

@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from backend.app.agents.state import AgentState
 from backend.app.services.matching.explain import explain_matches
+from backend.app.shared_brain import AgentBrain, get_brain
 
 CompleteFn = Callable[..., str]
 
@@ -13,14 +14,14 @@ def make_explain_node(
     base_url: str | None = None,
     prompt_template: str | None = None,
     max_candidates: int = 10,
+    brain: AgentBrain | None = None,
 ):
     async def explain_node(state: AgentState) -> dict:
         def _complete(prompt: str, **kwargs):
             if complete is not None:
                 return complete(prompt, **kwargs)
-            from backend.app.clients.llm import chat_complete
-
-            return chat_complete(prompt, api_key=api_key, base_url=base_url, json_object=True)
+            active_brain = brain or get_brain("matching_agent")
+            return active_brain.chat(prompt, api_key=api_key, base_url=base_url, json_object=True)
 
         candidates = list(state.get("candidates") or [])
         if max_candidates is not None and max_candidates > 0:

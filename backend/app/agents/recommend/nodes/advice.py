@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from backend.app.agents.state import AgentState
-from backend.app.clients.llm import chat_complete
+from backend.app.shared_brain import AgentBrain, get_brain
 
 CompleteFn = Callable[..., str]
 
@@ -18,12 +18,14 @@ def make_advice_node(
     complete: CompleteFn | None = None,
     api_key: str | None = None,
     base_url: str | None = None,
+    brain: AgentBrain | None = None,
 ):
     async def advice_node(state: AgentState) -> dict:
         def _complete(prompt: str, **kwargs):
             if complete is not None:
                 return complete(prompt, **kwargs)
-            return chat_complete(prompt, api_key=api_key, base_url=base_url)
+            active_brain = brain or get_brain("recommend_agent")
+            return active_brain.chat(prompt, api_key=api_key, base_url=base_url)
 
         query = str(state.get("query") or state.get("message") or "").strip()
         cv_text = str(state.get("job_description") or state.get("jd_query") or "").strip()

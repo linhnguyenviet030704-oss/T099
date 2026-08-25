@@ -7,10 +7,15 @@ import { INDEX_FAIL_COPY, ingestResume } from '../../lib/ingest';
 import { getResumeSignedUrl } from '../../lib/storage';
 import { useAuth } from '../../auth/AuthProvider';
 
+import { CvLine, CvHeader } from '../../lib/cv';
+
 interface CvBuilderContainerProps {
   profile: Profile;
   email: string;
   sourceLines: UserProfileLine[];
+  initialLines?: CvLine[];
+  initialTitle?: string;
+  initialHeader?: Partial<CvHeader>;
   onClose: () => void;
   /** Called after a CV is successfully created (e.g. to refresh resume list). */
   onCreated?: () => void;
@@ -24,6 +29,9 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
   profile,
   email,
   sourceLines,
+  initialLines,
+  initialTitle,
+  initialHeader,
   onClose,
   onCreated,
 }) => {
@@ -89,6 +97,9 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
         profile={profile}
         email={email}
         sourceLines={sourceLines}
+        initialLines={initialLines}
+        initialTitle={initialTitle}
+        initialHeader={initialHeader}
         onClose={onClose}
         onExport={async ({ docNode, header, lines, options, templateId, lang, customTitles }) => {
           const result = await exportCv({

@@ -15,6 +15,7 @@ from backend.app.agents.nodes.retrieval import kg_retrieval_node
 from backend.app.agents.nodes.router import router_node
 from backend.app.agents.state import AgentState
 from backend.app.services.matching.rerank import RerankFn
+from backend.app.shared_brain import AgentBrain
 
 RetrieveFn = Callable[[UUID], Awaitable[dict[str, Any]]]
 ExplainComplete = Callable[..., str]
@@ -27,6 +28,7 @@ def build_matching_graph(
     explain_complete: ExplainComplete | None = None,
     explain_api_key: str | None = None,
     explain_base_url: str | None = None,
+    brain: AgentBrain | None = None,
 ):
     async def retrieve_node(state: AgentState) -> dict:
         job_id = UUID(str(state["job_id"]))
@@ -53,6 +55,7 @@ def build_matching_graph(
             complete=explain_complete,
             api_key=explain_api_key,
             base_url=explain_base_url,
+            brain=brain,
         ),
     )
     graph.add_node("respond", respond_node)

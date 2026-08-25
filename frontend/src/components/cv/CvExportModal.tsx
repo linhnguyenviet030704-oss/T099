@@ -16,6 +16,7 @@ interface CvExportModalProps {
   /** new lines created in the builder (count > 0 enables that prompt) */
   newCount: number;
   selectedCount: number;
+  initialTitle?: string;
   onConfirm: (opts: ExportOptions) => Promise<void>;
   onClose: () => void;
   lang?: 'vi' | 'en';
@@ -29,22 +30,23 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
   editedCount,
   newCount,
   selectedCount,
+  initialTitle = '',
   onConfirm,
   onClose,
   lang = 'vi',
 }) => {
   const isEn = lang === 'en';
   const [mode, setMode] = useState<CvPdfMode>('wysiwyg');
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle);
   const [fitToSinglePage, setFitToSinglePage] = useState(false);
-  const [saveEditedToSource, setSaveEditedToSource] = useState(editedCount > 0);
-  const [addNewToSource, setAddNewToSource] = useState(newCount > 0);
+  const [saveEditedToSource, setSaveEditedToSource] = useState(true);
+  const [addNewToSource, setAddNewToSource] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const defaultTitle = useMemo(
-    () => (isEn ? `CV - ${new Date().toLocaleDateString('en-US')}` : `CV - ${new Date().toLocaleDateString('vi-VN')}`),
-    [isEn],
+    () => initialTitle.trim() || (isEn ? `CV - ${new Date().toLocaleDateString('en-US')}` : `CV - ${new Date().toLocaleDateString('vi-VN')}`),
+    [initialTitle, isEn],
   );
 
   const handleConfirm = async () => {

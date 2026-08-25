@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
-import { User, Phone, Plus, Trash2, Edit2, FileText, Check, X, Save } from "lucide-react";
+import { User, Phone, Plus, Trash2, Edit2, FileText, Check, X, Save, Upload, Camera } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
+import { uploadAvatar } from "../lib/storage";
 import type { Profile, UserProfileLine } from "../types";
 import { getEnumLabels } from "../lib/format";
 import { getLineTypeOptions, getLineTypeLabel } from "../lib/profileLines";
@@ -26,6 +27,7 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [addingLine, setAddingLine] = useState(false);
@@ -44,6 +46,11 @@ export default function ProfilePage() {
 
   const addTextareaRef = useRef<HTMLTextAreaElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const avatarCameraInputRef = useRef<HTMLInputElement>(null);
+
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
 
   const enumLabels = getEnumLabels(lang);
   const lineTypeOptions = getLineTypeOptions(lang);
@@ -67,6 +74,36 @@ export default function ProfilePage() {
     if (!isAdmin || !supabase) return;
     void supabase.from("profiles").select("*").order("updated_at", { ascending: false }).limit(50).then(({ data }) => setAdminUsers((data || []) as Profile[]));
   }, [isAdmin]);
+
+  const handleAvatarFileSelected = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !supabase || !user) return;
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      toastError(t.avatarUploadError, t.avatarInvalidType);
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      toastError(t.avatarUploadError, t.avatarTooLarge);
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const publicUrl = await uploadAvatar(user.id, file);
+      const { error } = await supabase.from("profiles").update({
+        avatar_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      }).eq("id", user.id);
+      if (error) throw error;
+      setAvatarUrl(publicUrl);
+      await refreshProfile();
+      success(t.avatarUpdated);
+    } catch (err: unknown) {
+      toastError(t.avatarUploadError, handleSupabaseError(err));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!supabase || !user) return;
@@ -204,7 +241,57 @@ export default function ProfilePage() {
               <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white" />
             </div>
             <label className="block text-xs text-slate-500">{t.avatarUrl}</label>
-            <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-900 dark:text-white" />
+            <div className="flex items-center gap-4">
+              <div className="relative w-16 h-16 shrink-0 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={26} className="text-slate-400" />
+                )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  leftIcon={<Upload size={14} />}
+                  onClick={() => avatarFileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  {t.uploadAvatar}
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  leftIcon={<Camera size={14} />}
+                  onClick={() => avatarCameraInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  {t.takePhoto}
+                </Button>
+              </div>
+              <input
+                ref={avatarFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => void handleAvatarFileSelected(e)}
+              />
+              <input
+                ref={avatarCameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                className="hidden"
+                onChange={(e) => void handleAvatarFileSelected(e)}
+              />
+            </div>
             <div className="pt-2">
               <Button
                 onClick={() => void handleSaveProfile()}

@@ -130,7 +130,7 @@ const SidebarTemplate: React.FC<TemplateProps> = ({
   return (
     <div style={{ ...A4, display: 'flex', minHeight: '297mm' }}>
       {/* Sidebar */}
-      <div style={{ width: '34%', background: accent, color: '#ffffff', padding: '18mm 10mm', boxSizing: 'border-box' }}>
+      <div style={{ width: '34%', flexShrink: 0, background: accent, color: '#ffffff', padding: '18mm 10mm', boxSizing: 'border-box' }}>
         <div
           style={{
             width: 84,
@@ -662,7 +662,7 @@ const TwoColumnTemplate: React.FC<TemplateProps> = ({
         </div>
       </div>
       <div style={{ display: 'flex', padding: '12mm 16mm', gap: 22 }}>
-        <div style={{ width: '38%' }}>
+        <div style={{ width: '38%', flexShrink: 0 }}>
           {leftSections.map((s) => (
             <div key={s.type} style={{ marginBottom: 16 }}>
               <h2 style={colHeading}>{s.label}</h2>

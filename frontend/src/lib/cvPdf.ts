@@ -32,135 +32,188 @@ export async function generateWysiwygPdf(
     import('html2canvas'),
   ]);
 
-  // scale 2.2 delivers crisp ~220 DPI print quality without ballooning memory or file size
-  const canvas = await html2canvas(node, {
-    scale: 2.2,
-    useCORS: true,
-    backgroundColor: '#ffffff',
-    logging: false,
-  });
+  // Create an isolated container outside any CSS transforms or responsive constraints.
+  // On mobile devices, parent containers have CSS `transform: scale(...)` which causes html2canvas
+  // to calculate scaled bounding boxes while drawing at normal scale, collapsing all text vertically.
+  const container = document.createElement('div');
+  container.setAttribute('data-cv-export-container', 'true');
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  container.style.width = '794px'; // 210mm at 96 DPI
+  container.style.minHeight = '1123px'; // 297mm at 96 DPI
+  container.style.margin = '0';
+  container.style.padding = '0';
+  container.style.boxSizing = 'border-box';
+  container.style.transform = 'none';
+  container.style.zIndex = '-99999';
+  container.style.backgroundColor = '#ffffff';
+  container.style.colorScheme = 'light';
+  container.style.pointerEvents = 'none';
 
-  const pdf = new jsPDF({
-    orientation: 'p',
-    unit: 'mm',
-    format: 'a4',
-    compress: true,
-  });
-  const pageWidthMm = pdf.internal.pageSize.getWidth(); // 210 mm
-  const pageHeightMm = pdf.internal.pageSize.getHeight(); // 297 mm
+  const clone = node.cloneNode(true) as HTMLElement;
+  clone.style.width = '794px';
+  clone.style.transform = 'none';
+  clone.style.margin = '0';
+  clone.style.boxSizing = 'border-box';
 
-  const a4Ratio = pageHeightMm / pageWidthMm; // ~1.4142857
-  const canvasPageHeight = canvas.width * a4Ratio;
+  container.appendChild(clone);
+  document.body.appendChild(container);
 
-  // 1/10th page margins (10% of page height)
-  const topMarginRatio = 0.10;
-  const bottomMarginRatio = 0.10;
-  const topMarginCanvas = Math.round(canvasPageHeight * topMarginRatio);
-  const bottomMarginCanvas = Math.round(canvasPageHeight * bottomMarginRatio);
-  const usableHeightCanvas = canvasPageHeight - topMarginCanvas - bottomMarginCanvas; // 80%
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
 
-  // High quality JPEG (0.94) provides visually lossless text sharpness with 95% smaller file size (~400KB vs 8MB)
-  const jpegQuality = 0.94;
+    // scale 2.0 delivers crisp ~200 DPI print quality without ballooning memory or file size
+    const canvas = await html2canvas(clone, {
+      scale: 2.0,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      windowWidth: 1200, // Simulates desktop viewport to avoid mobile wrapping/squishing
+      width: 794,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
+    });
 
-  // If fitToSinglePage requested OR document fits within 1 page with bottom margin
-  if (options?.fitToSinglePage || canvas.height <= canvasPageHeight - bottomMarginCanvas) {
-    const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
-    const imgWidth = pageWidthMm;
-    const imgHeight = Math.min(pageHeightMm - (pageHeightMm * bottomMarginRatio), (canvas.height * imgWidth) / canvas.width);
-    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
-    return pdf.output('blob');
-  }
+    const pdf = new jsPDF({
+      orientation: 'p',
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    });
+    const pageWidthMm = pdf.internal.pageSize.getWidth(); // 210 mm
+    const pageHeightMm = pdf.internal.pageSize.getHeight(); // 297 mm
 
-  // Multi-page element-aware smart splitting with 1/10th top and bottom margins
-  const rootRect = node.getBoundingClientRect();
-  const scale = canvas.width / (node.offsetWidth || rootRect.width || 1);
+    const a4Ratio = pageHeightMm / pageWidthMm; // ~1.4142857
+    const canvasPageHeight = canvas.width * a4Ratio;
 
-  // Collect candidate break locations before children elements
-  const elements = Array.from(
-    node.querySelectorAll('h1, h2, h3, h4, p, ul, li, div, [data-entry-item]')
-  ) as HTMLElement[];
+    // 1/10th page margins (10% of page height)
+    const topMarginRatio = 0.10;
+    const bottomMarginRatio = 0.10;
+    const topMarginCanvas = Math.round(canvasPageHeight * topMarginRatio);
+    const bottomMarginCanvas = Math.round(canvasPageHeight * bottomMarginRatio);
+    const usableHeightCanvas = canvasPageHeight - topMarginCanvas - bottomMarginCanvas; // 80%
 
-  const safeBreakPoints: number[] = [];
-  elements.forEach((el) => {
-    const rect = el.getBoundingClientRect();
-    if (rect.height > 0 && el !== node) {
-      const topInCanvas = (rect.top - rootRect.top) * scale;
-      if (topInCanvas > 10 && topInCanvas < canvas.height - 10) {
-        safeBreakPoints.push(Math.round(topInCanvas));
+    // High quality JPEG (0.94) provides visually lossless text sharpness with 95% smaller file size (~400KB vs 8MB)
+    const jpegQuality = 0.94;
+
+    // If fitToSinglePage requested OR document fits within 1 page with bottom margin
+    if (options?.fitToSinglePage || canvas.height <= canvasPageHeight - bottomMarginCanvas) {
+      const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
+      const maxAllowedHeight = pageHeightMm - (pageHeightMm * bottomMarginRatio);
+      const naturalHeight = (canvas.height * pageWidthMm) / canvas.width;
+
+      if (naturalHeight <= maxAllowedHeight) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidthMm, naturalHeight, undefined, 'FAST');
+      } else {
+        // Scale down proportionally to fit the single page without vertical distortion
+        const fitHeight = maxAllowedHeight;
+        const fitWidth = (canvas.width * fitHeight) / canvas.height;
+        const xOffset = Math.max(0, (pageWidthMm - fitWidth) / 2);
+        pdf.addImage(imgData, 'JPEG', xOffset, 0, fitWidth, fitHeight, undefined, 'FAST');
       }
-    }
-  });
-
-  const sortedBreakPoints = Array.from(new Set(safeBreakPoints)).sort((a, b) => a - b);
-
-  let currentY = 0;
-  let pageIndex = 0;
-
-  while (currentY < canvas.height - 5) {
-    if (pageIndex > 0) {
-      pdf.addPage();
+      return pdf.output('blob');
     }
 
-    const remainingHeight = canvas.height - currentY;
-    const isFirstPage = pageIndex === 0;
+    // Multi-page element-aware smart splitting with 1/10th top and bottom margins
+    const rootRect = clone.getBoundingClientRect();
+    const scale = canvas.width / (clone.offsetWidth || rootRect.width || 794);
 
-    // First page starts at top of template (0), so it has max slice = canvasPageHeight - bottomMarginCanvas (90%)
-    // Subsequent pages start below top margin, so max slice = usableHeightCanvas (80%)
-    const maxSliceForThisPage = isFirstPage
-      ? canvasPageHeight - bottomMarginCanvas
-      : usableHeightCanvas;
+    // Collect candidate break locations before children elements
+    const elements = Array.from(
+      clone.querySelectorAll('h1, h2, h3, h4, p, ul, li, div, [data-entry-item]')
+    ) as HTMLElement[];
 
-    const yStartInPage = isFirstPage ? 0 : topMarginCanvas;
-
-    let sliceHeight = maxSliceForThisPage;
-
-    if (remainingHeight <= maxSliceForThisPage) {
-      sliceHeight = remainingHeight;
-    } else {
-      const targetEnd = currentY + maxSliceForThisPage;
-      const minAcceptableEnd = targetEnd - canvasPageHeight * 0.28;
-
-      let bestBreak = targetEnd;
-      for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
-        const bp = sortedBreakPoints[i];
-        if (bp <= targetEnd && bp >= minAcceptableEnd) {
-          bestBreak = bp;
-          break;
+    const safeBreakPoints: number[] = [];
+    elements.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.height > 0 && el !== clone) {
+        const topInCanvas = (rect.top - rootRect.top) * scale;
+        if (topInCanvas > 10 && topInCanvas < canvas.height - 10) {
+          safeBreakPoints.push(Math.round(topInCanvas));
         }
       }
+    });
 
-      sliceHeight = Math.max(maxSliceForThisPage * 0.45, bestBreak - currentY);
+    const sortedBreakPoints = Array.from(new Set(safeBreakPoints)).sort((a, b) => a - b);
+
+    let currentY = 0;
+    let pageIndex = 0;
+
+    while (currentY < canvas.height - 5) {
+      if (pageIndex > 0) {
+        pdf.addPage();
+      }
+
+      const remainingHeight = canvas.height - currentY;
+      const isFirstPage = pageIndex === 0;
+
+      // First page starts at top of template (0), so it has max slice = canvasPageHeight - bottomMarginCanvas (90%)
+      // Subsequent pages start below top margin, so max slice = usableHeightCanvas (80%)
+      const maxSliceForThisPage = isFirstPage
+        ? canvasPageHeight - bottomMarginCanvas
+        : usableHeightCanvas;
+
+      const yStartInPage = isFirstPage ? 0 : topMarginCanvas;
+
+      let sliceHeight = maxSliceForThisPage;
+
+      if (remainingHeight <= maxSliceForThisPage) {
+        sliceHeight = remainingHeight;
+      } else {
+        const targetEnd = currentY + maxSliceForThisPage;
+        const minAcceptableEnd = targetEnd - canvasPageHeight * 0.28;
+
+        let bestBreak = targetEnd;
+        for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
+          const bp = sortedBreakPoints[i];
+          if (bp <= targetEnd && bp >= minAcceptableEnd) {
+            bestBreak = bp;
+            break;
+          }
+        }
+
+        sliceHeight = Math.max(maxSliceForThisPage * 0.45, bestBreak - currentY);
+      }
+
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvas.width;
+      pageCanvas.height = Math.round(canvasPageHeight);
+      const ctx = pageCanvas.getContext('2d');
+
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        ctx.drawImage(
+          canvas,
+          0,
+          Math.round(currentY),
+          canvas.width,
+          Math.round(sliceHeight),
+          0,
+          Math.round(yStartInPage),
+          canvas.width,
+          Math.round(sliceHeight)
+        );
+      }
+
+      const pageImgData = pageCanvas.toDataURL('image/jpeg', jpegQuality);
+      pdf.addImage(pageImgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm, undefined, 'FAST');
+
+      currentY += sliceHeight;
+      pageIndex++;
     }
 
-    const pageCanvas = document.createElement('canvas');
-    pageCanvas.width = canvas.width;
-    pageCanvas.height = Math.round(canvasPageHeight);
-    const ctx = pageCanvas.getContext('2d');
-
-    if (ctx) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-      ctx.drawImage(
-        canvas,
-        0,
-        Math.round(currentY),
-        canvas.width,
-        Math.round(sliceHeight),
-        0,
-        Math.round(yStartInPage),
-        canvas.width,
-        Math.round(sliceHeight)
-      );
+    return pdf.output('blob');
+  } finally {
+    if (container.parentNode) {
+      container.parentNode.removeChild(container);
     }
-
-    const pageImgData = pageCanvas.toDataURL('image/jpeg', jpegQuality);
-    pdf.addImage(pageImgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm, undefined, 'FAST');
-
-    currentY += sliceHeight;
-    pageIndex++;
   }
-
-  return pdf.output('blob');
 }
 
 /**
@@ -231,7 +284,7 @@ export async function generateTextPdf(
     marginX,
     y,
   );
-  y += 8;
+  y += 10;
 
   // Header — contact line
   const contactBits = [header.email, header.phone].filter(Boolean);
@@ -240,7 +293,7 @@ export async function generateTextPdf(
     pdf.setFontSize(10);
     pdf.setTextColor(75, 85, 99);
     pdf.text(contactBits.join('   •   '), marginX, y);
-    y += 6;
+    y += 8;
   }
 
   // Accent divider

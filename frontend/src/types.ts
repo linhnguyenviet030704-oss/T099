@@ -148,3 +148,38 @@ export interface RecruiterRegistrationForm {
   profile?: Profile; // Joined creator profile
   reviewer_profile?: Profile; // Joined reviewer profile
 }
+
+export interface MetricScore {
+  score: number;
+  reason: string;
+}
+
+export interface CandidateMetrics {
+  experience: MetricScore;
+  hard_skills: MetricScore;
+  education: MetricScore;
+  overall_fit: MetricScore;
+}
+
+export interface ComparedCandidate {
+  application_id: string;
+  applicant_user_id: string;
+  full_name: string | null;
+  email: string | null;
+  resume_title: string | null;
+  resume_storage_path: string | null;
+  current_status: string;
+  anonymous_label: string;
+  metrics: CandidateMetrics;
+  total_score: number;
+  average_score: number;
+  rank: number;
+}
+
+export interface CompareCandidatesResponse {
+  job_id: string;
+  job_title: string;
+  candidates: ComparedCandidate[];
+  top_candidate_id: string | null;
+  summary: string | null;
+}

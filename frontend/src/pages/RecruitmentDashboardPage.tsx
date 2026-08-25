@@ -14,6 +14,8 @@ import AnimatedPage from "../components/AnimatedPage";
 import Button from "../components/ui/Button";
 import { Skeleton } from "../components/ui/Skeleton";
 import { useToast } from "../context/ToastContext";
+import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
+import CVComparisonModal from "../components/candidate/CVComparisonModal";
 
 export default function RecruitmentDashboardPage() {
   const navigate = useNavigate();
@@ -35,6 +37,8 @@ export default function RecruitmentDashboardPage() {
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [stageNote, setStageNote] = useState("");
   const [newStatus, setNewStatus] = useState<ApplicationStatus>("screening");
+  const [selectedCompareCandidates, setSelectedCompareCandidates] = useState<SelectedCandidateItem[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobSaving, setJobSaving] = useState(false);
@@ -264,6 +268,27 @@ export default function RecruitmentDashboardPage() {
     }
   };
 
+  const handleToggleCompare = (app: Application, candName: string) => {
+    setSelectedCompareCandidates((prev) => {
+      const exists = prev.some((c) => c.id === app.id);
+      if (exists) {
+        return prev.filter((c) => c.id !== app.id);
+      }
+      if (prev.length >= 5) {
+        toastError("Tối đa 5 ứng viên", "Bạn chỉ có thể chọn tối đa 5 ứng viên để so sánh cùng lúc.");
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          id: app.id,
+          name: candName,
+          subtitle: app.resume_title_snapshot || undefined,
+        },
+      ];
+    });
+  };
+
   const companyJobs = jobs;
   const selectedJob = selectedJobId ? jobs.find((j) => j.id === selectedJobId) : null;
   const jobApps = selectedJobId ? applications.filter((a) => a.job_post_id === selectedJobId) : [];
@@ -277,7 +302,12 @@ export default function RecruitmentDashboardPage() {
             <select
               ref={companySelectRef}
               value={selectedCompanyId}
-              onChange={(e) => { setSelectedCompanyId(e.target.value); setSelectedJobId(null); setFieldErrors((p) => ({ ...p, company: false })); }}
+              onChange={(e) => {
+                setSelectedCompanyId(e.target.value);
+                setSelectedJobId(null);
+                setSelectedCompareCandidates([]);
+                setFieldErrors((p) => ({ ...p, company: false }));
+              }}
               className={`px-3 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-sm transition-all ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
             >
               {memberships.map((m) => <option key={m.company_id} value={m.company_id}>{m.company?.name || m.company_id}</option>)}
@@ -429,7 +459,10 @@ export default function RecruitmentDashboardPage() {
                   <motion.button
                     key={job.id}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedJobId(selectedJobId === job.id ? null : job.id)}
+                    onClick={() => {
+                      setSelectedJobId(selectedJobId === job.id ? null : job.id);
+                      setSelectedCompareCandidates([]);
+                    }}
                     className={`w-full text-left p-4 rounded-xl border transition-all ${selectedJobId === job.id ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300"}`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -514,54 +547,124 @@ export default function RecruitmentDashboardPage() {
                   </div>
                   {jobApps.length === 0 ? (
                     <div className="p-12 text-center text-sm text-slate-500 dark:text-slate-400">Chưa có ứng viên nào nộp đơn</div>
-                  ) : jobApps.map((app) => {
-                    const cand = profilesMap[app.applicant_user_id];
-                    const isSelected = selectedApp === app.id;
-                    return (
-                      <div key={app.id} className="p-4 border-b border-slate-100 dark:border-slate-700">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-medium text-slate-900 dark:text-white">{cand?.full_name || app.applicant_user_id}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{app.resume_title_snapshot || "CV"}</p>
-                            {app.resume_storage_path_snapshot && (
-                              <button
-                                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
-                                onClick={() => void getResumeSignedUrl(app.resume_storage_path_snapshot!).then((url) => window.open(url, "_blank"))}
-                              >
-                                Mở CV
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>{ENUM_LABELS.application_status[app.current_status]}</span>
-                            {!TERMINAL_APP_STATUSES.includes(app.current_status) && (
-                              <Button size="xs" variant="outline" onClick={() => setSelectedApp(isSelected ? null : app.id)}>Cập nhật</Button>
-                            )}
-                          </div>
+                  ) : (
+                    <div>
+                      {jobApps.length >= 2 && (
+                        <div className="px-4 py-2 bg-indigo-50/50 dark:bg-indigo-950/20 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300">
+                          <span className="flex items-center gap-1.5">
+                            <Sparkles size={13} className="text-purple-600 dark:text-purple-400" />
+                            Chọn <b>2 đến 5 ứng viên</b> để so sánh trực quan bằng AI
+                          </span>
+                          {selectedCompareCandidates.length >= 2 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowCompareModal(true)}
+                              className="font-bold underline hover:text-indigo-900 dark:hover:text-indigo-100"
+                            >
+                              So sánh ngay ({selectedCompareCandidates.length}) ↗
+                            </button>
+                          )}
                         </div>
-                        {isSelected && (
-                          <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
-                            <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ApplicationStatus)} className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white">
-                              {(Object.keys(ENUM_LABELS.application_status) as ApplicationStatus[]).filter((s) => !TERMINAL_APP_STATUSES.includes(s) || s === "rejected").map((s) => (
-                                <option key={s} value={s}>{ENUM_LABELS.application_status[s]}</option>
-                              ))}
-                            </select>
-                            <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder="Ghi chú" className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
-                            <div className="col-span-2 flex justify-end gap-2">
-                              <Button size="xs" variant="ghost" onClick={() => setSelectedApp(null)}>Hủy</Button>
-                              <Button size="xs" leftIcon={<Check size={12} />} onClick={() => void handleAddStage(app.id)} isLoading={updatingApp} loadingText="Đang lưu...">Lưu</Button>
+                      )}
+                      {jobApps.map((app) => {
+                        const cand = profilesMap[app.applicant_user_id];
+                        const candName = cand?.full_name || app.applicant_user_id;
+                        const isSelected = selectedApp === app.id;
+                        const isCompareSelected = selectedCompareCandidates.some((c) => c.id === app.id);
+
+                        return (
+                          <div
+                            key={app.id}
+                            className={`p-4 border-b border-slate-100 dark:border-slate-700 transition-colors ${
+                              isCompareSelected ? "bg-indigo-50/40 dark:bg-indigo-950/20" : ""
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3">
+                                {/* Checkbox for compare */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleCompare(app, candName)}
+                                  className={`mt-0.5 w-5 h-5 rounded-lg border flex items-center justify-center transition-all shrink-0 ${
+                                    isCompareSelected
+                                      ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+                                      : "border-slate-300 dark:border-slate-600 hover:border-indigo-400 bg-white dark:bg-slate-800"
+                                  }`}
+                                  title={isCompareSelected ? "Bỏ chọn so sánh" : "Chọn để so sánh trực quan (2-5 ứng viên)"}
+                                >
+                                  {isCompareSelected && <Check size={12} strokeWidth={3} />}
+                                </button>
+
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-slate-900 dark:text-white">{candName}</p>
+                                    {isCompareSelected && (
+                                      <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold px-2 py-0.2 rounded-full">
+                                        Đã chọn so sánh
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">{app.resume_title_snapshot || "CV"}</p>
+                                  {app.resume_storage_path_snapshot && (
+                                    <button
+                                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
+                                      onClick={() => void getResumeSignedUrl(app.resume_storage_path_snapshot!).then((url) => window.open(url, "_blank"))}
+                                    >
+                                      Mở CV
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>{ENUM_LABELS.application_status[app.current_status]}</span>
+                                {!TERMINAL_APP_STATUSES.includes(app.current_status) && (
+                                  <Button size="xs" variant="outline" onClick={() => setSelectedApp(isSelected ? null : app.id)}>Cập nhật</Button>
+                                )}
+                              </div>
                             </div>
+                            {isSelected && (
+                              <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
+                                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ApplicationStatus)} className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white">
+                                  {(Object.keys(ENUM_LABELS.application_status) as ApplicationStatus[]).filter((s) => !TERMINAL_APP_STATUSES.includes(s) || s === "rejected").map((s) => (
+                                    <option key={s} value={s}>{ENUM_LABELS.application_status[s]}</option>
+                                  ))}
+                                </select>
+                                <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder="Ghi chú" className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
+                                <div className="col-span-2 flex justify-end gap-2">
+                                  <Button size="xs" variant="ghost" onClick={() => setSelectedApp(null)}>Hủy</Button>
+                                  <Button size="xs" leftIcon={<Check size={12} />} onClick={() => void handleAddStage(app.id)} isLoading={updatingApp} loadingText="Đang lưu...">Lưu</Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         )}
       </div>
+
+      {/* Floating Selection Compare Dock */}
+      <CandidateCompareDock
+        selectedCandidates={selectedCompareCandidates}
+        onRemove={(id) => setSelectedCompareCandidates((prev) => prev.filter((c) => c.id !== id))}
+        onClear={() => setSelectedCompareCandidates([])}
+        onCompare={() => setShowCompareModal(true)}
+      />
+
+      {/* CV Comparison Modal */}
+      <CVComparisonModal
+        isOpen={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        jobId={selectedJob?.id || ""}
+        jobTitle={selectedJob?.title || ""}
+        applicationIds={selectedCompareCandidates.map((c) => c.id)}
+      />
     </AnimatedPage>
   );
 }
+

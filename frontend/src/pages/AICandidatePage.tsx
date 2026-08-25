@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, Bot, User, FileText, ExternalLink,
-  PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2,
+  PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, Check,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -13,6 +13,8 @@ import { APP_STATUS_COLORS } from "../lib/ui";
 import type { JobPost } from "../types";
 import AnimatedPage from "../components/AnimatedPage";
 import { useToast } from "../context/ToastContext";
+import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
+import CVComparisonModal from "../components/candidate/CVComparisonModal";
 
 const QUICK_PROMPT = "Gợi ý ứng viên phù hợp";
 const FIT_GOOD = 0.45;
@@ -63,11 +65,17 @@ function groupCandidates(candidates: ChatCandidate[]) {
 }
 
 function CandidateCard({
-  candidate, opening, onOpen,
+  candidate,
+  opening,
+  onOpen,
+  isCompareSelected,
+  onToggleCompare,
 }: {
   candidate: ChatCandidate;
   opening: boolean;
   onOpen: () => void;
+  isCompareSelected?: boolean;
+  onToggleCompare?: () => void;
 }) {
   const score = displayScore(candidate);
   const band = fitBand(score);
@@ -80,10 +88,32 @@ function CandidateCard({
       : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+    <div
+      className={`bg-white dark:bg-slate-800 border rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-all ${
+        isCompareSelected
+          ? "border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-700 bg-indigo-50/20 dark:bg-indigo-950/20"
+          : "border-slate-200 dark:border-slate-600"
+      }`}
+    >
       <div>
         <div className="flex items-center justify-between mb-2 gap-2">
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
+          <div className="flex items-center gap-1.5">
+            {onToggleCompare && (
+              <button
+                type="button"
+                onClick={onToggleCompare}
+                className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                  isCompareSelected
+                    ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+                    : "border-slate-300 dark:border-slate-600 hover:border-indigo-400 bg-white dark:bg-slate-800"
+                }`}
+                title={isCompareSelected ? "Bỏ chọn so sánh" : "Chọn để so sánh trực quan (2-5 ứng viên)"}
+              >
+                {isCompareSelected && <Check size={10} strokeWidth={3} />}
+              </button>
+            )}
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
+          </div>
           <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
             {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
           </span>
@@ -107,13 +137,28 @@ function CandidateCard({
         </div>
       </div>
 
-      <button
-        onClick={onOpen}
-        disabled={opening}
-        className="mt-3 w-full py-1.5 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-center gap-1 disabled:opacity-50 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"
-      >
-        <ExternalLink size={11} /> Xem CV
-      </button>
+      <div className="flex items-center gap-2 mt-3">
+        <button
+          onClick={onOpen}
+          disabled={opening}
+          className="flex-1 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-center gap-1 disabled:opacity-50 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"
+        >
+          <ExternalLink size={11} /> Xem CV
+        </button>
+        {onToggleCompare && (
+          <button
+            type="button"
+            onClick={onToggleCompare}
+            className={`px-3 py-1.5 text-xs font-medium rounded-xl border flex items-center gap-1 transition-colors ${
+              isCompareSelected
+                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                : "text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+            }`}
+          >
+            {isCompareSelected ? "Đã chọn" : "So sánh"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -132,10 +177,33 @@ export default function AICandidatePage() {
   const [leftOpen, setLeftOpen] = useState(isDesktop);
   const [rightOpen, setRightOpen] = useState(isDesktop);
   const [desktop, setDesktop] = useState(isDesktop);
+  const [selectedCompareCandidates, setSelectedCompareCandidates] = useState<SelectedCandidateItem[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." },
   ]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const handleToggleCompare = (cand: ChatCandidate) => {
+    setSelectedCompareCandidates((prev) => {
+      const exists = prev.some((c) => c.id === cand.application_id);
+      if (exists) {
+        return prev.filter((c) => c.id !== cand.application_id);
+      }
+      if (prev.length >= 5) {
+        toastError("Tối đa 5 ứng viên", "Bạn chỉ có thể chọn tối đa 5 ứng viên để so sánh cùng lúc.");
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          id: cand.application_id,
+          name: cand.full_name || "Ứng viên",
+          subtitle: cand.resume_title || undefined,
+        },
+      ];
+    });
+  };
 
   const loadJobs = useCallback(async () => {
     if (!supabase || !user) return;
@@ -183,6 +251,7 @@ export default function AICandidatePage() {
 
   const handleSelectJob = async (nextId: string) => {
     setJobId(nextId);
+    setSelectedCompareCandidates([]);
     const job = jobs.find((j) => j.id === nextId);
     setMessages([{ id: `welcome-${nextId}`, role: "system", text: nextId ? `Đã chọn tin: ${job?.title}` : "Chọn một vị trí tuyển dụng." }]);
     setHistory([]);
@@ -410,6 +479,8 @@ export default function AICandidatePage() {
                                     candidate={cand}
                                     opening={openingId === cand.application_id}
                                     onOpen={() => void openCv(cand)}
+                                    isCompareSelected={selectedCompareCandidates.some((c) => c.id === cand.application_id)}
+                                    onToggleCompare={() => handleToggleCompare(cand)}
                                   />
                                 ))}
                               </div>
@@ -544,6 +615,23 @@ export default function AICandidatePage() {
       >
         <PanelRight size={18} />
       </motion.button>
+
+      {/* Floating Selection Compare Dock */}
+      <CandidateCompareDock
+        selectedCandidates={selectedCompareCandidates}
+        onRemove={(id) => setSelectedCompareCandidates((prev) => prev.filter((c) => c.id !== id))}
+        onClear={() => setSelectedCompareCandidates([])}
+        onCompare={() => setShowCompareModal(true)}
+      />
+
+      {/* CV Comparison Modal */}
+      <CVComparisonModal
+        isOpen={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        jobId={jobId}
+        jobTitle={jobs.find((j) => j.id === jobId)?.title || ""}
+        applicationIds={selectedCompareCandidates.map((c) => c.id)}
+      />
     </AnimatedPage>
   );
 }

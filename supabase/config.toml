@@ -347,7 +347,7 @@ email_optional = false
 # (production) as authorized redirect URIs, then set SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID /
 # SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET in .env and flip enabled to true.
 [auth.external.google]
-enabled = false
+enabled = true
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 redirect_uri = ""

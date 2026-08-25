@@ -5,8 +5,8 @@ export type LineType = UserProfileLine['name'];
 
 export const LINE_TYPE_OPTIONS_VI: { value: LineType; label: string }[] = [
   { value: 'summary', label: 'Giới thiệu bản thân' },
-  { value: 'experience', label: 'Kinh nghiệm làm việc' },
   { value: 'education', label: 'Trình độ học vấn' },
+  { value: 'experience', label: 'Kinh nghiệm làm việc' },
   { value: 'skill', label: 'Kỹ năng' },
   { value: 'project', label: 'Dự án' },
   { value: 'certification', label: 'Chứng chỉ' },
@@ -17,8 +17,8 @@ export const LINE_TYPE_OPTIONS_VI: { value: LineType; label: string }[] = [
 
 export const LINE_TYPE_OPTIONS_EN: { value: LineType; label: string }[] = [
   { value: 'summary', label: 'Summary' },
-  { value: 'experience', label: 'Work Experience' },
   { value: 'education', label: 'Education' },
+  { value: 'experience', label: 'Work Experience' },
   { value: 'skill', label: 'Skills' },
   { value: 'project', label: 'Projects' },
   { value: 'certification', label: 'Certifications' },

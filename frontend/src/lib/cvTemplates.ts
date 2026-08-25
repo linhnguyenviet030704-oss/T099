@@ -92,8 +92,8 @@ export interface CvSection {
 
 export const SECTION_LABELS_VI: Record<LineType, string> = {
   summary: 'Giới thiệu bản thân',
-  experience: 'Kinh nghiệm làm việc',
   education: 'Trình độ học vấn',
+  experience: 'Kinh nghiệm làm việc',
   project: 'Dự án',
   skill: 'Kỹ năng',
   certification: 'Chứng chỉ',
@@ -104,8 +104,8 @@ export const SECTION_LABELS_VI: Record<LineType, string> = {
 
 export const SECTION_LABELS_EN: Record<LineType, string> = {
   summary: 'Summary',
-  experience: 'Work Experience',
   education: 'Education',
+  experience: 'Work Experience',
   project: 'Projects',
   skill: 'Skills',
   certification: 'Certifications',
@@ -119,8 +119,8 @@ export const SECTION_LABELS: Record<LineType, string> = SECTION_LABELS_VI;
 /** Default visual ordering of sections in a CV. */
 export const SECTION_ORDER: LineType[] = [
   'summary',
-  'experience',
   'education',
+  'experience',
   'project',
   'skill',
   'certification',

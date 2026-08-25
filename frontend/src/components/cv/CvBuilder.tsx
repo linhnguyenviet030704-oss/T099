@@ -100,9 +100,16 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
     avatar_url: profile.avatar_url || '',
   });
 
-  const [cvLines, setCvLines] = useState<CvLine[]>(() =>
-    sourceLines.map(profileLineToCvLine),
-  );
+  const [cvLines, setCvLines] = useState<CvLine[]>(() => {
+    const mapped = sourceLines.map(profileLineToCvLine);
+    return [...mapped].sort((a, b) => {
+      const orderA = SECTION_ORDER.indexOf(a.name);
+      const orderB = SECTION_ORDER.indexOf(b.name);
+      const idxA = orderA === -1 ? 999 : orderA;
+      const idxB = orderB === -1 ? 999 : orderB;
+      return idxA - idxB;
+    });
+  });
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [templateId, setTemplateId] = useState<CvTemplateId>('modern');

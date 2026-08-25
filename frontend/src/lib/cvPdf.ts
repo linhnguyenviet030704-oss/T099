@@ -46,22 +46,29 @@ export async function generateWysiwygPdf(
   const a4Ratio = pageHeightMm / pageWidthMm; // ~1.4142857
   const canvasPageHeight = canvas.width * a4Ratio;
 
-  // If fitToSinglePage requested OR document is close to 1 page (<= 1.08 of A4)
-  if (options?.fitToSinglePage || canvas.height <= canvasPageHeight * 1.08) {
+  // 1/10th page margins (10% of page height)
+  const topMarginRatio = 0.10;
+  const bottomMarginRatio = 0.10;
+  const topMarginCanvas = Math.round(canvasPageHeight * topMarginRatio);
+  const bottomMarginCanvas = Math.round(canvasPageHeight * bottomMarginRatio);
+  const usableHeightCanvas = canvasPageHeight - topMarginCanvas - bottomMarginCanvas; // 80%
+
+  // If fitToSinglePage requested OR document fits within 1 page with bottom margin
+  if (options?.fitToSinglePage || canvas.height <= canvasPageHeight - bottomMarginCanvas) {
     const imgData = canvas.toDataURL('image/jpeg', 0.92);
     const imgWidth = pageWidthMm;
-    const imgHeight = Math.min(pageHeightMm, (canvas.height * imgWidth) / canvas.width);
+    const imgHeight = Math.min(pageHeightMm - (pageHeightMm * bottomMarginRatio), (canvas.height * imgWidth) / canvas.width);
     pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
     return pdf.output('blob');
   }
 
-  // Multi-page element-aware smart splitting
+  // Multi-page element-aware smart splitting with 1/10th top and bottom margins
   const rootRect = node.getBoundingClientRect();
   const scale = canvas.width / (node.offsetWidth || rootRect.width || 1);
 
   // Collect candidate break locations before children elements
   const elements = Array.from(
-    node.querySelectorAll('h1, h2, h3, h4, p, ul, li, div')
+    node.querySelectorAll('h1, h2, h3, h4, p, ul, li, div, [data-entry-item]')
   ) as HTMLElement[];
 
   const safeBreakPoints: number[] = [];
@@ -86,13 +93,23 @@ export async function generateWysiwygPdf(
     }
 
     const remainingHeight = canvas.height - currentY;
-    let sliceHeight = canvasPageHeight;
+    const isFirstPage = pageIndex === 0;
 
-    if (remainingHeight <= canvasPageHeight) {
+    // First page starts at top of template (0), so it has max slice = canvasPageHeight - bottomMarginCanvas (90%)
+    // Subsequent pages start below top margin, so max slice = usableHeightCanvas (80%)
+    const maxSliceForThisPage = isFirstPage
+      ? canvasPageHeight - bottomMarginCanvas
+      : usableHeightCanvas;
+
+    const yStartInPage = isFirstPage ? 0 : topMarginCanvas;
+
+    let sliceHeight = maxSliceForThisPage;
+
+    if (remainingHeight <= maxSliceForThisPage) {
       sliceHeight = remainingHeight;
     } else {
-      const targetEnd = currentY + canvasPageHeight;
-      const minAcceptableEnd = targetEnd - canvasPageHeight * 0.30;
+      const targetEnd = currentY + maxSliceForThisPage;
+      const minAcceptableEnd = targetEnd - canvasPageHeight * 0.28;
 
       let bestBreak = targetEnd;
       for (let i = sortedBreakPoints.length - 1; i >= 0; i--) {
@@ -103,7 +120,7 @@ export async function generateWysiwygPdf(
         }
       }
 
-      sliceHeight = Math.max(canvasPageHeight * 0.5, bestBreak - currentY);
+      sliceHeight = Math.max(maxSliceForThisPage * 0.45, bestBreak - currentY);
     }
 
     const pageCanvas = document.createElement('canvas');
@@ -121,7 +138,7 @@ export async function generateWysiwygPdf(
         canvas.width,
         Math.round(sliceHeight),
         0,
-        0,
+        Math.round(yStartInPage),
         canvas.width,
         Math.round(sliceHeight)
       );
@@ -185,12 +202,14 @@ export async function generateTextPdf(
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const contentWidth = pageWidth - marginX * 2;
-  let y = 20;
+  const topMargin = Math.round(pageHeight * 0.10); // ~29.7 mm (1/10 page height)
+  const bottomMargin = Math.round(pageHeight * 0.10); // ~29.7 mm (1/10 page height)
+  let y = topMargin;
 
   const ensureSpace = (needed: number) => {
-    if (y + needed > pageHeight - 16) {
+    if (y + needed > pageHeight - bottomMargin) {
       pdf.addPage();
-      y = 20;
+      y = topMargin;
     }
   };
 

@@ -4,6 +4,8 @@ from uuid import uuid4
 import pytest
 
 from backend.app.services.matching.ingest import ingest_resume, try_ingest_resume
+from backend.app.services.matching.skills import taxonomy_version
+from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_VERSION
 
 
 class _FakeStore:
@@ -58,7 +60,7 @@ async def test_ingest_parses_and_saves_first_time():
     assert status == "indexed"
     assert store.saved is not None
     assert store.saved["content_hash"] == sha256(blob).hexdigest()
-    assert store.saved["parsed"]["metadata"]["skills"] == ["FastAPI"]
+    assert set(store.saved["parsed"]["metadata"]["skills"]) == {"python", "fastapi"}
     assert store.saved["parsed"]["metadata"]["summary"] == "Python API engineer."
     assert "summary:" not in store.saved["parsed"]["markdown"]
     assert "Built FastAPI services." in store.saved["parsed"]["markdown"]
@@ -78,7 +80,13 @@ async def test_ingest_skips_when_hash_matches():
             "mime_type": "text/plain",
         },
         blob=blob,
-        existing={"content_hash": digest},
+        existing={
+            "content_hash": digest,
+            "metadata": {
+                "taxonomy_version": taxonomy_version(),
+                "summary_prompt_version": SUMMARIZE_PROMPT_VERSION,
+            },
+        },
     )
     status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
     assert status == "exists"

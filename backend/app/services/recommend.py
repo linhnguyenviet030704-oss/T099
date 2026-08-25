@@ -4,8 +4,8 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.api.schemas.chat import RecommendedCandidate, RecommendedJob
+from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from supabase import Client
 
 MOCK_SCORES = (0.95, 0.88, 0.81, 0.74, 0.67)
@@ -53,8 +53,17 @@ def mock_recommend(rows: list[dict[str, Any]]) -> list[RecommendedJob]:
 
 def mock_recommend_candidates(rows: list[dict[str, Any]]) -> list[RecommendedCandidate]:
     candidates: list[RecommendedCandidate] = []
+    reasons = [
+        "Khớp 92% nhờ đáp ứng xuất sắc các kỹ năng cốt lõi React, TypeScript và có 3+ năm kinh nghiệm phát triển Frontend.",
+        "Khớp 88% với kinh nghiệm vững chắc về JavaScript, Git, ReactJS và quy trình làm việc Agile/Scrum.",
+        "Khớp 87% chuyên sâu về React, Next.js và tối ưu hóa hiệu năng giao diện sản phẩm theo yêu cầu JD.",
+        "Khớp 81% đáp ứng các kỹ năng lập trình Frontend cơ bản, kinh nghiệm làm việc thực tế với dự án sản phẩm.",
+        "Khớp 79% phù hợp tổng thể hồ sơ, cần phỏng vấn chuyên sâu thêm về kinh nghiệm làm việc nhóm.",
+    ]
     for index, row in enumerate(rows[:MOCK_LIMIT]):
         profile = _profile(row)
+        score = MOCK_SCORES[index]
+        reason = reasons[index % len(reasons)]
         candidates.append(
             RecommendedCandidate(
                 application_id=row["id"],
@@ -64,7 +73,10 @@ def mock_recommend_candidates(rows: list[dict[str, Any]]) -> list[RecommendedCan
                 resume_title=row.get("resume_title_snapshot"),
                 resume_storage_path=row.get("resume_storage_path_snapshot"),
                 current_status=row.get("current_status") or "pending",
-                score=MOCK_SCORES[index],
+                rrf_score=score,
+                rerank_score=None,
+                rerank_status="not_requested",
+                match_reason=reason,
             )
         )
     return candidates
@@ -89,9 +101,12 @@ async def list_published_jobs(client: Client, limit: int = MOCK_LIMIT) -> list[d
 
 async def list_applications_for_job(
     client: Client,
+    actor_id: UUID,
     job_id: UUID,
     limit: int = MOCK_LIMIT,
 ) -> list[dict[str, Any]]:
+    await assert_recruiter_job_access(client, actor_id, job_id)
+
     def _query() -> list[dict[str, Any]]:
         result = (
             client.table("job_submits")
@@ -136,8 +151,8 @@ async def assert_recruiter_job_access(client: Client, actor_id: UUID, job_id: UU
         return result.data
 
     profile = await asyncio.to_thread(_profile)
-    if profile and profile.get("role") == "admin":
-        return
+    if not profile or profile.get("role") != "recruiter":
+        raise ForbiddenError("Not a recruiter")
 
     if str(job.get("created_by_user_id")) != str(actor_id):
         raise ForbiddenError("Not the poster of this job")
@@ -157,3 +172,4 @@ async def assert_recruiter_job_access(client: Client, actor_id: UUID, job_id: UU
 
     if not await asyncio.to_thread(_member):
         raise ForbiddenError("Not a recruiter for this job")
+

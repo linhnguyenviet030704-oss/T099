@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 class AppError(Exception):
@@ -46,6 +49,14 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=exc.status_code,
             content={"detail": exc.detail, "code": exc.code},
         )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        return await request_validation_exception_handler(request, exc)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler_custom(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        return await http_exception_handler(request, exc)
 
     @app.exception_handler(Exception)
     async def unhandled_error_handler(_request: Request, _exc: Exception) -> JSONResponse:

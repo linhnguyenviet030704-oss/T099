@@ -1,4 +1,4 @@
-"""LLM resume rewrite. Skills for scoring are NOT taken from the model."""
+"""LLM resume rewrite. Skills for scoring are merged outside this parser."""
 
 from __future__ import annotations
 
@@ -9,11 +9,13 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.clients.llm import chat_complete
+from backend.app.services.matching.skills import allowlist_token
 
 CompleteFn = Callable[..., str]
 
 _PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "system" / "summarize.txt"
 SUMMARIZE_PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
+SUMMARIZE_PROMPT_VERSION = "2026-08-22.v1"
 
 _TITLE_NOISE = {
     "role",
@@ -45,7 +47,12 @@ _TITLE_NOISE = {
 
 
 def summarize_resume(markdown: str, *, complete: CompleteFn | None = None) -> dict[str, Any]:
-    empty = {"summary": "", "titles": [], "body": ""}
+    empty = {
+        "summary": "",
+        "titles": [],
+        "body": "",
+        "skills": [],
+    }
     if not markdown.strip():
         return empty
     fn = complete or chat_complete
@@ -59,25 +66,39 @@ def summarize_resume(markdown: str, *, complete: CompleteFn | None = None) -> di
 
 def _parse_llm_output(raw: str) -> dict[str, Any]:
     text = _strip_fence(raw)
+    empty = {"summary": "", "titles": [], "body": "", "skills": []}
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
         if _looks_like_markdown(text):
             return _from_markdown(text)
-        return {"summary": "", "titles": [], "body": ""}
+        return empty
     if not isinstance(data, dict):
-        return {"summary": "", "titles": [], "body": ""}
+        return empty
     body = str(data.get("body") or data.get("markdown") or "").strip()
     if not body and _looks_like_markdown(text):
         return _from_markdown(text)
-    summary = _clean_summary(data.get("summary"))
-    titles = _clean_titles(data.get("titles") or [])
-    return {"summary": summary, "titles": titles, "body": body}
+    skills: list[str] = []
+    for raw_skill in data.get("skills") or []:
+        canonical = allowlist_token(str(raw_skill))
+        if canonical and canonical not in skills:
+            skills.append(canonical)
+    return {
+        "summary": _clean_summary(data.get("summary")),
+        "titles": _clean_titles(data.get("titles") or []),
+        "body": body,
+        "skills": skills,
+    }
 
 
 def _from_markdown(text: str) -> dict[str, Any]:
     body = text.strip()
-    return {"summary": _summary_from_markdown(body), "titles": [], "body": body}
+    return {
+        "summary": _summary_from_markdown(body),
+        "titles": [],
+        "body": body,
+        "skills": [],
+    }
 
 
 def _clean_summary(summary: Any) -> str:
@@ -103,6 +124,22 @@ def _clean_titles(titles: list) -> list[str]:
         seen.add(key)
         cleaned.append(name)
     return cleaned
+
+
+def grounded_titles(titles: list[str], source: str) -> list[str]:
+    """Drop titles the LLM did not actually see in the source CV.
+
+    Cheap guard against fabrication (e.g. inventing "Senior Data Scientist"
+    for a CV that never uses that title): keep only titles whose words all
+    appear in the source text, case-insensitively.
+    """
+    haystack = source.casefold()
+    kept: list[str] = []
+    for title in titles:
+        words = [w for w in re.findall(r"[^\W_]+", title.casefold()) if w]
+        if words and all(word in haystack for word in words):
+            kept.append(title)
+    return kept
 
 
 def _looks_like_markdown(text: str) -> bool:

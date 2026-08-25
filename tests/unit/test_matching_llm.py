@@ -1,4 +1,4 @@
-from backend.app.clients.llm import chat_complete, embed_query
+from backend.app.clients.llm import chat_complete, embed_query, rerank_query
 
 
 class _FakeResponse:
@@ -72,3 +72,37 @@ def test_embed_query_returns_1536_vector_and_passes_api_key():
     assert calls[0]["json"]["model"] == "qwen3.7-text-embedding"
     assert calls[0]["json"]["dimensions"] == 1536
     assert calls[0]["headers"]["Authorization"] == "Bearer emb-key"
+
+
+def test_rerank_query_posts_qwen3_rerank_on_compatible_api():
+    calls: list[dict] = []
+
+    def post(url, json, headers, timeout):
+        calls.append({"url": url, "json": json, "headers": headers})
+        return _FakeResponse(
+            {
+                "results": [
+                    {"index": 1, "relevance_score": 0.9},
+                    {"index": 0, "relevance_score": 0.2},
+                ]
+            }
+        )
+
+    out = rerank_query(
+        "Python",
+        ["ada", "bob"],
+        model="qwen3-rerank",
+        base_url="https://dashscope-intl.aliyuncs.com/compatible-api/v1",
+        api_key="rk",
+        post=post,
+    )
+    assert out == [
+        {"index": 1, "relevance_score": 0.9},
+        {"index": 0, "relevance_score": 0.2},
+    ]
+    assert calls[0]["url"] == "https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks"
+    assert calls[0]["json"]["model"] == "qwen3-rerank"
+    assert calls[0]["json"]["query"] == "Python"
+    assert calls[0]["json"]["documents"] == ["ada", "bob"]
+    assert "top_n" not in calls[0]["json"]
+    assert calls[0]["headers"]["Authorization"] == "Bearer rk"

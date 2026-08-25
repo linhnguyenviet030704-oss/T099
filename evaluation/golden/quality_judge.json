@@ -1,0 +1,870 @@
+{
+  "G1-FE-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "bootstrap",
+        "postman",
+        "nodejs",
+        "mysql"
+      ],
+      "false_negatives": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Docker",
+        "SQL",
+        "Linux"
+      ]
+    }
+  },
+  "G2-PE-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "kubernetes",
+        "prometheus",
+        "terraform",
+        "gitlab_ci",
+        "ansible",
+        "jenkins",
+        "grafana",
+        "nodejs",
+        "cicd",
+        "nginx",
+        "bash",
+        "helm",
+        "aws",
+        "golang"
+      ],
+      "false_negatives": [
+        "Python",
+        "Docker",
+        "Linux",
+        "React"
+      ]
+    }
+  },
+  "G1-FS-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "tailwind_css",
+        "expressjs",
+        "mongodb",
+        "nodejs",
+        "nextjs",
+        "mysql",
+        "figma"
+      ],
+      "false_negatives": [
+        "Python",
+        "PostgreSQL",
+        "SQL",
+        "Linux"
+      ]
+    }
+  },
+  "G1-FE-01": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "tailwind_css",
+        "angular",
+        "gitlab_ci",
+        "graphql",
+        "nextjs",
+        "webpack",
+        "jquery",
+        "html",
+        "redux",
+        "figma",
+        "vite",
+        "jest",
+        "vuejs",
+        "css",
+        "golang",
+        "testng"
+      ],
+      "false_negatives": [
+        "Python",
+        "PostgreSQL",
+        "SQL",
+        "Linux"
+      ]
+    }
+  },
+  "G1-FS-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "github_actions",
+        "ruby_on_rails",
+        "tailwind_css",
+        "expressjs",
+        "graphql",
+        "nodejs",
+        "nextjs",
+        "redis",
+        "ruby",
+        "css",
+        "testng"
+      ],
+      "false_negatives": [
+        "PostgreSQL",
+        "Python",
+        "FastAPI",
+        "Docker",
+        "Git",
+        "Linux"
+      ]
+    }
+  },
+  "G2-PE-01": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "github_actions",
+        "gitlab_ci",
+        "kubernetes",
+        "prometheus",
+        "terraform",
+        "ansible",
+        "jenkins",
+        "grafana",
+        "bash",
+        "golang"
+      ],
+      "false_negatives": [
+        "Python",
+        "Docker",
+        "TypeScript",
+        "Git",
+        "Linux"
+      ]
+    }
+  },
+  "G2-DO-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "kubernetes",
+        "ansible",
+        "jenkins",
+        "mysql",
+        "nginx",
+        "bash",
+        "aws"
+      ],
+      "false_negatives": [
+        "Docker",
+        "Linux",
+        "Git"
+      ]
+    }
+  },
+  "G2-DO-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": [
+        "The summary does not mention the specific reduction in median pipeline time from 21 to 7 minutes, which is a significant detail in the original.",
+        "The summary omits the detail about the nine-month effort and persuasion involved in migrating services to a single templated chart.",
+        "The summary does not include the detail about the internal 'deploy clinic' reducing ticket load significantly.",
+        "The summary does not mention the specific number of significant incidents handled as the infra responder."
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "github_actions",
+        "elasticsearch",
+        "kubernetes",
+        "prometheus",
+        "terraform",
+        "gitlab_ci",
+        "ansible",
+        "jenkins",
+        "grafana"
+      ],
+      "false_negatives": [
+        "Python",
+        "Docker",
+        "SQL",
+        "Git",
+        "Linux"
+      ]
+    }
+  },
+  "G3-SA-03": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "sql_server",
+        "elasticsearch",
+        "kubernetes",
+        "ansible"
+      ],
+      "false_negatives": [
+        "PostgreSQL",
+        "Git",
+        "Linux"
+      ]
+    }
+  },
+  "G3-OP-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "grafana",
+        "excel"
+      ],
+      "false_negatives": [
+        "Linux"
+      ]
+    }
+  },
+  "G4-PT-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "mysql",
+        "owasp",
+        "php"
+      ],
+      "false_negatives": [
+        "Python",
+        "Linux"
+      ]
+    }
+  },
+  "G3-OP-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "elasticsearch",
+        "powershell",
+        "kubernetes",
+        "prometheus",
+        "confluence",
+        "grafana",
+        "azure",
+        "bash",
+        "jira"
+      ],
+      "false_negatives": [
+        "Python",
+        "SQL",
+        "Linux"
+      ]
+    }
+  },
+  "G4-PT-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": [
+        "Mentor two junior testers."
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "javascript",
+        "python"
+      ],
+      "false_negatives": [
+        "Python",
+        "JavaScript"
+      ]
+    }
+  },
+  "G4-PT-09": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "owasp",
+        "bash"
+      ],
+      "false_negatives": [
+        "Python",
+        "Linux"
+      ]
+    }
+  },
+  "G3-SA-01": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "linux",
+        "bash",
+        "ansible",
+        "grafana"
+      ],
+      "false_negatives": [
+        "Linux"
+      ]
+    }
+  },
+  "G4-PT-03": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "github_actions",
+        "javascript",
+        "typescript",
+        "gitlab_ci",
+        "solidity",
+        "graphql",
+        "postman"
+      ],
+      "false_negatives": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "JavaScript",
+        "TypeScript",
+        "React",
+        "SQL"
+      ]
+    }
+  },
+  "G5-DA-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "power_bi",
+        "pandas",
+        "excel"
+      ],
+      "false_negatives": [
+        "Python",
+        "SQL"
+      ]
+    }
+  },
+  "G5-BI-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "sql_server",
+        "power_bi",
+        "excel",
+        "jquery"
+      ],
+      "false_negatives": [
+        "SQL"
+      ]
+    }
+  },
+  "G8-BA-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": [
+        "Handled roughly 3.4 million transactions a month within a year of launch."
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [],
+      "false_negatives": []
+    }
+  },
+  "G8-BA-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "confluence",
+        "excel",
+        "jira"
+      ],
+      "false_negatives": [
+        "SQL"
+      ]
+    }
+  },
+  "G5-BI-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": [
+        "dataset certification",
+        "Other: Python, Git, Figma"
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "sql_server",
+        "snowflake",
+        "power_bi",
+        "tableau",
+        "azure",
+        "figma",
+        "excel",
+        "etl",
+        "salesforce",
+        "jquery"
+      ],
+      "false_negatives": [
+        "Python",
+        "Git",
+        "SQL"
+      ]
+    }
+  },
+  "G6-NLP-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "machine_learning",
+        "elasticsearch",
+        "kubernetes",
+        "pytorch",
+        "nlp"
+      ],
+      "false_negatives": [
+        "Python",
+        "FastAPI",
+        "Docker"
+      ]
+    }
+  },
+  "G5-DA-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": [
+        "GA4"
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "sql_server",
+        "bigquery",
+        "power_bi",
+        "airflow"
+      ],
+      "false_negatives": [
+        "Python",
+        "SQL"
+      ]
+    }
+  },
+  "G6-NLP-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "selenium",
+        "pytorch",
+        "postman",
+        "mysql"
+      ],
+      "false_negatives": [
+        "Python",
+        "Docker",
+        "Git"
+      ]
+    }
+  },
+  "G9-CA-04": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "kubernetes",
+        "terraform",
+        "azure",
+        "aws"
+      ],
+      "false_negatives": [
+        "Python",
+        "Linux",
+        "Git"
+      ]
+    }
+  },
+  "G10-NE-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "packet_tracer",
+        "firewall",
+        "cisco",
+        "excel",
+        "ccna",
+        "vpn"
+      ],
+      "false_negatives": []
+    }
+  },
+  "G11-CC-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "kubernetes",
+        "powerpoint",
+        "terraform",
+        "aws",
+        "gcp",
+        "excel"
+      ],
+      "false_negatives": [
+        "docker",
+        "linux",
+        "sql"
+      ]
+    }
+  },
+  "G7-AT-01": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "github_actions",
+        "gitlab_ci",
+        "selenium",
+        "jenkins",
+        "testng",
+        "java",
+        "k6",
+        "embedded_c"
+      ],
+      "false_negatives": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "React",
+        "Linux"
+      ]
+    }
+  },
+  "G7-AT-03": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": [
+        "Giảm chi phí CI cho các giai đoạn kiểm thử khoảng 35% (không có thông tin cụ thể về chi phí CI trong ORIGINAL).",
+        "Viết lớp kiểm thử tích hợp bằng Testcontainers (không có thông tin cụ thể về lớp kiểm thử tích hợp trong ORIGINAL)."
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "github_actions",
+        "spring_boot",
+        "kubernetes",
+        "gitlab_ci",
+        "selenium",
+        "ansible",
+        "grafana",
+        "mysql",
+        "nginx",
+        "java",
+        "bash",
+        "helm",
+        "aws",
+        "golang",
+        "k6"
+      ],
+      "false_negatives": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Docker",
+        "JavaScript",
+        "React",
+        "SQL",
+        "Linux"
+      ]
+    }
+  },
+  "G10-NE-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "ansible",
+        "cisco"
+      ],
+      "false_negatives": [
+        "Python"
+      ]
+    }
+  },
+  "G9-CA-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "bash",
+        "kubernetes",
+        "prometheus",
+        "terraform",
+        "firewall",
+        "ansible",
+        "jenkins",
+        "grafana",
+        "mysql",
+        "cicd",
+        "nginx",
+        "helm",
+        "aws",
+        "vpn",
+        "github_actions"
+      ],
+      "false_negatives": [
+        "Python",
+        "Docker"
+      ]
+    }
+  },
+  "G13-IXD-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "illustrator",
+        "photoshop",
+        "figma"
+      ],
+      "false_negatives": []
+    }
+  },
+  "G13-IXD-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "git"
+      ],
+      "false_negatives": [
+        "React"
+      ]
+    }
+  },
+  "G14-ODO-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "postgresql",
+        "javascript",
+        "laravel",
+        "jquery",
+        "nginx",
+        "odoo",
+        "php",
+        "golang"
+      ],
+      "false_negatives": [
+        "PostgreSQL",
+        "JavaScript",
+        "Python",
+        "Docker",
+        "Git"
+      ]
+    }
+  },
+  "G12-BC-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.95,
+      "unsupported_claims": [
+        "The summary does not mention the specific incident related to the bridge relayer monitoring, which involved a nonce-management bug that caused a 90-minute proof submission failure."
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "kubernetes",
+        "terraform",
+        "solidity",
+        "ethereum",
+        "kafka",
+        "java",
+        "rust",
+        "nodejs",
+        "evm",
+        "golang",
+        "can_bus"
+      ],
+      "false_negatives": [
+        "PostgreSQL",
+        "TypeScript"
+      ]
+    }
+  },
+  "G14-ODO-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": [
+        "Lập trình viên Python",
+        "Ứng dụng Django và Flask, PostgreSQL cho các công cụ nội bộ và trang web của khách hàng."
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "gitlab_ci"
+      ],
+      "false_negatives": [
+        "Python",
+        "PostgreSQL",
+        "Docker",
+        "Git",
+        "Linux"
+      ]
+    }
+  },
+  "G12-BC-03": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": [
+        "Chuyển sang công việc backend Java và Go.",
+        "Hai năm đối chiếu tài chính và báo cáo quy định cho một ngân hàng Việt Nam."
+      ]
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "kubernetes",
+        "prometheus",
+        "terraform",
+        "gitlab_ci",
+        "debezium",
+        "oracle_database",
+        "mysql",
+        "apache_spark",
+        "kafka",
+        "flink",
+        "cicd",
+        "java",
+        "nodejs",
+        "etl",
+        "evm",
+        "golang"
+      ],
+      "false_negatives": [
+        "Git",
+        "Linux"
+      ]
+    }
+  },
+  "G15-EMB-02": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "python",
+        "linux",
+        "git"
+      ],
+      "false_negatives": [
+        "Python",
+        "Git",
+        "Linux"
+      ]
+    }
+  },
+  "G11-CC-01": {
+    "faithfulness": {
+      "faithfulness_score": 0.9,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "github_actions",
+        "powershell",
+        "terraform",
+        "azure"
+      ],
+      "false_negatives": [
+        "Git"
+      ]
+    }
+  },
+  "G15-EMB-01": {
+    "faithfulness": {
+      "faithfulness_score": 1.0,
+      "unsupported_claims": []
+    },
+    "skill_accuracy": {
+      "false_positives": [
+        "python",
+        "linux",
+        "git"
+      ],
+      "false_negatives": [
+        "Python",
+        "Linux",
+        "Git"
+      ]
+    }
+  }
+}

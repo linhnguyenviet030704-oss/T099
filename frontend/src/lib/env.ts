@@ -29,7 +29,12 @@ export const SUPABASE_ANON_KEY = pick(
   env.VITE_SUPABASE_ANON_KEY,
 );
 
-export const API_BASE_URL = pick(env.VITE_API_BASE_URL);
+export const API_BASE_URL = pick(env.VITE_API_BASE_URL, 'http://127.0.0.1:8000');
+
+export const SITE_URL = pick(
+  env.NEXT_PUBLIC_SITE_URL,
+  env.VITE_SITE_URL,
+);
 
 export const HAS_SUPABASE_CONFIG = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 

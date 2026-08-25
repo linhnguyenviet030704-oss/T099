@@ -1,6 +1,10 @@
 from backend.app.agents.state import AgentState
-from backend.app.services.matching.parse import clean_markdown
 
 
 async def clean_node(state: AgentState) -> dict:
-    return {"markdown": clean_markdown(state.get("markdown") or "")}
+    """parse_node already returns redact_pii(clean_markdown(...)) output
+    (backend/app/services/matching/parse.py:749) — this node's job is done
+    before it runs. It only forwards the value under the `clean_markdown`
+    key the rest of the graph expects."""
+    text = state.get("markdown") or ""
+    return {"markdown": text, "clean_markdown": text}

@@ -1,5 +1,4 @@
-from __future__ import annotations
-
+import os
 import time
 from contextlib import asynccontextmanager
 
@@ -17,6 +16,15 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     configure_logging(settings.log_level)
+    if settings.langsmith_tracing:
+        os.environ["LANGSMITH_TRACING"] = "true"
+        if settings.langsmith_api_key:
+            os.environ["LANGSMITH_API_KEY"] = settings.langsmith_api_key
+        if settings.langsmith_endpoint:
+            os.environ["LANGSMITH_ENDPOINT"] = settings.langsmith_endpoint
+        if settings.langsmith_project:
+            os.environ["LANGSMITH_PROJECT"] = settings.langsmith_project
+        logger.info("LangSmith tracing enabled (project=%s)", settings.langsmith_project)
     logger.info("Starting %s in %s mode", settings.app_name, settings.app_env)
     yield
     logger.info("Shutting down")

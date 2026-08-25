@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   DndContext,
   closestCenter,
@@ -20,6 +21,7 @@ import {
   Square,
   Layers,
   ChevronDown,
+  Upload,
 } from 'lucide-react';
 import { UserProfileLine, Profile } from '../../types';
 import {
@@ -29,13 +31,15 @@ import {
   profileLineToCvLine,
 } from '../../lib/cv';
 import { LINE_TYPE_OPTIONS, lineContentDiffers } from '../../lib/profileLines';
-import { formatDate } from '../../lib/format';
 import { SortableCvLine } from './SortableCvLine';
 import { CvPreview } from './CvPreview';
 import { CvLineEditor } from './CvLineEditor';
 import { CvExportModal, ExportOptions } from './CvExportModal';
 import { SplitPane } from '../SplitPane';
 import { CV_TEMPLATES, CvTemplateId } from '../../lib/cvTemplates';
+import { supabase } from '../../lib/supabase';
+import { buildResumeStoragePath } from '../../lib/storage';
+import { ingestResume } from '../../lib/ingest';
 
 const lineTypeLabel = (value: string): string =>
   LINE_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
@@ -168,7 +172,12 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
     ]);
   };
 
+  const [uploadingIngest, setUploadingIngest] = useState(false);
+
   const addBlankLine = () => {
+    // Anti-spam safeguard: Don't create another empty line if one already exists
+    const hasEmpty = cvLines.some((l) => !l.value.trim());
+    if (hasEmpty) return;
     const blank = createBlankCvLine();
     setCvLines((prev) => [...prev, blank]);
     setActiveKey(blank.key);
@@ -177,12 +186,55 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
   const setAllSelected = (selected: boolean) =>
     setCvLines((prev) => prev.map((l) => ({ ...l, selected })));
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !supabase) return;
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES) {
+      alert(`Dung lượng file (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn tối đa 10MB.`);
+      return;
+    }
+    setUploadingIngest(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Chưa đăng nhập");
+      const resumeId = crypto.randomUUID();
+      const storagePath = buildResumeStoragePath(user.id, resumeId, file.name);
+      const { error: uploadErr } = await supabase.storage.from("resumes").upload(storagePath, file, { upsert: false });
+      if (uploadErr) throw uploadErr;
+      await supabase.from("resumes").insert({
+        id: resumeId, user_id: user.id, bucket_id: "resumes", storage_path: storagePath,
+        original_filename: file.name, title: file.name.replace(/\.[^.]+$/, ""), mime_type: file.type,
+        size_bytes: file.size, is_default: false,
+      });
+      const session = (await supabase.auth.getSession()).data.session;
+      if (session?.access_token) {
+        try { await ingestResume(resumeId, session.access_token); } catch {}
+      }
+      const { data } = await supabase.from("profile_lines").select("*").eq("user_id", user.id).order("display_order");
+      if (data && data.length > 0) {
+        const fresh = data as UserProfileLine[];
+        setCvLines(fresh.map(profileLineToCvLine));
+      }
+    } catch (err: any) {
+      alert(`Không thể bóc tách CV: ${err?.message || "Lỗi không xác định"}`);
+    } finally {
+      setUploadingIngest(false);
+      e.target.value = "";
+    }
+  };
+
   const handleExportConfirm = async (options: ExportOptions) => {
     if (!docRef.current) throw new Error('Không tìm thấy bản xem trước CV.');
+    // Filter out empty lines to prevent empty payload spam
+    const validLines = cvLines.filter((l) => l.value.trim() !== '');
+    if (validLines.length === 0) {
+      throw new Error('CV chưa có dòng nội dung hợp lệ nào để xuất.');
+    }
     await onExport({
       docNode: docRef.current,
       header,
-      lines: cvLines,
+      lines: validLines,
       options,
       templateId,
     });
@@ -191,47 +243,50 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Builder toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
         <div className="flex items-center gap-2">
-          <Layers className="h-5 w-5 text-emerald-400" />
+          <Layers className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
           <div>
-            <h3 className="text-sm font-bold text-slate-100">Trình tạo CV</h3>
-            <p className="text-[11px] text-slate-500">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Trình tạo CV</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {selectedCount} dòng hiển thị • {newCount} dòng mới • {editedCount} dòng đã sửa
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.95 }}
             onClick={onClose}
-            className="px-3 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer"
+            className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
           >
             <X className="h-3.5 w-3.5" />
-            Thoát chế độ tạo CV
-          </button>
-          <button
+            Thoát
+          </motion.button>
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
             onClick={() => setShowExport(true)}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-emerald-200 dark:shadow-emerald-900/30"
           >
             <FileDown className="h-4 w-4" />
             Xuất CV
-          </button>
+          </motion.button>
         </div>
       </div>
 
       {/* Template picker */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
         <button
           type="button"
           onClick={() => setTemplatesOpen((v) => !v)}
           className="w-full flex items-center justify-between cursor-pointer group"
         >
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 group-hover:text-slate-200">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">
             Chọn mẫu CV ({CV_TEMPLATES.length})
           </p>
-          <span className="flex items-center gap-2 text-[10px] text-slate-500 group-hover:text-emerald-400">
+          <span className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
             {templatesOpen ? 'Thu gọn' : 'Mở rộng'}
             <ChevronDown
               className={`h-4 w-4 transition-transform duration-200 ${
@@ -242,7 +297,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
         </button>
 
         {templatesOpen ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-h-56 overflow-y-auto pr-1 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-56 overflow-y-auto pr-1 mt-3">
             {CV_TEMPLATES.map((tpl) => (
               <button
                 key={tpl.id}
@@ -250,8 +305,8 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
                 onClick={() => setTemplateId(tpl.id)}
                 className={`text-left rounded-xl border p-3 transition cursor-pointer ${
                   templateId === tpl.id
-                    ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40'
-                    : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-1 ring-indigo-200 dark:ring-indigo-800'
+                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-slate-300 dark:hover:border-slate-600'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
@@ -259,16 +314,16 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
                     className="inline-block w-3 h-3 rounded-full shrink-0"
                     style={{ background: tpl.accent }}
                   />
-                  <span className="text-xs font-bold text-slate-200">{tpl.name}</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{tpl.name}</span>
                 </div>
-                <p className="text-[10px] text-slate-500 leading-snug">{tpl.description}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">{tpl.description}</p>
               </button>
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-slate-500 mt-2">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
             Mẫu đang chọn:{' '}
-            <span className="font-bold text-emerald-400">
+            <span className="font-bold text-indigo-600 dark:text-indigo-400">
               {CV_TEMPLATES.find((t) => t.id === templateId)?.name}
             </span>
           </p>
@@ -281,18 +336,18 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
         maxPct={68}
         left={
           /* FRAME 1: all editing controls */
-          <div className="space-y-4 pr-1">
+          <div className="space-y-4 pr-0 lg:pr-1">
             {/* Source pool */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Kho dòng hồ sơ
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                Kho dòng hồ sơ Master (Database)
               </h4>
               {availableSource.length > 0 && (
                 <button
                   type="button"
                   onClick={addAllSource}
-                  className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                  className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer"
                 >
                   + Thêm tất cả
                 </button>
@@ -300,8 +355,8 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
             </div>
 
             {availableSource.length === 0 ? (
-              <p className="text-[11px] text-slate-500 py-2">
-                Tất cả dòng hồ sơ đã có trong CV. Bạn vẫn có thể tạo dòng mới.
+              <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
+                Tất cả dòng hồ sơ master đã có trong CV. Bạn có thể bấm tạo dòng mới hoặc tải file CV để nhập thêm.
               </p>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -310,15 +365,15 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
                     key={line.id}
                     type="button"
                     onClick={() => addSourceLine(line)}
-                    className="w-full text-left rounded-xl border border-slate-850 bg-slate-950/50 hover:border-emerald-500/40 p-3 transition cursor-pointer group"
+                    className="w-full text-left rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 p-3 transition cursor-pointer group"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-slate-850 text-slate-300 border border-slate-800">
+                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
                         {lineTypeLabel(line.name)}
                       </span>
-                      <Plus className="h-3.5 w-3.5 text-slate-500 group-hover:text-emerald-400" />
+                      <Plus className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
                     </div>
-                    <p className="text-xs font-bold text-slate-200 mt-1 line-clamp-2 whitespace-pre-line">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mt-1 line-clamp-2 whitespace-pre-line">
                       {line.value}
                     </p>
                   </button>
@@ -326,14 +381,27 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={addBlankLine}
-              className="w-full border-2 border-dashed border-slate-800 hover:border-emerald-500/40 text-slate-400 hover:text-emerald-400 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              Tạo dòng mới trong CV
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={addBlankLine}
+                className="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Tạo dòng mới
+              </button>
+              <label className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer bg-indigo-50/50 dark:bg-indigo-900/10">
+                <Upload className="h-4 w-4" />
+                {uploadingIngest ? 'Đang bóc tách...' : 'Tải CV bóc tách'}
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  disabled={uploadingIngest}
+                  className="hidden"
+                  onChange={(e) => void handleFileUpload(e)}
+                />
+              </label>
+            </div>
           </div>
 
           {/* Inline editor for the active line */}
@@ -346,9 +414,9 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
           )}
 
           {/* Header editor */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Họ và tên
               </label>
               <input
@@ -357,11 +425,11 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
                 onChange={(e) =>
                   setHeader((h) => ({ ...h, full_name: e.target.value }))
                 }
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Email
               </label>
               <input
@@ -370,11 +438,11 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
                 onChange={(e) =>
                   setHeader((h) => ({ ...h, email: e.target.value }))
                 }
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
               />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Số điện thoại
               </label>
               <input
@@ -383,29 +451,29 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
                 onChange={(e) =>
                   setHeader((h) => ({ ...h, phone: e.target.value }))
                 }
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
               />
             </div>
           </div>
 
           {/* Sortable line list controls */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Sắp xếp & chọn dòng ({cvLines.length})
               </h4>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setAllSelected(true)}
-                  className="text-[10px] font-bold text-slate-400 hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+                  className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
                 >
                   <CheckSquare className="h-3 w-3" /> Chọn tất cả
                 </button>
                 <button
                   type="button"
                   onClick={() => setAllSelected(false)}
-                  className="text-[10px] font-bold text-slate-400 hover:text-emerald-400 flex items-center gap-1 cursor-pointer"
+                  className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
                 >
                   <Square className="h-3 w-3" /> Bỏ chọn
                 </button>
@@ -413,7 +481,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
             </div>
 
             {cvLines.length === 0 ? (
-              <p className="text-[11px] text-slate-500 py-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
                 Chưa có dòng nào. Thêm từ kho ở trên hoặc tạo dòng mới.
               </p>
             ) : (
@@ -446,10 +514,10 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
         }
         right={
           /* FRAME 2: live preview only (also the WYSIWYG export target) */
-          <div className="pl-1">
-            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 sticky top-4">
+          <div className="pl-0 lg:pl-1 w-full overflow-hidden">
+            <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-2 sm:p-4 lg:sticky lg:top-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                   Bản xem trước CV
                 </p>
               </div>

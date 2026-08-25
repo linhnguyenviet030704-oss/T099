@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from typing import Any, Protocol
 from uuid import UUID
 
 from backend.app.agents.ingest.graph import build_ingest_graph
 from backend.app.core.exceptions import NotFoundError
-from backend.app.observability.logger import get_logger
+from backend.app.observability.logger import get_logger, request_id_ctx
+from backend.app.services.matching.skills import taxonomy_version
+from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_VERSION
 
 logger = get_logger(__name__)
 
@@ -42,18 +45,41 @@ async def ingest_resume(
     blob = await store.download(resume.get("bucket_id") or "resumes", resume["storage_path"])
     digest = hashlib.sha256(blob).hexdigest()
     existing = await store.get_parsed(resume_id)
-    if existing and existing.get("content_hash") == digest:
+    meta = (existing or {}).get("metadata") or {}
+    if (
+        existing
+        and existing.get("content_hash") == digest
+        and meta.get("taxonomy_version") == taxonomy_version()
+        and meta.get("summary_prompt_version") == SUMMARIZE_PROMPT_VERSION
+    ):
         return "exists"
     graph = build_ingest_graph(encode=encode, complete=complete, api_key=api_key, base_url=base_url)
+    rid = request_id_ctx.get() or "-"
     result = await graph.ainvoke(
         {
             "raw_bytes": blob,
             "mime_type": resume.get("mime_type") or "",
-        }
+        },
+        config={
+            "run_name": "ingest_resume_pipeline",
+            "tags": ["ingest", "resume"],
+            "metadata": {
+                "request_id": rid,
+                "resume_id": str(resume_id),
+            },
+        },
     )
-    parsed = {"markdown": result.get("markdown") or "", "metadata": result.get("metadata") or {}}
+    parsed = {
+        "markdown": result.get("markdown") or "",
+        "clean_markdown": result.get("clean_markdown") or "",
+        "metadata": result.get("metadata") or {},
+    }
     await store.save(resume_id, parsed, digest, list(result.get("embedding") or []))
     return "indexed"
+
+
+_MAX_ATTEMPTS = 3
+_BACKOFF_BASE_SECONDS = 0.2
 
 
 async def try_ingest_resume(
@@ -65,15 +91,39 @@ async def try_ingest_resume(
     api_key: str | None = None,
     base_url: str | None = None,
 ) -> str | None:
-    try:
-        return await ingest_resume(
-            store,
-            resume_id,
-            encode=encode,
-            complete=complete,
-            api_key=api_key,
-            base_url=base_url,
-        )
-    except Exception:
-        logger.exception("ingest skipped resume_id=%s", resume_id)
-        return None
+    """Retries transient failures (LLM/embedding/storage hiccups) before
+    giving up. A missing resume is not transient, so it fails fast."""
+    last_exc: Exception | None = None
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            return await ingest_resume(
+                store,
+                resume_id,
+                encode=encode,
+                complete=complete,
+                api_key=api_key,
+                base_url=base_url,
+            )
+        except NotFoundError:
+            logger.warning("ingest skipped resume_id=%s reason=not_found", resume_id)
+            return None
+        except Exception as exc:  # noqa: BLE001 - retry loop decides fate
+            last_exc = exc
+            if attempt == _MAX_ATTEMPTS:
+                break
+            logger.warning(
+                "ingest attempt %s/%s failed resume_id=%s error=%s; retrying",
+                attempt,
+                _MAX_ATTEMPTS,
+                resume_id,
+                exc,
+            )
+            await asyncio.sleep(_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)))
+
+    logger.exception(
+        "ingest failed after %s attempts resume_id=%s",
+        _MAX_ATTEMPTS,
+        resume_id,
+        exc_info=last_exc,
+    )
+    return None

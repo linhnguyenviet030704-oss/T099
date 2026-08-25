@@ -21,7 +21,7 @@ class SupabaseResumeStore:
                 .maybe_single()
                 .execute()
             )
-            return result.data
+            return result.data if result else None
 
         return await asyncio.to_thread(_query)
 
@@ -34,7 +34,7 @@ class SupabaseResumeStore:
                 .maybe_single()
                 .execute()
             )
-            return result.data
+            return result.data if result else None
 
         return await asyncio.to_thread(_query)
 
@@ -61,6 +61,7 @@ class SupabaseResumeStore:
                 {
                     "resume_id": rid,
                     "markdown": parsed["markdown"],
+                    "clean_markdown": parsed.get("clean_markdown") or "",
                     "metadata": parsed["metadata"],
                     "content_hash": content_hash,
                     "embedding": embedding,

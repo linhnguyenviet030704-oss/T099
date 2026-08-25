@@ -1,0 +1,16 @@
+{
+    "major_group": [
+        "web",
+        "mobile",
+        "cloud_devops",
+        "data",
+        "ai_ml",
+        "cybersecurity",
+        "qa_testing",
+        "embedded_iot",
+        "infrastructure_network",
+        "enterprise_software",
+        "game",
+        "ui_ux"
+    ]
+}

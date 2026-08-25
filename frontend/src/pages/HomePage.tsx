@@ -1,275 +1,180 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Briefcase, 
-  User, 
-  Building2, 
-  Sliders, 
-  ArrowRight, 
-  Sparkles, 
-  MapPin, 
-  DollarSign, 
-  CalendarDays 
-} from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../auth/AuthProvider';
-import { useCurrentProfile } from '../profile/ProfileProvider';
-import { JobPost } from '../types';
-import { formatCurrency, formatDate, ENUM_LABELS } from '../lib/format';
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { ArrowRight, Search, Users, TrendingUp, Zap, Building2 } from "lucide-react";
+import { useAuth } from "../auth/AuthProvider";
+import { useCurrentProfile } from "../profile/ProfileProvider";
+import { useLang } from "../context/LangContext";
+import { supabase } from "../lib/supabase";
+import type { JobPost } from "../types";
+import { staggerContainer, fadeUp } from "../components/AnimatedPage";
+import JobCard from "../components/JobCard";
 
-export const HomePage: React.FC = () => {
+export default function HomePage() {
   const { user } = useAuth();
   const { profile, isRecruiter, isAdmin } = useCurrentProfile();
-  
-  const [recentJobs, setRecentJobs] = useState<JobPost[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const { t } = useLang();
+  const navigate = useNavigate();
+  const [jobs, setJobs] = useState<JobPost[]>([]);
 
   useEffect(() => {
-    async function fetchRecentJobs() {
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch up to 3 published job posts with details from companies
-        const { data, error: qErr } = await supabase
-          .from('job_posts')
-          .select('*, companies(*)')
-          .eq('status', 'published')
-          .order('published_at', { ascending: false })
-          .limit(3);
-
-        if (qErr) throw qErr;
-        
-        // Parse results with companies safely joined
-        const jobs = (data || []).map((job: any) => ({
-          ...job,
-          company: job.companies,
-        })) as JobPost[];
-
-        setRecentJobs(jobs);
-      } catch (err: any) {
-        console.error('Error fetching landing jobs:', err);
-        setError('Không thể tải danh sách việc làm mới nhất hiện tại.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchRecentJobs();
+    if (!supabase) return;
+    void supabase
+      .from("job_posts")
+      .select("*, companies(*)")
+      .eq("status", "published")
+      .order("published_at", { ascending: false })
+      .limit(3)
+      .then(({ data }) => {
+        setJobs(
+          ((data || []) as any[]).map((job) => ({ ...job, company: job.companies })) as JobPost[],
+        );
+      });
   }, []);
 
-  // Determine CTA Button based on role
-  const getCtaTarget = () => {
-    if (!user) return { to: '/auth/sign-up', label: 'Tạo tài khoản ngay', desc: 'Gia nhập cộng đồng ứng viên tiềm năng.' };
-    if (isAdmin) return { to: '/admin/recruiter-requests', label: 'Xem đơn của Recruiter', desc: 'Phê duyệt các hồ sơ đăng ký doanh nghiệp tuyển dụng.' };
-    if (isRecruiter) return { to: '/recruiter/jobs', label: 'Bàn việc tuyển dụng', iconIcon: Building2, desc: 'Tạo tin đăng, theo dõi ứng viên và chuyển đổi trạng thái hồ sơ.' };
-    return { to: '/jobs', label: 'Xem các việc làm đang mở', desc: 'Tìm kiếm hàng trăm tin tuyển dụng được kiểm chứng.' };
-  };
+  const ctaHref = !user ? "/register" : isRecruiter || isAdmin ? "/dashboard" : "/jobs";
+  const ctaLabel = !user ? t.startFree : isRecruiter ? t.toDashboard : isAdmin ? t.toAdminMenu : t.findJobNow;
 
-  const cta = getCtaTarget();
+  const stats = [
+    { label: t.statJobs, value: "2,400+", icon: Zap, color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30" },
+    { label: t.statCandidates, value: "18,500+", icon: Users, color: "text-purple-600 bg-purple-50 dark:bg-purple-900/30" },
+    { label: t.statCompanies, value: "340+", icon: Building2, color: "text-orange-600 bg-orange-50 dark:bg-orange-900/30" },
+    { label: t.statSuccess, value: "87%", icon: TrendingUp, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30" },
+  ];
+
+  const features = [
+    {
+      title: t.forCandidate,
+      desc: t.forCandidateDesc,
+      cta: t.viewMyProfile,
+      href: user ? "/profile" : "/register",
+      icon: "🎯",
+      gradient: "from-indigo-500 to-purple-500",
+    },
+    {
+      title: t.forRecruiter,
+      desc: t.forRecruiterDesc,
+      cta: t.registerRecruiter,
+      href: isRecruiter ? "/dashboard" : "/recruiter-register",
+      icon: "🏢",
+      gradient: "from-orange-400 to-pink-500",
+    },
+    {
+      title: t.forAdmin,
+      desc: t.forAdminDesc,
+      cta: t.accessAdmin,
+      href: "/admin",
+      icon: "⚡",
+      gradient: "from-emerald-400 to-teal-500",
+    },
+  ];
 
   return (
-    <div className="space-y-16 py-4 animate-fade-in">
-      
-      {/* Hero Visual Section */}
-      <section className="relative text-center max-w-4xl mx-auto space-y-6 pt-8 pb-4">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
-          <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-          Giải pháp tuyển dụng hiện đại
+    <div className="min-h-screen bg-white dark:bg-slate-900">
+      <section className="relative overflow-hidden pt-20 pb-28">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-gradient-to-br from-indigo-100/70 via-purple-50/50 to-pink-50/30 dark:from-indigo-900/20 dark:via-purple-900/10 dark:to-transparent rounded-full blur-3xl" />
         </div>
-        
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-100 via-emerald-300 to-teal-400">
-          Kết nối trực tiếp &amp; Nhanh chóng qua Supabase
-        </h1>
-        
-        <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Nền tảng tìm kiếm việc làm chuyên nghiệp không qua trung gian. Hỗ trợ hồ sơ thông minh, upload CV pdf/doc an toàn, bảo mật dữ liệu tuyệt đối nhờ Row-Level Security.
-        </p>
-
-        {/* Dynamic CTA Block */}
-        <div className="pt-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 max-w-xl mx-auto shadow-xl shadow-emerald-950/20 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-            
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest font-mono mb-2">
-              Lựa chọn hành động theo vai trò của bạn
-            </p>
-            <h3 className="text-lg font-bold text-slate-100 mb-4">{cta.desc}</h3>
-            
-            <Link
-              to={cta.to}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 px-6 py-3 rounded-xl font-bold transition duration-200 transform active:scale-95 shadow-lg shadow-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              id="cta-button-home"
-            >
-              {cta.label}
-              <ArrowRight className="h-4.5 w-4.5" />
-            </Link>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative">
+          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="text-center max-w-4xl mx-auto">
+            <motion.div variants={fadeUp}>
+              <span className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-sm font-medium px-4 py-1.5 rounded-full mb-6 border border-indigo-100 dark:border-indigo-800">
+                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+                {t.heroTag}
+              </span>
+            </motion.div>
+            <motion.h1 variants={fadeUp} className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 dark:text-white mb-6 leading-snug">
+              {t.heroTitle1}
+              <br />
+              <span className="gradient-text">{t.heroTitle2}</span>
+            </motion.h1>
+            <motion.p variants={fadeUp} className="text-xl text-slate-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+              {t.heroDesc}
+            </motion.p>
+            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to={ctaHref} className="inline-flex items-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-200">
+                {ctaLabel} <ArrowRight size={18} />
+              </Link>
+              <Link to="/jobs" className="inline-flex items-center gap-2 px-8 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold rounded-2xl">
+                <Search size={18} /> {t.searchJobs}
+              </Link>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
-      {/* 3 Pillars layout (Candidate, Recruiter, Admin) */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        {/* Candidate pillar */}
-        <div className="bg-slate-900/50 border border-slate-800 hover:border-emerald-500/30 rounded-2xl p-6 transition group relative">
-          <div className="mb-4 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-            <User className="h-6 w-6" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-100 mb-2">Dành cho Ứng viên</h3>
-          <p className="text-slate-400 text-sm leading-relaxed mb-4">
-            Đăng ký tài khoản, xây dựng dòng thông tin profile chi tiết, upload CV mật bảo mật an toàn. Ứng tuyển chỉ bằng một cú nhấp chuột và theo dõi thời gian thực sự thay đổi trạng thái đơn nộp.
-          </p>
-          <Link to={user ? "/profile" : "/auth/sign-in"} className="text-xs font-semibold text-emerald-400 hover:underline inline-flex items-center gap-1 group/link">
-            Chỉnh sửa CV &amp; Profile <ArrowRight className="h-3 w-3 group-hover/link:translate-x-1 duration-150" />
-          </Link>
-        </div>
-
-        {/* Recruiter pillar */}
-        <div className="bg-slate-900/50 border border-slate-800 hover:border-emerald-500/30 rounded-2xl p-6 transition group relative">
-          <div className="mb-4 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-            <Building2 className="h-6 w-6" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-100 mb-2">Dành cho Nhà tuyển dụng</h3>
-          <p className="text-slate-400 text-sm leading-relaxed mb-4">
-            Ứng viên muốn làm recruiter hãy nộp yêu cầu onboard công ty. Khi được duyệt, bạn sở hữu bàn điều khiển đăng tin, đóng/khóa tin, mở CV dạng signed URL, và chuyển đơn nộp sang các giai đoạn phỏng vấn.
-          </p>
-          <Link to={isRecruiter ? "/recruiter/jobs" : "/recruiter/request"} className="text-xs font-semibold text-emerald-400 hover:underline inline-flex items-center gap-1 group/link">
-            Bàn làm việc Recruiter <ArrowRight className="h-3 w-3 group-hover/link:translate-x-1 duration-150" />
-          </Link>
-        </div>
-
-        {/* Admin pillar */}
-        <div className="bg-slate-900/50 border border-slate-800 hover:border-emerald-500/30 rounded-2xl p-6 transition group relative">
-          <div className="mb-4 inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-800 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
-            <Sliders className="h-6 w-6" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-100 mb-2">Dành cho Quản trị viên</h3>
-          <p className="text-slate-400 text-sm leading-relaxed mb-4">
-            Phê duyệt giấy phép đăng ký nhà tuyển dụng, quản trị cấp phát vai trò người dùng trong hệ thống (Candidate, Recruiter, Admin) nhằm đảm bảo hệ sinh thái tuyển dụng hoạt động lành mạnh và chính trực.
-          </p>
-          {isAdmin ? (
-            <Link to="/admin/recruiter-requests" className="text-xs font-semibold text-emerald-400 hover:underline inline-flex items-center gap-1 group/link">
-              Phê duyệt đăng ký <ArrowRight className="h-3 w-3 group-hover/link:translate-x-1 duration-150" />
-            </Link>
-          ) : (
-            <span className="text-xs text-slate-500 font-mono">Quyền hạn bảo vệ bảo mật khắt khe</span>
-          )}
-        </div>
-
-      </section>
-
-      {/* Recents Published Jobs Board */}
-      <section className="space-y-6 pt-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-extrabold text-slate-100 tracking-tight">
-              Việc làm mới nhất hôm nay
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">Các tin tuyển dụng hiển thị trực tiếp vừa mới được cập nhật trên sàn</p>
-          </div>
-          <Link 
-            to="/jobs" 
-            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg hover:border-emerald-500/30 duration-150 cursor-pointer"
-            id="all-jobs-link-home"
-          >
-            Tất cả việc làm
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 animate-pulse">
-                <div className="h-4 bg-slate-800 rounded w-1/3" />
-                <div className="space-y-2">
-                  <div className="h-6 bg-slate-800 rounded w-3/4" />
-                  <div className="h-4 bg-slate-800 rounded w-1/2" />
-                </div>
-                <div className="h-10 bg-slate-800 rounded-lg w-full" />
+      <section className="py-16 bg-slate-50 dark:bg-slate-800/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-2 lg:grid-cols-4 gap-6">
+          {stats.map((stat) => (
+            <div key={stat.label} className="bg-white dark:bg-slate-800 rounded-2xl p-6 text-center shadow-sm border border-slate-100 dark:border-slate-700">
+              <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center mx-auto mb-3`}>
+                <stat.icon size={22} />
               </div>
+              <p className="font-display text-3xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-end justify-between mb-10">
+            <div>
+              <h2 className="font-display text-3xl font-bold text-slate-900 dark:text-white">{t.latestJobs}</h2>
+              <p className="text-slate-500 dark:text-slate-400 mt-2">{t.latestJobsDesc}</p>
+            </div>
+            <Link to="/jobs" className="hidden sm:flex items-center gap-1 text-sm font-medium text-indigo-600">
+              {t.viewAll} <ArrowRight size={15} />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {jobs.map((job) => (
+              <JobCard key={job.id} job={job} />
             ))}
           </div>
-        ) : error ? (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center text-sm text-red-400 max-w-xl mx-auto">
-            {error}
-          </div>
-        ) : recentJobs.length === 0 ? (
-          <div className="text-center bg-slate-900 border border-slate-800 rounded-2xl py-12 px-4 max-w-xl mx-auto">
-            <Briefcase className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-            <h4 className="text-sm font-bold text-slate-300">Chưa có tin tuyển dụng nào</h4>
-            <p className="text-xs text-slate-400 mt-1">Nhà tuyển dụng chưa xuất bản các vị trí làm việc.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {recentJobs.map((job) => {
-              const isDeadlinePassed = job.deadline_at && new Date(job.deadline_at).getTime() < Date.now();
-              return (
-                <div
-                  key={job.id}
-                  className="bg-slate-900 border border-slate-800 hover:border-emerald-500/25 rounded-2xl p-5 flex flex-col justify-between gap-5 transition-shadow hover:shadow-lg shadow-black/20"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase font-mono tracking-wider max-w-[150px] truncate">
-                        {job.company?.name || 'Công ty ẩn danh'}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono tracking-widest uppercase shrink-0 ${
-                        isDeadlinePassed 
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
-                          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      }`}>
-                        {isDeadlinePassed ? 'Hết hạn' : 'Đang tuyển'}
-                      </span>
-                    </div>
-
-                    <h3 className="text-base font-bold text-slate-200 line-clamp-1 hover:text-emerald-400">
-                      <Link to={`/jobs/${job.id}`}>{job.title}</Link>
-                    </h3>
-
-                    {/* Meta info labels */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <MapPin className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                        <span className="truncate">{job.location || 'Toàn quốc'}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <DollarSign className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                        <span>Lương: <strong className="text-slate-200">{formatCurrency(job.salary_min, job.currency)} - {formatCurrency(job.salary_max, job.currency)}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                        <CalendarDays className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                        <span>Hạn nộp: {formatDate(job.deadline_at)}</span>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed pt-1 select-none">
-                      {job.description || 'Không có mô tả chi tiết vị trí tuyển dụng này.'}
-                    </p>
-                  </div>
-
-                  <Link
-                    to={`/jobs/${job.id}`}
-                    className="w-full inline-flex items-center justify-center gap-1 bg-slate-800 hover:bg-slate-700 hover:text-white px-4 py-2 rounded-xl text-xs font-bold text-slate-200 transition"
-                  >
-                    Xem chi tiết việc làm
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        </div>
       </section>
 
+      <section className="py-20 bg-slate-50 dark:bg-slate-800/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+          {features.map((f) => (
+            <button
+              key={f.title}
+              type="button"
+              onClick={() => navigate(f.href)}
+              className="text-left bg-white dark:bg-slate-800 rounded-2xl p-7 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl transition-all"
+            >
+              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${f.gradient} flex items-center justify-center text-2xl mb-5`}>{f.icon}</div>
+              <h3 className="font-display text-xl font-bold text-slate-900 dark:text-white mb-3">{f.title}</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-5">{f.desc}</p>
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600">{f.cta} <ArrowRight size={14} /></span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {!user && (
+        <section className="py-20">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6">
+            <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-3xl p-12 text-center text-white">
+              <h2 className="font-display text-4xl font-bold mb-4">{t.ctaTitle}</h2>
+              <p className="text-indigo-200 text-lg mb-8">{t.ctaDesc}</p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link to="/register" className="inline-flex items-center gap-2 px-8 py-4 bg-white text-indigo-700 font-bold rounded-2xl">{t.registerFree}</Link>
+                <Link to="/login" className="inline-flex items-center gap-2 px-8 py-4 border border-white/30 text-white font-semibold rounded-2xl">{t.login}</Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <footer className="border-t border-slate-200 dark:border-slate-800 py-10 bg-white dark:bg-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-slate-500">
+          <p className="mb-2 font-display font-bold text-lg text-slate-800 dark:text-white">Next<span className="text-indigo-600">Job</span></p>
+          <p>© 2026 NextJob Vietnam. Nền tảng tuyển dụng thông minh.</p>
+        </div>
+      </footer>
     </div>
   );
-};
-
-export default HomePage;
+}

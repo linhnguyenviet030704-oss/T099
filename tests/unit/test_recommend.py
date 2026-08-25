@@ -5,8 +5,10 @@ from uuid import uuid4
 
 import pytest
 
+from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.services.recommend import (
     MOCK_SCORES,
+    assert_recruiter_job_access,
     list_applications_for_job,
     list_published_jobs,
     mock_recommend,
@@ -153,7 +155,9 @@ def test_mock_recommend_candidates_scores_and_profile():
         _application_row(profiles={"full_name": "Bob", "email": "bob@example.com"}),
     ]
     candidates = mock_recommend_candidates(rows)
-    assert [c.score for c in candidates] == [MOCK_SCORES[0], MOCK_SCORES[1]]
+    assert [c.rrf_score for c in candidates] == [MOCK_SCORES[0], MOCK_SCORES[1]]
+    assert candidates[0].rerank_score is None
+    assert candidates[0].rerank_status == "not_requested"
     assert candidates[0].application_id == app_id
     assert candidates[0].applicant_user_id == user_id
     assert candidates[0].full_name == "Ada"
@@ -165,14 +169,140 @@ def test_mock_recommend_candidates_empty():
 
 
 @pytest.mark.asyncio
-async def test_list_applications_for_job_filters_job_and_not_withdrawn():
+async def test_list_applications_for_job_filters_job_and_not_withdrawn(monkeypatch):
     job_id = uuid4()
+    actor_id = uuid4()
     rows = [_application_row()]
     client = _FakeClient(rows)
-    result = await list_applications_for_job(client, job_id)
+
+    async def _allow(_client, _actor_id, _job_id):
+        return None
+
+    monkeypatch.setattr("backend.app.services.recommend.assert_recruiter_job_access", _allow)
+
+    result = await list_applications_for_job(client, actor_id, job_id)
     assert result == rows
     assert client.table_name == "job_submits"
     assert client.query is not None
     assert client.query.eq_args == ("job_post_id", str(job_id))
     assert client.query.is_args == ("withdrawn_at", "null")
     assert client.query.limit_n == 5
+
+
+@pytest.mark.asyncio
+async def test_list_applications_for_job_blocks_before_query_when_unauthorized(monkeypatch):
+    job_id = uuid4()
+    actor_id = uuid4()
+
+    class _ExplodingClient:
+        def table(self, _name: str):
+            raise AssertionError("list_applications_for_job must not touch data before the access check")
+
+    async def _deny(_client, _actor_id, _job_id):
+        raise ForbiddenError("Not a recruiter for this job")
+
+    monkeypatch.setattr("backend.app.services.recommend.assert_recruiter_job_access", _deny)
+
+    with pytest.raises(ForbiddenError):
+        await list_applications_for_job(_ExplodingClient(), actor_id, job_id)
+
+
+class _RoutingFakeQuery:
+    def __init__(self, data: dict | None) -> None:
+        self._data = data
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def in_(self, *_args, **_kwargs):
+        return self
+
+    def maybe_single(self):
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=self._data)
+
+
+class _RoutingFakeClient:
+    """Fake client that routes `client.table(name)` to canned per-table data —
+    enough for `assert_recruiter_job_access`'s 3 sequential lookups
+    (job_posts -> profiles -> company_members)."""
+
+    def __init__(self, table_data: dict[str, dict | None]) -> None:
+        self._table_data = table_data
+
+    def table(self, name: str) -> _RoutingFakeQuery:
+        return _RoutingFakeQuery(self._table_data.get(name))
+
+
+@pytest.mark.asyncio
+async def test_assert_recruiter_job_access_rejects_admin():
+    # Admin is not a recruiter and cannot match candidates for job posts
+    actor_id = uuid4()
+    job_id = uuid4()
+    other_user_id = uuid4()
+    client = _RoutingFakeClient(
+        {
+            "job_posts": {"id": str(job_id), "company_id": str(uuid4()), "created_by_user_id": str(other_user_id)},
+            "profiles": {"role": "admin"},
+        }
+    )
+    with pytest.raises(ForbiddenError):
+        await assert_recruiter_job_access(client, actor_id, job_id)
+
+
+@pytest.mark.asyncio
+async def test_assert_recruiter_job_access_allows_poster_with_active_membership():
+    # Access requires role = recruiter, being the job's creator AND an active membership on that job's company
+    actor_id = uuid4()
+    job_id = uuid4()
+    client = _RoutingFakeClient(
+        {
+            "job_posts": {"id": str(job_id), "company_id": str(uuid4()), "created_by_user_id": str(actor_id)},
+            "profiles": {"role": "recruiter"},
+            "company_members": {"id": str(uuid4())},
+        }
+    )
+    await assert_recruiter_job_access(client, actor_id, job_id)
+
+
+@pytest.mark.asyncio
+async def test_assert_recruiter_job_access_rejects_active_member_who_is_not_poster():
+    actor_id = uuid4()
+    job_id = uuid4()
+    other_user_id = uuid4()
+    client = _RoutingFakeClient(
+        {
+            "job_posts": {"id": str(job_id), "company_id": str(uuid4()), "created_by_user_id": str(other_user_id)},
+            "profiles": {"role": "recruiter"},
+            "company_members": {"id": str(uuid4())},
+        }
+    )
+    with pytest.raises(ForbiddenError, match="Not the poster"):
+        await assert_recruiter_job_access(client, actor_id, job_id)
+
+
+@pytest.mark.asyncio
+async def test_assert_recruiter_job_access_rejects_poster_without_active_membership():
+    actor_id = uuid4()
+    job_id = uuid4()
+    client = _RoutingFakeClient(
+        {
+            "job_posts": {"id": str(job_id), "company_id": str(uuid4()), "created_by_user_id": str(actor_id)},
+            "profiles": {"role": "recruiter"},
+            "company_members": None,
+        }
+    )
+    with pytest.raises(ForbiddenError, match="Not a recruiter"):
+        await assert_recruiter_job_access(client, actor_id, job_id)
+
+
+@pytest.mark.asyncio
+async def test_assert_recruiter_job_access_raises_not_found_for_missing_job():
+    client = _RoutingFakeClient({"job_posts": None})
+    with pytest.raises(NotFoundError):
+        await assert_recruiter_job_access(client, uuid4(), uuid4())

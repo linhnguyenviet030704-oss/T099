@@ -1,0 +1,4042 @@
+{
+  "JD-01": {
+    "G1-FE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm frontend nhưng thiếu kinh nghiệm backend và không đáp ứng đủ yêu cầu về APIs và cơ sở dữ liệu.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với một số công nghệ liên quan nhưng không đủ mạnh về phát triển full stack.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng với cả frontend và backend, sử dụng công nghệ phù hợp với yêu cầu của JD.",
+      "is_own_jd": true
+    },
+    "G1-FS-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm phát triển cả frontend và backend, sử dụng công nghệ phù hợp với JD.",
+      "is_own_jd": true
+    },
+    "G1-FE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm frontend tốt nhưng thiếu kinh nghiệm backend và không đáp ứng đầy đủ yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps, không đáp ứng yêu cầu lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực phát triển phần mềm nhưng chủ yếu tập trung vào DevOps và không có nhiều kinh nghiệm lập trình frontend.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps, không phù hợp với vai trò lập trình viên full stack.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm quản trị hệ thống và cơ sở dữ liệu, không phải phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong lĩnh vực vận hành IT, không có kinh nghiệm lập trình và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển phần mềm và không đáp ứng yêu cầu về kỹ năng lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về quản trị hệ thống, không có kinh nghiệm lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển phần mềm và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong lĩnh vực bảo mật, không đáp ứng yêu cầu lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển web nhưng chủ yếu tập trung vào bảo mật ứng dụng.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong lĩnh vực BI, không phù hợp với vai trò lập trình viên full stack.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không phù hợp với vai trò lập trình viên full stack.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình full stack và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm phân tích dữ liệu, không phù hợp với vai trò lập trình viên full stack.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình full stack và chỉ tập trung vào BI và báo cáo dữ liệu.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong lĩnh vực NLP và không đáp ứng yêu cầu về phát triển web full stack.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu làm việc với chatbot và AI, không có kinh nghiệm lập trình full stack hoặc các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về đám mây và không có kinh nghiệm lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm phân tích nghiệp vụ, không có kinh nghiệm lập trình và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm backend nhưng không đủ kinh nghiệm full stack và frontend.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong phát triển phần mềm nhưng chủ yếu tập trung vào kiểm thử tự động và không có nhiều kinh nghiệm lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm chủ yếu trong lĩnh vực mạng, không liên quan đến phát triển phần mềm full stack.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và chỉ làm việc trong vai trò Business Analyst.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về cloud và không đáp ứng yêu cầu lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về DevOps và Cloud, không có kinh nghiệm lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về cloud và không đáp ứng yêu cầu lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực mạng, không liên quan đến lập trình full stack.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng chủ yếu tập trung vào blockchain và không đáp ứng đầy đủ yêu cầu về phát triển web full stack.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và không liên quan đến vai trò lập trình viên full stack.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến lập trình web full stack.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong phát triển backend và một số công nghệ liên quan nhưng không hoàn toàn phù hợp với yêu cầu full stack và frontend của JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển web và các công nghệ liên quan đến JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển web nhưng chủ yếu tập trung vào Odoo và không đủ kinh nghiệm với các công nghệ frontend và backend chính trong JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm thiết kế tương tác, không đáp ứng yêu cầu lập trình và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong phát triển phần mềm nhưng chủ yếu tập trung vào Odoo và không rõ ràng về các công nghệ frontend và backend khác.",
+      "is_own_jd": false
+    }
+  },
+  "JD-02": {
+    "G1-FS-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Next.js và React, nhưng thiếu kinh nghiệm về Web3 và các yêu cầu khác trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng với Next.js, React, TypeScript và các yêu cầu kỹ thuật khác trong JD.",
+      "is_own_jd": true
+    },
+    "G1-FE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với ReactJS và TypeScript nhưng thiếu kinh nghiệm với Web3 và Next.js.",
+      "is_own_jd": true
+    },
+    "G1-FS-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng với Next.js, React, TypeScript và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps, không phù hợp với vai trò Frontend Developer.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển frontend và không liên quan đến công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về DevOps và không có kỹ năng frontend phù hợp với JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển frontend và không đáp ứng yêu cầu công nghệ của JD.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong lĩnh vực BI, không liên quan đến phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển frontend và không liên quan đến công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển frontend và không đáp ứng yêu cầu công nghệ của JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với TypeScript và một số công nghệ liên quan nhưng không chuyên sâu về frontend và các công nghệ chính của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không liên quan đến phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển web nhưng không đủ kỹ năng frontend chính xác theo yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend hoặc công nghệ được yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và công nghệ yêu cầu.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong kiểm thử và DevOps, không phù hợp với vai trò Frontend Developer.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phát triển frontend hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và công nghệ yêu cầu.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và công nghệ yêu cầu.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực mạng, không liên quan đến phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm thiết kế giao diện nhưng thiếu kinh nghiệm phát triển frontend với Next.js và các công nghệ yêu cầu khác.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực mạng, không liên quan đến phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về backend và blockchain, không phù hợp với vai trò frontend developer.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu làm việc với Odoo và không có kinh nghiệm liên quan đến frontend development hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và công nghệ yêu cầu.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển frontend và không đáp ứng yêu cầu công nghệ cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong phát triển frontend và công nghệ yêu cầu.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến frontend development và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực nhúng, không có kinh nghiệm về phát triển frontend hay công nghệ liên quan đến JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-03": {
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và CI/CD nhưng thiếu kinh nghiệm sâu về quản trị hệ thống Linux và các công cụ tự động hóa chính.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về frontend, không liên quan đến DevOps.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng trong DevOps, đặc biệt là với các công nghệ và yêu cầu trong JD.",
+      "is_own_jd": true
+    },
+    "G2-DO-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm thực tế với các công nghệ chính như AWS, Kubernetes, Docker và CI/CD.",
+      "is_own_jd": true
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm giám sát hệ thống và sử dụng một số công cụ liên quan nhưng thiếu kinh nghiệm cốt lõi về DevOps và các công nghệ chính như Kubernetes, CI/CD.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống Linux và một số công nghệ liên quan nhưng không đủ mạnh về DevOps và các công cụ tự động hóa.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng trong các công nghệ và vai trò DevOps cần thiết.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong quản trị hệ thống và giám sát nhưng thiếu kinh nghiệm cụ thể về DevOps và các công nghệ chính như Kubernetes và CI/CD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng trong DevOps, đặc biệt là với Kubernetes, CI/CD và các công cụ tự động hóa.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong lĩnh vực bảo mật, không phù hợp với yêu cầu DevOps.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng trong quản trị hệ thống Linux, tự động hóa, CI/CD và quản lý container, đáp ứng tốt yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không liên quan đến DevOps.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu tập trung vào bảo mật ứng dụng, không có kinh nghiệm phù hợp với DevOps.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm làm DevOps, sử dụng Docker, GitLab CI và Ansible, đáp ứng tốt yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong CI/CD và một số công nghệ liên quan nhưng không phải là DevOps chính thức.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực DevOps hoặc các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với hầu hết yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong mạng và tự động hóa nhưng không đủ kinh nghiệm về DevOps và các công nghệ chính như Kubernetes và CI/CD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Cloud (Azure) và một số công nghệ liên quan nhưng không hoàn toàn phù hợp với vai trò DevOps cụ thể.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với AWS và Terraform nhưng thiếu kinh nghiệm thực tế với các công nghệ DevOps cốt lõi khác như CI/CD và container.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng với Kubernetes, Terraform, CI/CD và quản lý hệ thống, phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với cloud và một số công nghệ liên quan nhưng chưa đáp ứng đủ yêu cầu về DevOps và các công cụ cụ thể.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và GitLab CI nhưng thiếu kinh nghiệm trực tiếp với các công nghệ DevOps cốt lõi khác như Kubernetes và các công cụ tự động hóa cấu hình.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps hay công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến DevOps.",
+      "is_own_jd": false
+    }
+  },
+  "JD-04": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với một số công nghệ liên quan nhưng không đủ mạnh về SRE và các yêu cầu kỹ thuật cốt lõi.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps và một số công nghệ liên quan nhưng chưa đáp ứng đủ yêu cầu cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng trong SRE/DevOps và sử dụng các công nghệ chính như Kubernetes, Terraform, và CI/CD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng trong SRE/DevOps và sử dụng các công nghệ chính như Kubernetes, Terraform, và CI/CD.",
+      "is_own_jd": true
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến SRE/DevOps và các công nghệ chính trong JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản lý hệ thống và một số kỹ năng liên quan nhưng không đáp ứng đủ yêu cầu về SRE và công nghệ cụ thể như Kubernetes, CI/CD.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE/DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm frontend và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu cốt lõi của JD.",
+      "is_own_jd": true
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng trong quản trị hệ thống, Kubernetes, CI/CD và cơ sở dữ liệu PostgreSQL.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong quản lý sự cố và vận hành nhưng thiếu kinh nghiệm cụ thể về SRE và các công nghệ như Kubernetes, Terraform.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến SRE/DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực SRE/DevOps và không đáp ứng các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến SRE/DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến SRE, DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến SRE, DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực bảo mật ứng dụng và CI/CD nhưng không đủ kinh nghiệm với SRE và các công nghệ chính như Kubernetes.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE/DevOps.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong tự động hóa và CI/CD nhưng không có kinh nghiệm trực tiếp với SRE hoặc các công nghệ chính như Kubernetes và Terraform.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong mạng và tự động hóa nhưng không có kinh nghiệm trực tiếp với SRE hoặc các công nghệ chính như Kubernetes và CI/CD.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps và CI/CD nhưng thiếu một số yêu cầu cốt lõi như Kubernetes và các ngôn ngữ lập trình chính.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE/DevOps.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với AWS và Terraform nhưng thiếu kinh nghiệm thực tế với SRE và các công cụ CI/CD cụ thể.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu của JD về SRE và DevOps.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về đám mây và Terraform nhưng thiếu kinh nghiệm cụ thể về SRE và các công nghệ như Kubernetes.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến SRE, DevOps hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến SRE hoặc DevOps.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm phù hợp với yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với PostgreSQL và Go, nhưng không có kinh nghiệm trực tiếp với SRE/DevOps và các công nghệ chính như Kubernetes và CI/CD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với GCP và AWS nhưng thiếu kinh nghiệm thực tế với Kubernetes và CI/CD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và Nginx, nhưng thiếu kinh nghiệm về Kubernetes và CI/CD cụ thể cho vai trò SRE.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker, PostgreSQL và CI/CD nhưng thiếu kinh nghiệm trực tiếp với Kubernetes và các công nghệ khác trong JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-05": {
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux, Kubernetes, hoặc các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và một số công nghệ liên quan nhưng không đáp ứng đủ yêu cầu về quản trị hệ thống Linux và Kubernetes.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về Linux, Kubernetes, Docker và các công nghệ liên quan đến JD.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Linux và VMware nhưng thiếu kinh nghiệm về Kubernetes và các công nghệ khác trong JD.",
+      "is_own_jd": true
+    },
+    "G3-SA-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững vàng với Linux, Kubernetes, Docker và các công nghệ liên quan trong JD.",
+      "is_own_jd": true
+    },
+    "G2-DO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và Linux, nhưng chưa đủ kinh nghiệm với Kubernetes và các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về Kubernetes, Docker, và Linux, đáp ứng tốt yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong quản trị hệ thống và giám sát nhưng thiếu kinh nghiệm cụ thể với Kubernetes và các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về Linux, Kubernetes, Docker, và OpenStack, đáp ứng tốt yêu cầu JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux, Kubernetes, Docker hay các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux, Kubernetes, Docker hay các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống Linux và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux, Kubernetes, Docker hay các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu làm việc trong lĩnh vực kiểm thử bảo mật, không liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux, Kubernetes, Docker hay các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không liên quan đến lĩnh vực quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps và Docker nhưng không đủ kinh nghiệm với Linux systems và các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan đến Linux và Kubernetes nhưng không đủ sâu về các công nghệ cốt lõi trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux, Kubernetes, Docker hay các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với cloud và VMware nhưng thiếu kinh nghiệm cụ thể về Linux, Kubernetes và các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với OpenStack và một số công nghệ liên quan nhưng thiếu kinh nghiệm sâu về Linux và Kubernetes.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống hoặc công nghệ được yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống hoặc công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến quản trị hệ thống Linux hay các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và một số công nghệ liên quan nhưng không đáp ứng đủ yêu cầu về quản trị hệ thống Linux và Kubernetes.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux, Kubernetes, hoặc các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong mạng và tự động hóa nhưng không có kinh nghiệm trực tiếp với quản trị hệ thống Linux và các công nghệ cụ thể trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với đám mây và Kubernetes cơ bản nhưng thiếu kinh nghiệm sâu về Linux và các công nghệ cốt lõi khác trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống Linux hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Kubernetes và Kafka nhưng không đủ kinh nghiệm với các công nghệ khác trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực nhúng, không liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-06": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển phần mềm nhưng không đáp ứng tốt yêu cầu về quản trị hệ thống và bảo mật.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm quản trị hệ thống và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực DevOps nhưng không hoàn toàn phù hợp với yêu cầu quản trị hệ thống cụ thể trong JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan nhưng chưa đáp ứng đủ yêu cầu về quản trị hệ thống và bảo mật.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về frontend, không liên quan đến quản trị hệ thống.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Linux và giám sát hệ thống nhưng thiếu kinh nghiệm cụ thể về quản trị server và bảo mật hệ thống như yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và server.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống và sử dụng các công cụ giám sát phù hợp với yêu cầu JD.",
+      "is_own_jd": true
+    },
+    "G3-SA-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống và các công nghệ phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm giám sát hệ thống và một số kỹ năng liên quan nhưng chưa đáp ứng đủ yêu cầu về quản trị hệ thống và bảo mật.",
+      "is_own_jd": true
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống server.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống Linux, bảo mật và sao lưu dữ liệu phù hợp với yêu cầu JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và server.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống server và các kỹ năng phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu làm việc trong lĩnh vực BI, không có kinh nghiệm liên quan đến quản trị hệ thống server.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu tập trung vào kiểm thử bảo mật, không có kinh nghiệm quản trị hệ thống như yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm IT hỗ trợ và bảo mật nhưng thiếu kinh nghiệm quản trị hệ thống server và các công nghệ cụ thể trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu tập trung vào bảo mật ứng dụng, không có kinh nghiệm quản trị hệ thống và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống server và bảo mật hệ thống.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps và quản lý cơ sở dữ liệu nhưng không đủ chuyên sâu về quản trị hệ thống như yêu cầu JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống và sử dụng Linux, nhưng thiếu một số yêu cầu cụ thể về bảo mật và quản lý mạng nội bộ.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong kiểm thử tự động, không liên quan đến quản trị hệ thống.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực đám mây nhưng thiếu kinh nghiệm cụ thể về quản trị hệ thống server và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong quản trị mạng và một số kỹ năng liên quan nhưng không hoàn toàn phù hợp với yêu cầu về quản trị hệ thống server và bảo mật.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về mạng và bảo mật nhưng thiếu kinh nghiệm quản trị hệ thống server và các công nghệ cụ thể trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với server và PostgreSQL nhưng không đáp ứng đủ yêu cầu về quản trị hệ thống và bảo mật.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan đến cloud nhưng thiếu kinh nghiệm quản trị hệ thống server và các công nghệ cụ thể trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và server.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến quản trị hệ thống server hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong quản trị hệ thống và một số công nghệ liên quan nhưng không hoàn toàn phù hợp với yêu cầu cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về cloud và quản trị hệ thống nhưng không đủ chuyên sâu vào các công nghệ cụ thể yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan đến quản trị hệ thống nhưng chủ yếu tập trung vào công nghệ blockchain.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến quản trị hệ thống và công nghệ yêu cầu.",
+      "is_own_jd": false
+    }
+  },
+  "JD-07": {
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kiến thức liên quan đến bảo mật đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về phát triển frontend, không liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu về bảo mật đám mây và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu về bảo mật đám mây và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm lập trình và một số công nghệ liên quan nhưng không tập trung vào bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về bảo mật đám mây, Docker, Kubernetes và lập trình Python.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống và một số kỹ năng liên quan nhưng không tập trung vào bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về bảo mật đám mây, Docker, Kubernetes và lập trình Python.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong an toàn thông tin nhưng thiếu kinh nghiệm cụ thể về cloud và các công nghệ liên quan.",
+      "is_own_jd": true
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong bảo mật ứng dụng và một số kỹ năng liên quan đến cloud nhưng không hoàn toàn phù hợp với JD về bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm IT nhưng thiếu kiến thức và kỹ năng cụ thể về bảo mật đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu về bảo mật đám mây và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong bảo mật nhưng không tập trung vào bảo mật đám mây và các công nghệ cụ thể trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm lập trình và một phần kiến thức về cloud nhưng không tập trung vào bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 1,
+      "reason": "Ứng viên có kiến thức về an ninh thông tin và một số kỹ năng liên quan nhưng chưa đáp ứng đủ yêu cầu về cloud và container.",
+      "is_own_jd": true
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong CNTT và quản lý hệ thống nhưng không đủ kiến thức chuyên sâu về bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu về bảo mật đám mây và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong mạng và tự động hóa nhưng không đủ kiến thức về bảo mật đám mây và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kiến thức liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và Kubernetes, nhưng không có kinh nghiệm trực tiếp về bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kiến thức liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm thực tập liên quan đến bảo mật đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có một số kỹ năng liên quan nhưng không đáp ứng đủ yêu cầu cốt lõi về bảo mật và cloud.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kiến thức liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Kubernetes và một số công nghệ liên quan nhưng không tập trung vào bảo mật đám mây.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về cloud và bảo mật, phù hợp với yêu cầu JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về cloud và một số công nghệ liên quan nhưng chưa đáp ứng đầy đủ yêu cầu về bảo mật và scripting.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và Python, nhưng thiếu kiến thức về bảo mật và cloud security.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Docker và một số kiến thức về bảo mật, nhưng không đủ chuyên sâu về cloud security và các công nghệ cụ thể trong JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-08": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển phần mềm nhưng không có kinh nghiệm cụ thể về kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và không đáp ứng các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không chuyên sâu về kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về quản trị hệ thống, không có kinh nghiệm trong kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu kiểm tra bảo mật trong JD.",
+      "is_own_jd": true
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong kiểm tra bảo mật và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm thực tập trong kiểm thử xâm nhập nhưng chưa đủ 4 năm kinh nghiệm và chưa đáp ứng đầy đủ yêu cầu kỹ thuật cốt lõi.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và không đáp ứng các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu kiểm tra bảo mật trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và không đáp ứng các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu kiểm tra bảo mật trong JD.",
+      "is_own_jd": true
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong kiểm thử và một số kỹ năng lập trình, nhưng không chuyên sâu về bảo mật như yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm tra bảo mật và không đáp ứng yêu cầu kỹ thuật của JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong kiểm thử và phát triển phần mềm nhưng không có kinh nghiệm cụ thể về kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số kỹ năng liên quan đến bảo mật nhưng không đủ kinh nghiệm chuyên sâu về kiểm tra bảo mật.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến kiểm tra bảo mật.",
+      "is_own_jd": false
+    }
+  },
+  "JD-09": {
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về phát triển frontend, không liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong DevOps và một số công nghệ liên quan nhưng không hoàn toàn phù hợp với vai trò Kỹ Sư Dữ Liệu.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong phát triển phần mềm nhưng không đủ chuyên môn về kỹ sư dữ liệu và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực DevOps và nền tảng nhưng không hoàn toàn phù hợp với vai trò kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với AWS và một số công nghệ liên quan nhưng không đủ kinh nghiệm trong vai trò kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản trị cơ sở dữ liệu và một số kỹ năng liên quan nhưng không đủ chuyên sâu về kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong quản lý vận hành IT, không phù hợp với vai trò kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực dữ liệu nhưng không đáp ứng đủ yêu cầu về kỹ năng và kinh nghiệm kỹ sư dữ liệu cốt lõi.",
+      "is_own_jd": true
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về quản trị hệ thống và ảo hóa, không liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với AWS và Python, nhưng thiếu kinh nghiệm cụ thể về kỹ sư dữ liệu và các công nghệ liên quan đến dữ liệu lớn.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến kỹ sư dữ liệu và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực BI và làm việc với dữ liệu, nhưng không đủ kinh nghiệm về kỹ sư dữ liệu và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": true
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với SQL và một phần công nghệ liên quan nhưng không đủ kinh nghiệm trong vai trò kỹ sư dữ liệu cốt lõi.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không tập trung vào kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số công nghệ liên quan nhưng không phải là kỹ sư dữ liệu chính thống.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm phân tích kinh doanh, không có kỹ năng kỹ thuật phù hợp với vai trò kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong DevOps và backend nhưng không đủ chuyên môn về kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến kỹ sư dữ liệu và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với vai trò Kỹ Sư Dữ Liệu Cấp Cao.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong đám mây nhưng thiếu kinh nghiệm cụ thể về kỹ sư dữ liệu và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực mạng, không liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về AWS và một số công nghệ liên quan nhưng không đủ chuyên môn về kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với GCP và AWS nhưng thiếu kinh nghiệm cốt lõi về kỹ sư dữ liệu và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về cloud và một số công nghệ liên quan nhưng không đủ chuyên sâu về kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với một số công nghệ liên quan nhưng không hoàn toàn phù hợp với vai trò kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kỹ sư dữ liệu và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với dữ liệu và một số công nghệ liên quan nhưng không hoàn toàn phù hợp với vai trò kỹ sư dữ liệu cấp cao.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến kỹ sư dữ liệu.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số công nghệ liên quan nhưng không hoàn toàn phù hợp với vai trò kỹ sư dữ liệu cấp cao.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến kỹ sư dữ liệu hay công nghệ dữ liệu.",
+      "is_own_jd": false
+    }
+  },
+  "JD-10": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển phần mềm nhưng không chuyên sâu về phân tích dữ liệu và các công nghệ liên quan đến Data Warehouse.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực phân tích dữ liệu và các công nghệ liên quan đến JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về DevOps và phát triển nền tảng, không phù hợp với vai trò phân tích dữ liệu.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu và SQL nâng cao.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực phân tích dữ liệu và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps, không phù hợp với vai trò Business Data Analyst.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu hay SQL.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong quản lý vận hành IT, không liên quan đến phân tích dữ liệu hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản trị cơ sở dữ liệu nhưng không đủ kinh nghiệm và kỹ năng phân tích dữ liệu cần thiết cho vai trò Business Data Analyst.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực phân tích dữ liệu và không đáp ứng yêu cầu về SQL và Data Warehouse.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực BI và SQL nhưng không hoàn toàn phù hợp với vai trò Business Data Analyst.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu hay SQL.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực BA và không đáp ứng yêu cầu về SQL nâng cao cũng như các công nghệ liên quan đến Data Warehouse.",
+      "is_own_jd": true
+    },
+    "G5-BI-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với SQL và dữ liệu nhưng chưa đáp ứng đủ yêu cầu về phân tích và thiết kế hệ thống dữ liệu.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phân tích dữ liệu và sử dụng SQL, nhưng không hoàn toàn phù hợp với yêu cầu về ETL và Data Warehouse.",
+      "is_own_jd": true
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu hay SQL.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong kiểm thử tự động, không liên quan đến phân tích dữ liệu và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực phân tích dữ liệu và SQL.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm BA nhưng thiếu kinh nghiệm với các hệ thống CSDL lớn và công nghệ cụ thể trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực phân tích dữ liệu và không đáp ứng yêu cầu về SQL và mô hình dữ liệu.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm BA trong lĩnh vực ngân hàng, thành thạo SQL và hiểu rõ về mô hình dữ liệu, ETL.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu hay SQL.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu hay SQL.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực phân tích dữ liệu và không đáp ứng yêu cầu về SQL và mô hình dữ liệu.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu và công nghệ SQL.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến phân tích dữ liệu hoặc các công nghệ được yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến phân tích dữ liệu và công nghệ SQL.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực Cloud và một phần liên quan đến phân tích dữ liệu nhưng không đủ mạnh về SQL và các khái niệm Data Warehouse.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số kỹ năng liên quan nhưng không hoàn toàn phù hợp với vai trò Business Data Analyst.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực dữ liệu nhưng không hoàn toàn phù hợp với vai trò Business Data Analyst.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực phân tích dữ liệu và không sử dụng công nghệ SQL hay các hệ thống CSDL lớn.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến phân tích dữ liệu hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-11": {
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về frontend và không liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về DevOps và phát triển nền tảng, không liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với SQL và một chút Python, nhưng thiếu kiến thức và kinh nghiệm chuyên sâu về học máy và NLP.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm và kỹ năng phù hợp với yêu cầu về NLP và ML/DL trong JD.",
+      "is_own_jd": true
+    },
+    "G6-NLP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong NLP nhưng chưa đáp ứng đầy đủ các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": true
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong kiểm thử tự động, không liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong lĩnh vực BI, không liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps, không liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực mạng, không liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm lập trình và triển khai nhưng thiếu kinh nghiệm cụ thể về NLP và ML.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến AI/NLP.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến AI/NLP.",
+      "is_own_jd": false
+    }
+  },
+  "JD-12": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển phần mềm nhưng không có kinh nghiệm kiểm thử phần mềm cụ thể.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan đến kiểm thử nhưng chủ yếu tập trung vào phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps, không liên quan đến kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm kiểm thử nhưng chủ yếu tập trung vào kiểm thử xâm nhập, không hoàn toàn phù hợp với yêu cầu kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong kiểm thử phần mềm nhưng chủ yếu tập trung vào kiểm thử bảo mật và không hoàn toàn phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong kiểm thử phần mềm nhưng chủ yếu tập trung vào bảo mật và không đáp ứng đầy đủ yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm kiểm thử phần mềm và sử dụng các công cụ liên quan.",
+      "is_own_jd": true
+    },
+    "G4-PT-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm kiểm thử nhưng chủ yếu tập trung vào bảo mật và không đáp ứng đầy đủ yêu cầu về kiểm thử phần mềm thông thường.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực phát triển phần mềm nhưng không chuyên về kiểm thử.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với SQL và phân tích dữ liệu, nhưng không có kinh nghiệm kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong kiểm thử nhưng chủ yếu tập trung vào tự động hóa và DevOps.",
+      "is_own_jd": true
+    },
+    "G5-DA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm SQL và làm việc với dữ liệu nhưng không có kinh nghiệm kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm kiểm thử nhưng chủ yếu trong lĩnh vực chatbot, không hoàn toàn phù hợp với yêu cầu kiểm thử phần mềm tổng quát.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực phân tích yêu cầu và kiểm thử nhưng không phải là tester chính thức.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong kiểm thử nhưng chủ yếu tập trung vào phát triển phần mềm và không đủ kinh nghiệm kiểm thử độc lập.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan đến kiểm thử nhưng không đủ kỹ năng và kinh nghiệm cốt lõi cho vai trò Tester.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực mạng, không liên quan đến kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực kiểm thử phần mềm.",
+      "is_own_jd": false
+    }
+  },
+  "JD-13": {
+    "G1-FE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không có kinh nghiệm quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không có kinh nghiệm trực tiếp trong quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong CNTT nhưng không có kinh nghiệm quản lý dự án hoặc vai trò Scrum Master.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển phần mềm nhưng không có kinh nghiệm quản lý dự án rõ ràng.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm quản lý dự án và kỹ năng liên quan đến JD.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm quản lý dự án và không đáp ứng yêu cầu về kỹ năng giao tiếp và quản lý.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm quản lý dự án và không đáp ứng yêu cầu về kỹ năng giao tiếp và tổ chức.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không có kinh nghiệm quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không đáp ứng yêu cầu về quản lý dự án và kỹ năng Agile.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không có kinh nghiệm quản lý dự án chính thức.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về kỹ năng giao tiếp và tổ chức cần thiết cho vai trò này.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong CNTT nhưng không có kinh nghiệm quản lý dự án rõ ràng.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm quản lý dự án và không đáp ứng yêu cầu về vai trò và công nghệ chính của JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không có kinh nghiệm quản lý dự án rõ ràng.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không đáp ứng yêu cầu về quản lý dự án và kỹ năng giao tiếp cần thiết.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không có kinh nghiệm quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không đáp ứng yêu cầu về vai trò quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về vai trò Project Manager.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực phân tích kinh doanh và quản lý dự án nhưng không có kinh nghiệm trực tiếp trong vai trò quản lý dự án hoặc Scrum Master.",
+      "is_own_jd": true
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về vai trò Project Manager.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về vai trò Project Manager.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về vai trò Project Manager.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không liên quan đến các công nghệ hoặc vai trò trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản lý dự án nhưng chủ yếu tập trung vào công nghệ đám mây, không hoàn toàn phù hợp với yêu cầu JD về quản lý dự án truyền thống.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong quản lý sự cố và quy trình nhưng không có kinh nghiệm trực tiếp trong vai trò quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về blockchain và không liên quan đến quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm hoặc kỹ năng liên quan đến quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan nhưng không phải là quản lý dự án chính thức.",
+      "is_own_jd": true
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về vai trò và công nghệ chính của JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm phát triển phần mềm nhưng không có kinh nghiệm quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về kỹ năng giao tiếp và tổ chức.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có nền tảng CNTT và kỹ năng đám mây nhưng thiếu kinh nghiệm quản lý dự án và các công cụ Agile.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu về vai trò và công nghệ chính của JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không đáp ứng yêu cầu về quản lý dự án và kỹ năng Agile cần thiết.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm kỹ thuật nhưng không tập trung vào quản lý dự án.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong quản lý dự án và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản lý dự án nhưng chủ yếu tập trung vào phát triển phần mềm và không có kinh nghiệm cụ thể trong vai trò Project Manager.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về phát triển phần mềm nhúng, không liên quan đến quản lý dự án.",
+      "is_own_jd": false
+    }
+  },
+  "JD-14": {
+    "G1-FS-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Node.js và Next.js nhưng thiếu kinh nghiệm về AWS và vai trò kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm frontend và không đáp ứng yêu cầu về backend, kiến trúc hệ thống và các công nghệ cốt lõi khác.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps và AWS nhưng thiếu kinh nghiệm trực tiếp với kiến trúc giải pháp và phát triển frontend/backend như yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong DevOps và kiến trúc nền tảng nhưng thiếu kinh nghiệm cụ thể với .NET Core, Node.js và phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về AWS và Node.js nhưng thiếu kinh nghiệm về .NET Core và phát triển frontend.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm quản trị hệ thống, không phù hợp với vai trò kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong quản lý vận hành và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm quản trị hệ thống và không đáp ứng yêu cầu về phát triển phần mềm và kiến trúc giải pháp.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với vai trò kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không phù hợp với vai trò kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về BI và không đáp ứng các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Node.js và React, nhưng thiếu kinh nghiệm lãnh đạo và không có đủ thời gian làm việc trong vai trò Kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiến trúc giải pháp và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong các công nghệ và vai trò yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps và không đáp ứng yêu cầu về kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm frontend và một số kỹ năng liên quan nhưng thiếu kinh nghiệm về backend và kiến trúc hệ thống.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với vai trò Kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiến trúc giải pháp và phát triển phần mềm như yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu tập trung vào bảo mật ứng dụng và không có kinh nghiệm phù hợp với vai trò kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiến trúc giải pháp và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong kiến trúc giải pháp và các công nghệ yêu cầu.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với vai trò kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiến trúc giải pháp và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về đám mây nhưng chủ yếu là Azure, không đáp ứng tốt yêu cầu về AWS và các công nghệ backend/frontend cụ thể.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong DevOps và backend nhưng không đáp ứng đủ yêu cầu về kiến trúc giải pháp và các công nghệ chính trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về GCP và hỗ trợ khách hàng, không đáp ứng yêu cầu về kiến trúc giải pháp và các công nghệ cốt lõi trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số công nghệ liên quan nhưng không hoàn toàn phù hợp với vai trò Kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu làm việc trong lĩnh vực blockchain, không liên quan đến kiến trúc giải pháp và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong kiểm thử tự động, không phù hợp với vai trò kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với vai trò Kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với yêu cầu của JD về kiến trúc sư giải pháp.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến kiến trúc giải pháp và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm phân tích kinh doanh, không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về AWS và kiến trúc đám mây nhưng thiếu kinh nghiệm thực tế trong phát triển backend và frontend như yêu cầu của JD.",
+      "is_own_jd": true
+    },
+    "G9-CA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm về AWS và DevOps nhưng thiếu kinh nghiệm phát triển backend và frontend theo yêu cầu của JD.",
+      "is_own_jd": true
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm thiết kế tương tác và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiến trúc giải pháp và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số công nghệ liên quan nhưng không đáp ứng đủ yêu cầu cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến kiến trúc giải pháp và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến kiến trúc giải pháp và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-15": {
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và không biết tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến mạng L2 và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến mạng L2 và không đáp ứng yêu cầu về tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong giám sát và quản lý sự cố nhưng không có thông tin về kỹ năng mạng L2 và tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không nói tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm hoặc kỹ năng liên quan đến mạng L2 và không biết tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu ngôn ngữ Nhật Bản JLPT N2.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm hoặc kỹ năng liên quan đến mạng và không nói tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng L2 và không biết tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến mạng và không nói tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu về tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm hoặc kỹ năng liên quan đến mạng và không nói tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và không biết tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng L2 và không nói tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm mạng nhưng không có thông tin về khả năng tiếng Nhật và không hoàn toàn phù hợp với yêu cầu JD.",
+      "is_own_jd": true
+    },
+    "G10-NE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm mạng nhưng thiếu khả năng tiếng Nhật và không đáp ứng đầy đủ yêu cầu về phân tích nhật ký và khắc phục sự cố bảo mật.",
+      "is_own_jd": true
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến mạng L2 và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong giám sát hệ thống nhưng thiếu kiến thức chuyên sâu về mạng và không có khả năng giao tiếp tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không nói tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng L2 và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu về ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật như yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm hoặc kỹ năng liên quan đến mạng L2 và không biết tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật như yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến mạng hoặc bảo mật.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng L2 và không biết tiếng Nhật.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến mạng và bảo mật.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực mạng và không đáp ứng yêu cầu ngôn ngữ Nhật.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến mạng và không đáp ứng yêu cầu ngôn ngữ Nhật Bản.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến mạng L2 và không đáp ứng yêu cầu về tiếng Nhật.",
+      "is_own_jd": false
+    }
+  },
+  "JD-16": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong phát triển phần mềm nhưng thiếu kinh nghiệm cụ thể về AWS/Azure và các công nghệ đám mây cốt lõi.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về frontend, không liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về AWS/Azure và các công nghệ DevOps liên quan.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với AWS và một số công nghệ liên quan nhưng thiếu kinh nghiệm trực tiếp với Azure và một số yêu cầu khác trong JD.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống và một số kỹ năng liên quan nhưng không đủ kinh nghiệm với AWS/Azure và các công nghệ đám mây cụ thể.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm quản trị hệ thống và một số kỹ năng liên quan đến đám mây nhưng không tập trung vào phát triển hạ tầng đám mây như JD yêu cầu.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với yêu cầu của JD về Cloud Engineer.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến hạ tầng đám mây và DevOps.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm với AWS/Azure và các yêu cầu kỹ thuật cốt lõi khác của JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với AWS và một số công nghệ DevOps nhưng chưa đủ kinh nghiệm và chứng chỉ cần thiết cho vai trò Cloud Engineer.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về Azure, Kubernetes và CI/CD, đáp ứng tốt yêu cầu JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến hạ tầng đám mây AWS/Azure và các công nghệ DevOps cần thiết.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong quản lý hệ thống và một chứng chỉ Azure, nhưng thiếu kinh nghiệm cụ thể về phát triển hạ tầng đám mây và các công nghệ DevOps cần thiết.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến Cloud Engineering.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến Cloud Engineering.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu tập trung vào bảo mật ứng dụng và không có kinh nghiệm liên quan đến hạ tầng đám mây hoặc các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan nhưng chưa đủ để đáp ứng hầu hết yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến hạ tầng đám mây và DevOps.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về BI và không có liên quan đến hạ tầng đám mây hoặc các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số công nghệ liên quan nhưng không đáp ứng đủ yêu cầu cốt lõi của JD về Cloud Engineering.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với GCP và AWS nhưng chưa đủ mạnh về các yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": true
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu làm việc trong lĩnh vực blockchain, không liên quan đến hạ tầng đám mây AWS/Azure.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps và một số công nghệ liên quan nhưng không hoàn toàn đáp ứng yêu cầu về Cloud Engineer.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến hạ tầng đám mây và DevOps.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến Cloud Engineering.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm với AWS/Azure và các yêu cầu kỹ thuật cốt lõi khác của JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về AWS, CI/CD và các công nghệ liên quan đến đám mây.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực phần mềm nhúng, không liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững chắc với Azure và các công nghệ liên quan, đáp ứng tốt yêu cầu của JD.",
+      "is_own_jd": true
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Kubernetes và Terraform nhưng thiếu kinh nghiệm cụ thể về AWS/Azure.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến hạ tầng đám mây và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến hạ tầng đám mây và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT nhưng không chuyên sâu về công nghệ đám mây và các yêu cầu cụ thể của JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-17": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với ReactJS, NextJS và NestJS nhưng thiếu kinh nghiệm với smart contract và blockchain.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với ReactJS và NextJS nhưng thiếu kinh nghiệm về smart contract và blockchain.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm frontend và một số công nghệ liên quan nhưng thiếu kinh nghiệm về blockchain và smart contract.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với ReactJS và frontend nhưng thiếu kinh nghiệm về blockchain và smart contract.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps, không có kinh nghiệm về blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và smart contract.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm phát triển blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm về blockchain và các công nghệ liên quan đến JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm về blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và phát triển phần mềm.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và phát triển ứng dụng web.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm backend và DevOps nhưng thiếu kinh nghiệm cụ thể về blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và lập trình backend.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong mạng nhưng không liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm liên quan đến blockchain và phát triển web nhưng không đủ mạnh về các yêu cầu cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và lập trình backend.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm lập trình và sử dụng Docker, nhưng thiếu kinh nghiệm cụ thể về blockchain và smart contract.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và không liên quan đến công nghệ blockchain.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong kiểm thử tự động, không có kinh nghiệm về blockchain và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về blockchain, smart contract và các công nghệ liên quan như ReactJS và backend API.",
+      "is_own_jd": true
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm blockchain nhưng thiếu một số yêu cầu kỹ thuật cốt lõi như ReactJS và Solidity.",
+      "is_own_jd": true
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến blockchain và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-18": {
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm phát triển web, không có kinh nghiệm thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G1-FS-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu là lập trình viên full-stack, không có kinh nghiệm thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm phát triển frontend, không có kinh nghiệm thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong thiết kế giao diện nhưng chủ yếu tập trung vào phát triển frontend hơn là thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế liên quan.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên làm việc trong lĩnh vực DevOps, không liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm trong kiểm thử tự động, không liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm phân tích kinh doanh nhưng không có kinh nghiệm thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không đáp ứng yêu cầu kỹ thuật của JD.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực mạng, không liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không đáp ứng yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không đáp ứng yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không đáp ứng yêu cầu kỹ thuật của JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm thiết kế UI/UX và sử dụng các công cụ thiết kế phù hợp với yêu cầu của JD.",
+      "is_own_jd": true
+    },
+    "G13-IXD-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong thiết kế tương tác nhưng thiếu kinh nghiệm thiết kế UI/UX toàn diện và không có kinh nghiệm với hệ thống thiết kế.",
+      "is_own_jd": true
+    },
+    "G14-ODO-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế liên quan.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không đáp ứng yêu cầu kỹ thuật của JD.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không sử dụng các công cụ thiết kế yêu cầu.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không đáp ứng yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến thiết kế UI/UX.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong thiết kế UI/UX và không đáp ứng yêu cầu kỹ thuật của JD.",
+      "is_own_jd": false
+    }
+  },
+  "JD-19": {
+    "G1-FS-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với PostgreSQL và Python nhưng thiếu kinh nghiệm cụ thể với Odoo và các công nghệ DevOps yêu cầu.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm frontend và không đáp ứng yêu cầu kỹ thuật cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vững về DevOps, Kubernetes, CI/CD và PostgreSQL, phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps nhưng thiếu kinh nghiệm cụ thể với Odoo và các công nghệ chính trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps nhưng không có kinh nghiệm cụ thể với Odoo và FastApi.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vận hành PostgreSQL, Kubernetes, CI/CD và Odoo, đáp ứng tốt yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong vận hành hệ thống nhưng thiếu kinh nghiệm cụ thể với Odoo và FastApi.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng phù hợp với yêu cầu của JD.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps, Odoo, FastApi hay PostgreSQL.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay PostgreSQL.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps, Odoo, FastApi và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay PostgreSQL.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến Odoo, FastApi, hoặc các công nghệ chính trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, hoặc các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps, Odoo, FastApi và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực CNTT và một số công nghệ liên quan nhưng không đáp ứng đủ yêu cầu cốt lõi của JD.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps và CI/CD nhưng thiếu kinh nghiệm cụ thể với Odoo và FastApi.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Kubernetes và CI/CD nhưng thiếu kinh nghiệm cụ thể với Odoo và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong lĩnh vực đám mây và một số công nghệ liên quan nhưng không đáp ứng đủ yêu cầu cốt lõi của JD về Odoo và các công nghệ cụ thể khác.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về kiểm thử bảo mật, không liên quan đến DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps, Odoo, FastApi hay PostgreSQL.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm trong mảng Cloud và Azure nhưng không có kinh nghiệm cụ thể với Odoo và FastApi.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay PostgreSQL.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Kubernetes và Kafka nhưng thiếu kinh nghiệm cụ thể với Odoo và FastApi.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps, Odoo, FastApi hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm với Odoo và PostgreSQL nhưng thiếu nhiều yêu cầu kỹ thuật cốt lõi khác trong JD.",
+      "is_own_jd": true
+    },
+    "G15-EMB-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps, Odoo, FastApi hay PostgreSQL.",
+      "is_own_jd": false
+    },
+    "G9-CA-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm DevOps nhưng thiếu kinh nghiệm cụ thể với Odoo và một số công nghệ chính trong JD.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm phân tích dữ liệu, không phù hợp với vai trò DevOps và các công nghệ yêu cầu.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến DevOps và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến DevOps hoặc các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến Odoo, FastApi, hoặc các công nghệ chính trong JD.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến DevOps và công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G14-ODO-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm vận hành Odoo, PostgreSQL và CI/CD, phù hợp với yêu cầu JD.",
+      "is_own_jd": true
+    }
+  },
+  "JD-20": {
+    "G1-FS-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lập trình Embedded/IoT và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G2-PE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G3-SA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình C/C++/C#, Python.",
+      "is_own_jd": false
+    },
+    "G1-FS-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lập trình Embedded/IoT và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G3-OP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và không liên quan đến lĩnh vực Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G3-OP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và không liên quan đến lĩnh vực Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G1-FE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lập trình Embedded/IoT và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G4-PT-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu ngôn ngữ C/C++/C#.",
+      "is_own_jd": false
+    },
+    "G4-PT-09": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình chính.",
+      "is_own_jd": false
+    },
+    "G5-BI-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lập trình Embedded/IoT và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G4-PT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G1-FE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G2-DO-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm DevOps và không đáp ứng yêu cầu lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G2-DO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G6-NLP-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G3-SA-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G5-BI-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm và kỹ năng liên quan đến lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G8-BA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và không liên quan đến lĩnh vực Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G8-BA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và không liên quan đến lĩnh vực Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G5-DA-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G5-DA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G4-PT-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G6-NLP-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lập trình Embedded/IoT và các công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G2-PE-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình C/C++/C#, Python.",
+      "is_own_jd": false
+    },
+    "G11-CC-02": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về cloud và không có kinh nghiệm lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G7-AT-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm lập trình Python và một phần liên quan đến hệ thống nhúng nhưng không đáp ứng đủ yêu cầu về C/C++/C# và các thiết bị edge.",
+      "is_own_jd": false
+    },
+    "G7-AT-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình C/C++/C#, Python.",
+      "is_own_jd": false
+    },
+    "G13-IXD-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G12-BC-03": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm liên quan đến lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G13-IXD-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình và không liên quan đến lĩnh vực Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G14-ODO-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G15-EMB-01": {
+      "grade": 2,
+      "reason": "Ứng viên có kinh nghiệm lập trình C/C++ trong lĩnh vực Embedded và IoT, phù hợp với yêu cầu JD.",
+      "is_own_jd": true
+    },
+    "G9-CA-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    },
+    "G11-CC-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về cloud và không có kinh nghiệm lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G9-CA-04": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình C/C++/C#, Python và không liên quan đến lĩnh vực Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G10-NE-01": {
+      "grade": 0,
+      "reason": "Ứng viên chủ yếu có kinh nghiệm về mạng, không liên quan đến lập trình Embedded/IoT.",
+      "is_own_jd": false
+    },
+    "G12-BC-01": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm trong lĩnh vực Embedded/IoT và công nghệ liên quan.",
+      "is_own_jd": false
+    },
+    "G15-EMB-02": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm lập trình C và một số công nghệ liên quan nhưng không đáp ứng đủ yêu cầu về C/C++/C#, Python và các thiết bị edge devices.",
+      "is_own_jd": true
+    },
+    "G14-ODO-01": {
+      "grade": 1,
+      "reason": "Ứng viên có kinh nghiệm lập trình nhưng không chuyên sâu về Embedded/IoT và các công nghệ yêu cầu trong JD.",
+      "is_own_jd": false
+    },
+    "G10-NE-02": {
+      "grade": 0,
+      "reason": "Ứng viên không có kinh nghiệm lập trình Embedded/IoT và không đáp ứng yêu cầu về ngôn ngữ lập trình cốt lõi.",
+      "is_own_jd": false
+    }
+  }
+}

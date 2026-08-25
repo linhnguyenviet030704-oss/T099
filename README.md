@@ -37,7 +37,7 @@ Sản phẩm giải quyết vấn đề như thế nào bằng AI:
 
 ```text
 .
-├── frontend/          # React (Vite), UI chạy cổng 3000
+├── frontend/          # React (Vite) UI chạy cổng 3000
 ├── backend/app/       # FastAPI (api, agents, services, clients)
 ├── supabase/          # config, migrations, seed.sql
 ├── tests/             # pytest (unit / api / agent)
@@ -98,7 +98,7 @@ cp backend/.env.example .env
 ```powershell
 cd frontend
 copy .env.example .env
-npm install
+pnpm install
 cd ..
 ```
 
@@ -156,7 +156,7 @@ Terminal khác:
 
 ```powershell
 cd frontend
-npm run dev
+pnpm dev
 ```
 
 | Dịch vụ | URL |
@@ -211,8 +211,28 @@ Typecheck frontend:
 
 ```powershell
 cd frontend
-npm run lint
+pnpm lint
 ```
+
+---
+
+## Evaluation (Ingest Agent)
+
+Golden-dataset eval cho pipeline ingest CV (`parse -> clean -> extract -> summarize -> embed`), chạy trên 41 CV mẫu (`evaluation/ingest_eval_v2/manifest.json`: CV tổng hợp + CV thật cấu trúc khó từ TopCV.vn).
+
+Cần `OPENAI_API_KEY` trong `.env` (root) hoặc `backend/.env` — riêng cho eval, dùng để gọi pipeline và LLM-judge (khác `QWEN_API_KEY` dùng cho production).
+
+```powershell
+.\.venv\Scripts\python.exe -m evaluation.ingest_eval_v2.run_eval
+```
+
+Chạy nhanh với số CV giới hạn:
+
+```powershell
+.\.venv\Scripts\python.exe -m evaluation.ingest_eval_v2.run_eval --limit 5
+```
+
+Kết quả: `evaluation/ingest_eval_v2/results/report.md` — gồm tỷ lệ parse thành công, PII leak (regex + LLM-judge), faithfulness của `summarize`, precision/recall trích skill, skill mất do summarization, latency từng node, độ phủ taxonomy skill. Kết quả pipeline được cache theo `content_hash` nên chạy lại (không đổi prompt/model) sẽ nhanh hơn.
 
 ---
 

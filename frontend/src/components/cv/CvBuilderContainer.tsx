@@ -3,7 +3,9 @@ import { CheckCircle2, ExternalLink } from 'lucide-react';
 import { Profile, UserProfileLine } from '../../types';
 import { CvBuilder } from './CvBuilder';
 import { exportCv } from '../../lib/cvExport';
+import { INDEX_FAIL_COPY, ingestResume } from '../../lib/ingest';
 import { getResumeSignedUrl } from '../../lib/storage';
+import { useAuth } from '../../auth/AuthProvider';
 
 interface CvBuilderContainerProps {
   profile: Profile;
@@ -25,7 +27,9 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
   onClose,
   onCreated,
 }) => {
+  const { session } = useAuth();
   const [successPath, setSuccessPath] = useState<string | null>(null);
+  const [indexWarning, setIndexWarning] = useState(false);
 
   const sourceById = useMemo(() => {
     const m: Record<string, UserProfileLine> = {};
@@ -45,21 +49,24 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
 
   if (successPath) {
     return (
-      <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-8 text-center space-y-4 animate-fade-in">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400">
+      <div className="bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 rounded-3xl p-8 text-center space-y-4 animate-fade-in shadow-sm">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 className="h-7 w-7" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-100">CV đã được tạo và lưu vào tủ hồ sơ!</h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">CV đã được tạo và lưu vào tủ hồ sơ!</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             CV của bạn đã được lưu dưới dạng PDF trong kho lưu trữ riêng tư và sẵn sàng để nộp đơn.
           </p>
+          {indexWarning && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{INDEX_FAIL_COPY}</p>
+          )}
         </div>
         <div className="flex items-center justify-center gap-2 pt-2">
           <button
             type="button"
             onClick={handleView}
-            className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             Xem CV vừa tạo
@@ -67,7 +74,7 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs cursor-pointer"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md shadow-emerald-200 dark:shadow-emerald-900/30 transition-colors"
           >
             Hoàn tất
           </button>
@@ -93,6 +100,15 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
             sourceById,
             templateId,
           });
+          try {
+            if (session?.access_token) {
+              await ingestResume(result.resumeId, session.access_token);
+            } else {
+              setIndexWarning(true);
+            }
+          } catch {
+            setIndexWarning(true);
+          }
           setSuccessPath(result.storagePath);
           onCreated?.();
         }}

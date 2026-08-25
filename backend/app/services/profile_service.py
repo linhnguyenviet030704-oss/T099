@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from backend.app.api.schemas.profile import ProfileUpdateRequest
 from backend.app.core.exceptions import NotFoundError
 from backend.app.models.domain import Profile
 from backend.app.repositories.profile_repository import ProfileRepository
-from backend.app.api.schemas.profile import ProfileUpdateRequest
 
 
 class ProfileService:

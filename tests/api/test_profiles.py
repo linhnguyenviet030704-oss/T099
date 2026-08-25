@@ -99,13 +99,13 @@ class _FakeProfileService:
         self.updated_with: ProfileUpdateRequest | None = None
 
     async def get_own_profile(self, user_id):
-        if self.profile is None or self.profile.id != user_id:
+        if self.profile is None:
             raise NotFoundError("Profile not found", code="PROFILE_NOT_FOUND")
         return self.profile
 
     async def update_own_profile(self, user_id, data: ProfileUpdateRequest):
         self.updated_with = data
-        if self.profile is None or self.profile.id != user_id:
+        if self.profile is None:
             raise NotFoundError("Profile not found", code="PROFILE_NOT_FOUND")
         self.profile.full_name = data.full_name if data.full_name is not None else self.profile.full_name
         self.profile.phone = data.phone if data.phone is not None else self.profile.phone
@@ -212,9 +212,15 @@ async def test_chat_requires_auth(api_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_chat_empty_message(api_client: AsyncClient):
+    user_id = uuid4()
+    profile = Profile(
+        id=user_id, email="user@example.com", full_name="Ada", phone=None, avatar_url=None, role="candidate"
+    )
+    app.dependency_overrides[get_profile_service] = lambda: _FakeProfileService(profile)
+    app.dependency_overrides[get_chat_service] = lambda: ChatService(lambda: [])
     response = await api_client.post(
         "/api/v1/chat",
-        headers={"Authorization": f"Bearer {_make_token()}"},
+        headers={"Authorization": f"Bearer {_make_token(sub=str(user_id))}"},
         json={"message": ""},
     )
     assert response.status_code == 422
@@ -222,7 +228,12 @@ async def test_chat_empty_message(api_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_chat_returns_mock_jobs(api_client: AsyncClient):
+    user_id = uuid4()
     job_id = uuid4()
+    profile = Profile(
+        id=user_id, email="user@example.com", full_name="Ada", phone=None, avatar_url=None, role="candidate"
+    )
+    app.dependency_overrides[get_profile_service] = lambda: _FakeProfileService(profile)
 
     async def fetch_jobs():
         return [
@@ -241,7 +252,7 @@ async def test_chat_returns_mock_jobs(api_client: AsyncClient):
     app.dependency_overrides[get_chat_service] = lambda: ChatService(fetch_jobs)
     response = await api_client.post(
         "/api/v1/chat",
-        headers={"Authorization": f"Bearer {_make_token()}"},
+        headers={"Authorization": f"Bearer {_make_token(sub=str(user_id))}"},
         json={"message": "Gợi ý việc phù hợp"},
     )
     assert response.status_code == 200
@@ -255,14 +266,19 @@ async def test_chat_returns_mock_jobs(api_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_chat_returns_mock_candidates(api_client: AsyncClient):
+    user_id = uuid4()
     job_id = uuid4()
     app_id = uuid4()
     applicant_id = uuid4()
+    profile = Profile(
+        id=user_id, email="recruiter@example.com", full_name="Recruiter", phone=None, avatar_url=None, role="recruiter"
+    )
+    app.dependency_overrides[get_profile_service] = lambda: _FakeProfileService(profile)
 
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(requested_job_id):
+    async def fetch_candidates(requested_job_id, _actor_id):
         assert requested_job_id == job_id
         return [
             {
@@ -283,7 +299,7 @@ async def test_chat_returns_mock_candidates(api_client: AsyncClient):
     )
     response = await api_client.post(
         "/api/v1/chat",
-        headers={"Authorization": f"Bearer {_make_token()}"},
+        headers={"Authorization": f"Bearer {_make_token(sub=str(user_id))}"},
         json={"message": "Gợi ý ứng viên phù hợp", "job_id": str(job_id)},
     )
     assert response.status_code == 200
@@ -292,17 +308,24 @@ async def test_chat_returns_mock_candidates(api_client: AsyncClient):
     assert len(body["candidates"]) == 1
     assert body["candidates"][0]["application_id"] == str(app_id)
     assert body["candidates"][0]["full_name"] == "Ada"
-    assert body["candidates"][0]["score"] == 0.95
+    assert body["candidates"][0]["rrf_score"] == 0.95
+    assert body["candidates"][0]["rerank_status"] == "not_requested"
 
 
 @pytest.mark.asyncio
 async def test_chat_candidates_forbidden(api_client: AsyncClient):
     from backend.app.core.exceptions import ForbiddenError
 
+    user_id = uuid4()
+    profile = Profile(
+        id=user_id, email="recruiter@example.com", full_name="Recruiter", phone=None, avatar_url=None, role="recruiter"
+    )
+    app.dependency_overrides[get_profile_service] = lambda: _FakeProfileService(profile)
+
     async def fetch_jobs():
         return []
 
-    async def fetch_candidates(_job_id):
+    async def fetch_candidates(_job_id, _actor_id):
         return []
 
     async def deny(_actor, _job):
@@ -313,7 +336,7 @@ async def test_chat_candidates_forbidden(api_client: AsyncClient):
     )
     response = await api_client.post(
         "/api/v1/chat",
-        headers={"Authorization": f"Bearer {_make_token()}"},
+        headers={"Authorization": f"Bearer {_make_token(sub=str(user_id))}"},
         json={"message": "hello", "job_id": str(uuid4())},
     )
     assert response.status_code == 403

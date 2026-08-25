@@ -37,10 +37,29 @@ class Settings(BaseSettings):
     llm_model: str = DEFAULT_LLM_MODEL
     embedding_model: str = DEFAULT_EMBED_MODEL
 
+    langsmith_tracing: bool = False
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_api_key: str = ""
+    langsmith_project: str = "recruitment-portal"
+
     @model_validator(mode="after")
     def reject_default_jwt_in_production(self) -> Self:
         if self.app_env == "production" and self.supabase_jwt_secret == DEFAULT_JWT_SECRET:
             raise ValueError("SUPABASE_JWT_SECRET must be set to a non-default value in production")
+        return self
+
+    @model_validator(mode="after")
+    def reject_unsafe_cors_in_production(self) -> Self:
+        if self.app_env == "production":
+            origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+            if not origins or "*" in origins:
+                raise ValueError("CORS_ORIGINS must be explicit, non-wildcard origins in production")
+        return self
+
+    @model_validator(mode="after")
+    def require_service_role_key_in_production(self) -> Self:
+        if self.app_env == "production" and not self.supabase_service_role_key.strip():
+            raise ValueError("SUPABASE_SERVICE_ROLE_KEY must be set in production")
         return self
 
 

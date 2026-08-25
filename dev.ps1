@@ -26,7 +26,7 @@ if (-not (Test-Path -LiteralPath $py)) {
   throw "Missing .venv. Run: python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -r requirements.txt"
 }
 if (-not (Test-Path -LiteralPath (Join-Path $Root 'frontend\node_modules'))) {
-  throw "Missing frontend\node_modules. Run: cd frontend; npm install"
+  throw "Missing frontend\node_modules. Run: cd frontend; pnpm install"
 }
 
 Write-Host '==> Supabase' -ForegroundColor Cyan

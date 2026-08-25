@@ -15,6 +15,26 @@ class _RequestIdFormatter(logging.Formatter):
         return super().format(record)
 
 
+_SENSITIVE_MARKERS = ("password", "token", "jwt", "authorization", "api_key", "service_role_key", "secret")
+
+
+def _is_sensitive_key(name: str) -> bool:
+    lowered = name.lower()
+    return "key" in lowered or any(marker in lowered for marker in _SENSITIVE_MARKERS)
+
+
+class _SensitiveDataFilter(logging.Filter):
+    """Redacts LogRecord attributes set via `extra={...}` that look like a
+    secret, so protection does not depend on every call site remembering to
+    use `safe_extra()`. Does not scan free-text message strings."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        for name in list(record.__dict__.keys()):
+            if _is_sensitive_key(name):
+                setattr(record, name, "***REDACTED***")
+        return True
+
+
 def configure_logging(level: str = "INFO") -> None:
     root = logging.getLogger()
     root.handlers.clear()
@@ -26,6 +46,8 @@ def configure_logging(level: str = "INFO") -> None:
     )
     root.addHandler(handler)
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
+    if not any(isinstance(f, _SensitiveDataFilter) for f in root.filters):
+        root.addFilter(_SensitiveDataFilter())
 
 
 def new_request_id() -> str:
@@ -38,5 +60,17 @@ def get_logger(name: str) -> logging.Logger:
 
 def safe_extra(**kwargs: Any) -> dict[str, Any]:
     """Drop known secret-ish keys from structured log extras."""
-    blocked = {"password", "token", "jwt", "authorization", "api_key", "service_role_key", "secret"}
-    return {k: v for k, v in kwargs.items() if k.lower() not in blocked and "key" not in k.lower()}
+    return {k: v for k, v in kwargs.items() if not _is_sensitive_key(k)}
+
+
+def get_current_trace_id() -> str | None:
+    """Return active LangSmith run tree id if within a traceable context, else None."""
+    try:
+        from langsmith.run_helpers import get_current_run_tree
+
+        run_tree = get_current_run_tree()
+        if run_tree:
+            return str(run_tree.id)
+    except Exception:
+        pass
+    return None

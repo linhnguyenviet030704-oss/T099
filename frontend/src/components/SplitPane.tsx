@@ -77,9 +77,9 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
 
   if (!isWide) {
     return (
-      <div className="flex flex-col gap-4">
-        <div>{left}</div>
-        <div>{right}</div>
+      <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
+        <div className="w-full min-w-0">{left}</div>
+        <div className="w-full min-w-0">{right}</div>
       </div>
     );
   }
@@ -100,22 +100,20 @@ export const SplitPane: React.FC<SplitPaneProps> = ({
         }}
         onDoubleClick={() => setLeftPct(initialLeftPct)}
         title="Kéo để chỉnh kích thước · nhấn đúp để đặt lại"
-        className={`group relative shrink-0 w-3 mx-1 flex items-center justify-center cursor-col-resize select-none ${
-          dragging ? '' : ''
-        }`}
+        className="group relative shrink-0 w-3 mx-1 flex items-center justify-center cursor-col-resize select-none"
       >
         <div
           className={`h-full w-[3px] rounded-full transition-colors ${
             dragging
-              ? 'bg-emerald-500'
-              : 'bg-slate-800 group-hover:bg-emerald-500/60'
+              ? 'bg-indigo-500'
+              : 'bg-slate-200 dark:bg-slate-700 group-hover:bg-indigo-400/60'
           }`}
         />
         <div
           className={`absolute flex items-center justify-center w-5 h-10 rounded-md border transition-colors ${
             dragging
-              ? 'bg-emerald-500 border-emerald-400 text-slate-950'
-              : 'bg-slate-900 border-slate-700 text-slate-500 group-hover:text-emerald-400 group-hover:border-emerald-500/50'
+              ? 'bg-indigo-500 border-indigo-400 text-white'
+              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 group-hover:text-indigo-500 group-hover:border-indigo-300 dark:group-hover:border-indigo-700'
           }`}
         >
           <GripVertical className="h-3.5 w-3.5" />

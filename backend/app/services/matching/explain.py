@@ -162,6 +162,15 @@ def deterministic_reason(
         return (
             f"Đạt điểm phù hợp{pct_phrase} nhờ đáp ứng các kỹ năng cốt lõi: {skills_phrase}{rank_phrase}."
         )
+    if candidate_skills and wanted:
+        skills_phrase = ", ".join(candidate_skills[:3])
+        if mode == "candidate":
+            return (
+                f"CV có các kỹ năng ({skills_phrase}) nhưng chưa đáp ứng yêu cầu cốt lõi của công việc{pct_phrase}{rank_phrase}."
+            )
+        return (
+            f"Ứng viên có các kỹ năng ({skills_phrase}) nhưng chưa đáp ứng yêu cầu cốt lõi của vị trí{pct_phrase}{rank_phrase}."
+        )
     if candidate_skills:
         skills_phrase = ", ".join(candidate_skills[:3])
         if mode == "candidate":
@@ -172,8 +181,8 @@ def deterministic_reason(
             f"Đạt điểm phù hợp{pct_phrase} nhờ các kỹ năng liên quan: {skills_phrase}{rank_phrase}."
         )
     if mode == "candidate":
-        return f"Công việc này được đánh giá phù hợp với CV của bạn{pct_phrase}{rank_phrase}."
-    return f"Được đánh giá phù hợp JD{pct_phrase} dựa trên phân tích tổng thể hồ sơ{rank_phrase}."
+        return f"CV chưa có kỹ năng chuyên môn phù hợp với vị trí này{pct_phrase}{rank_phrase}."
+    return f"Hồ sơ chưa có kỹ năng chuyên môn phù hợp với yêu cầu của vị trí{pct_phrase}{rank_phrase}."
 
 
 def explain_matches(

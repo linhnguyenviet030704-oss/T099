@@ -65,12 +65,20 @@ function groupJobs(jobs: ChatJob[]) {
 
 function JobRecommendationCard({ job, onNavigate }: { job: ChatJob; onNavigate: (id: string) => void }) {
   const score = displayScore(job);
+  const band = fitBand(score);
   const pct = Math.round(score * 100);
+  const badgeColor =
+    band === "good"
+      ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300"
+      : band === "ok"
+      ? "text-amber-600 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300"
+      : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
+
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
       <div>
         <div className="flex items-center justify-between mb-2 gap-2">
-          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300 px-2 py-0.5 rounded-full">{pct}% phù hợp</span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
           {job.employment_type && (
             <Badge variant="primary" className="shrink-0">
               {ENUM_LABELS.employment_type[job.employment_type as keyof typeof ENUM_LABELS.employment_type] || job.employment_type}

@@ -54,6 +54,13 @@ def make_summarize_node(*, complete: Callable[..., str] | None = None, api_key: 
         metadata["sub_field"] = sub_field
         metadata["major_field"] = major_for_skills(extract_skills_)
 
+        # Ingestion Quality Guardrails: Assess whether CV has valid professional indicators
+        has_skills = bool(extract_skills_)
+        has_titles = bool(metadata.get("titles"))
+        is_valid = has_skills or (has_titles and len(source.strip()) >= 100)
+        metadata["quality_status"] = "standard" if is_valid else "insufficient"
+        metadata["is_valid_cv"] = is_valid
+
         metadata["taxonomy_version"] = taxonomy_version()
         metadata["summary_prompt_version"] = SUMMARIZE_PROMPT_VERSION
         metadata["summary_model"] = DEFAULT_LLM_MODEL

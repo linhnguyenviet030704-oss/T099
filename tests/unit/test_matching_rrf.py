@@ -96,3 +96,24 @@ def test_score_candidates_confirmed_partitions_without_dropping_fail():
     ranked = score_candidates(rows, jd_skills=["java"], constraints=constraints, confirmed=True)
     assert [row["application_id"] for row in ranked] == ["pass", "unk", "fail"]
     assert {row["application_id"] for row in ranked} == {"pass", "unk", "fail"}
+
+
+def test_edge_case_zero_skills_candidate_gets_low_calibrated_scores():
+    # Candidate with troll CV (Ham ăn lười làm... distance=0.32, i.e. raw cosine=0.68)
+    rows = [
+        {
+            "application_id": "troll_cv",
+            "resume_id": "r_troll",
+            "skills": [],
+            "verified_skills": [],
+            "distance_expanded": 0.32,  # Raw cosine = 0.68
+            "bm25_score": 0.0,
+        },
+    ]
+    ranked = score_candidates(rows, jd_skills=["python", "fastapi", "postgresql"])
+    assert len(ranked) == 1
+    troll = ranked[0]
+    # Calibrated semantic score must be ~0.0857 (not 0.68)
+    assert troll["semantic_score"] < 0.10
+    # RRF score must be penalized below 0.10 because candidate has 0 skills
+    assert troll["rrf_score"] <= 0.08

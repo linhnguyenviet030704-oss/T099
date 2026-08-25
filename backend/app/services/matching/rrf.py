@@ -38,8 +38,18 @@ def rrf_normalize(raw: float, *, n_lists: int, k: int = RRF_K) -> float:
     return max(0.0, min(1.0, raw / ceiling))
 
 
-def semantic_score(distance: float) -> float:
-    return max(0.0, 1.0 - distance)
+SEMANTIC_BASELINE = 0.65
+
+
+def semantic_score(distance: float, *, baseline: float = SEMANTIC_BASELINE) -> float:
+    """Calibrate dense cosine similarity above a non-zero baseline.
+    Random/unrelated Vietnamese text pairs typically exhibit raw cosine similarity
+    in the 0.60-0.70 range (anisotropy / compression). This baseline subtraction
+    ensures edge-case or troll text (e.g. cosine 0.68) evaluates to ~0.08 rather than 0.68."""
+    raw_cosine = 1.0 - distance
+    if raw_cosine <= baseline:
+        return 0.0
+    return min(1.0, max(0.0, (raw_cosine - baseline) / (1.0 - baseline)))
 
 
 def _doc_id(row: dict[str, Any]) -> str:
@@ -114,11 +124,18 @@ def score_candidates(
         row = by_id.get(doc_id)
         if not row:
             continue
+        norm_score = rrf_normalize(raw, n_lists=2, k=rrf_k)
+        has_skills = bool(row.get("skills"))
+        skill_cov = float(row.get("skill_score") or 0.0)
+        if jd_skills and not has_skills:
+            norm_score = min(norm_score * 0.1, 0.08)
+        elif jd_skills and skill_cov == 0.0:
+            norm_score = min(norm_score * 0.2, 0.15)
         ranked.append(
             {
                 **row,
                 "rrf_raw": raw,
-                "rrf_score": rrf_normalize(raw, n_lists=2, k=rrf_k),
+                "rrf_score": norm_score,
                 "rrf_rank": rank,
             }
         )

@@ -93,11 +93,20 @@ def score_jobs_for_resume(
         row = by_id.get(doc_id)
         if not row:
             continue
+        norm_score = rrf_normalize(raw, n_lists=2, k=rrf_k)
+        job_skills = list(row.get("skills") or [])
+        skill_cov = float(row.get("skill_score") or 0.0)
+        if not cv_skills and not cv_verified and not cv_has_evidence:
+            norm_score = min(norm_score * 0.1, 0.08)
+        elif job_skills and not cv_skills:
+            norm_score = min(norm_score * 0.1, 0.08)
+        elif job_skills and skill_cov == 0.0:
+            norm_score = min(norm_score * 0.2, 0.15)
         ranked.append(
             {
                 **row,
                 "rrf_raw": raw,
-                "rrf_score": rrf_normalize(raw, n_lists=2, k=rrf_k),
+                "rrf_score": norm_score,
                 "rrf_rank": rank,
             }
         )

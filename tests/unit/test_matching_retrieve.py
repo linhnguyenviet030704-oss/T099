@@ -21,7 +21,9 @@ def test_row_accepts_missing_execute_result():
 
 def test_semantic_score_clamps_cosine_distance():
     assert semantic_score(0.0) == 1.0
-    assert semantic_score(0.2) == 0.8
+    assert abs(semantic_score(0.2) - (0.8 - 0.65) / 0.35) < 1e-6
+    assert semantic_score(0.35) == 0.0
+    assert semantic_score(0.5) == 0.0
     assert semantic_score(2.0) == 0.0
 
 

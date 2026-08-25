@@ -1,3 +1,5 @@
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { CvHeader, CvLine } from './cv';
 import { LineType } from './profileLines';
 import { SECTION_ORDER, sectionLabel } from './cvTemplates';
@@ -27,10 +29,6 @@ export async function generateWysiwygPdf(
   node: HTMLElement,
   options?: WysiwygPdfOptions,
 ): Promise<Blob> {
-  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-    import('jspdf'),
-    import('html2canvas'),
-  ]);
 
   // Create an isolated container outside any CSS transforms or responsive constraints.
   // On mobile devices, parent containers have CSS `transform: scale(...)` which causes html2canvas
@@ -233,7 +231,6 @@ export async function generateTextPdf(
   lang: 'vi' | 'en' = 'vi',
   customTitles?: Partial<Record<LineType, string>>,
 ): Promise<Blob> {
-  const { default: jsPDF } = await import('jspdf');
   const pdf = new jsPDF('p', 'mm', 'a4');
   const [ar, ag, ab] = hexToRgb(accent);
 

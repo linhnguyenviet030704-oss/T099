@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, Star, Edit2, ExternalLink, Check } from "lucide-react";
+import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { buildResumeStoragePath, getResumeSignedUrl } from "../lib/storage";
@@ -172,17 +172,48 @@ export default function CVVaultPage() {
                   {formatDate(r.created_at)} · {appCounts[r.id] || 0} {lang === 'en' ? 'applications' : 'đơn'}
                 </p>
               </div>
-              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">
                 {r.is_default && (
-                  <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-full font-medium">
+                  <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-full font-medium mr-1">
                     {lang === 'en' ? 'Default' : 'Mặc định'}
                   </span>
                 )}
                 {!r.is_default && (
-                  <motion.button whileTap={{ scale: 0.85 }} onClick={() => void handleSetDefault(r.id)} className="p-2 text-slate-400 hover:text-amber-500 transition-colors cursor-pointer" title={lang === 'en' ? "Set as default" : "Đặt mặc định"}><Star size={16} /></motion.button>
+                  <motion.button whileTap={{ scale: 0.85 }} onClick={() => void handleSetDefault(r.id)} className="p-2 text-slate-400 hover:text-amber-500 transition-colors cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" title={lang === 'en' ? "Set as default" : "Đặt mặc định"}><Star size={16} /></motion.button>
                 )}
-                <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setEditingId(r.id); setEditName(r.title || ""); }} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer" title={lang === 'en' ? "Rename" : "Đổi tên"}><Edit2 size={16} /></motion.button>
-                <motion.button whileTap={{ scale: 0.85 }} onClick={() => void getResumeSignedUrl(r.storage_path).then((url) => window.open(url, "_blank"))} className="p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer" title={lang === 'en' ? "View PDF" : "Xem PDF"}><ExternalLink size={16} /></motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => navigate(`/cv-builder?id=${r.id}`)}
+                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  title={t.editCVContent}
+                >
+                  <FileEdit size={14} />
+                  <span>{t.editCVContent}</span>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => navigate(`/cv-builder?cloneId=${r.id}`)}
+                  className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                  title={t.duplicateCV}
+                >
+                  <Copy size={16} />
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => { setEditingId(r.id); setEditName(r.title || ""); }}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                  title={t.renameCV}
+                >
+                  <Edit2 size={16} />
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => void getResumeSignedUrl(r.storage_path).then((url) => window.open(url, "_blank"))}
+                  className="p-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                  title={lang === 'en' ? "View PDF" : "Xem PDF"}
+                >
+                  <ExternalLink size={16} />
+                </motion.button>
               </div>
             </div>
           ))}

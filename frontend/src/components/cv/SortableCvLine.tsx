@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Eye, EyeOff } from 'lucide-react';
+import { GripVertical, Trash2, Eye, EyeOff, Edit2 } from 'lucide-react';
 import { CvLine } from '../../lib/cv';
 import { getLineTypeLabel } from '../../lib/profileLines';
 import { FormattedEntry } from '../FormattedEntry';
@@ -86,9 +86,24 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
+            onSelect(line.key);
+          }}
+          title={isEn ? "Edit this entry" : "Chỉnh sửa dòng này"}
+          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+            isActive
+              ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400'
+              : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400'
+          }`}
+        >
+          <Edit2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
             onToggleSelect(line.key);
           }}
-          title={line.selected ? 'Bỏ khỏi CV' : 'Đưa vào CV'}
+          title={line.selected ? (isEn ? 'Hide from CV' : 'Bỏ khỏi CV') : (isEn ? 'Show in CV' : 'Đưa vào CV')}
           className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer"
         >
           {line.selected ? (
@@ -103,7 +118,7 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
             e.stopPropagation();
             onRemove(line.key);
           }}
-          title="Xóa khỏi CV (không xóa hồ sơ gốc)"
+          title={isEn ? "Remove from CV" : "Xóa khỏi CV (không xóa hồ sơ gốc)"}
           className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
         >
           <Trash2 className="h-3.5 w-3.5" />

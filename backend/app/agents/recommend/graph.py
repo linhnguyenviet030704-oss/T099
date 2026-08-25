@@ -15,6 +15,7 @@ from backend.app.agents.recommend.nodes.score import score_node
 from backend.app.agents.state import AgentState
 from backend.app.services.matching.explain import RECOMMEND_EXPLAIN_PROMPT_TEMPLATE
 from backend.app.services.matching.rerank import RerankFn
+from backend.app.shared_brain import AgentBrain
 
 RetrieveFn = Callable[[], Awaitable[dict[str, Any]]]
 ExplainComplete = Callable[..., str]
@@ -27,6 +28,7 @@ def build_recommend_graph(
     explain_complete: ExplainComplete | None = None,
     explain_api_key: str | None = None,
     explain_base_url: str | None = None,
+    brain: AgentBrain | None = None,
 ):
     async def retrieve_node(state: AgentState) -> dict:
         payload = await retrieve()
@@ -57,6 +59,7 @@ def build_recommend_graph(
             api_key=explain_api_key,
             base_url=explain_base_url,
             prompt_template=RECOMMEND_EXPLAIN_PROMPT_TEMPLATE,
+            brain=brain,
         ),
     )
     graph.add_node(
@@ -65,6 +68,7 @@ def build_recommend_graph(
             complete=explain_complete,
             api_key=explain_api_key,
             base_url=explain_base_url,
+            brain=brain,
         ),
     )
     graph.add_node("respond", respond_node)

@@ -25,6 +25,9 @@ import {
   Globe,
   Sliders,
   RotateCcw,
+  Sparkles,
+  Save,
+  Loader2,
 } from 'lucide-react';
 import { UserProfileLine, Profile } from '../../types';
 import {
@@ -32,11 +35,13 @@ import {
   CvLine,
   createBlankCvLine,
   profileLineToCvLine,
+  parseMarkdownToCvLines,
 } from '../../lib/cv';
 import {
   LineType,
   lineContentDiffers,
   getLineTypeLabel,
+  batchInsertLines,
 } from '../../lib/profileLines';
 import { SortableCvLine } from './SortableCvLine';
 import { CvPreview } from './CvPreview';
@@ -49,11 +54,13 @@ import {
   SECTION_ORDER,
   SECTION_LABELS_VI,
   SECTION_LABELS_EN,
+  getTemplateStarterLines,
 } from '../../lib/cvTemplates';
 import { supabase } from '../../lib/supabase';
 import { buildResumeStoragePath } from '../../lib/storage';
 import { ingestResume } from '../../lib/ingest';
 import { useLang } from '../../context/LangContext';
+import { useToast } from '../../context/ToastContext';
 
 export interface CvBuilderHandle {
   buildLines: CvLine[];
@@ -63,6 +70,9 @@ interface CvBuilderProps {
   profile: Profile;
   email: string;
   sourceLines: UserProfileLine[];
+  initialLines?: CvLine[];
+  initialTitle?: string;
+  initialHeader?: Partial<CvHeader>;
   onClose: () => void;
   /** Performs export: receives the document node, header, lines and options. */
   onExport: (params: {
@@ -85,30 +95,42 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
   profile,
   email,
   sourceLines,
+  initialLines,
+  initialTitle = '',
+  initialHeader,
   onClose,
   onExport,
 }) => {
   const { lang: appLang, t } = useLang();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [cvLang, setCvLang] = useState<'vi' | 'en'>(appLang || 'vi');
   const [customTitles, setCustomTitles] = useState<Partial<Record<LineType, string>>>({});
   const [showTitleCustomizer, setShowTitleCustomizer] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const [header, setHeader] = useState<CvHeader>({
-    full_name: profile.full_name || '',
-    email: email || profile.email || '',
-    phone: profile.phone || '',
-    avatar_url: profile.avatar_url || '',
+    full_name: initialHeader?.full_name || profile.full_name || '',
+    email: initialHeader?.email || email || profile.email || '',
+    phone: initialHeader?.phone || profile.phone || '',
+    avatar_url: initialHeader?.avatar_url || profile.avatar_url || '',
   });
 
   const [cvLines, setCvLines] = useState<CvLine[]>(() => {
-    const mapped = sourceLines.map(profileLineToCvLine);
-    return [...mapped].sort((a, b) => {
-      const orderA = SECTION_ORDER.indexOf(a.name);
-      const orderB = SECTION_ORDER.indexOf(b.name);
-      const idxA = orderA === -1 ? 999 : orderA;
-      const idxB = orderB === -1 ? 999 : orderB;
-      return idxA - idxB;
-    });
+    if (initialLines && initialLines.length > 0) {
+      return initialLines;
+    }
+    if (sourceLines && sourceLines.length > 0) {
+      const mapped = sourceLines.map(profileLineToCvLine);
+      return [...mapped].sort((a, b) => {
+        const orderA = SECTION_ORDER.indexOf(a.name);
+        const orderB = SECTION_ORDER.indexOf(b.name);
+        const idxA = orderA === -1 ? 999 : orderA;
+        const idxB = orderB === -1 ? 999 : orderB;
+        return idxA - idxB;
+      });
+    }
+    // Pre-populate with realistic starter content if empty
+    return getTemplateStarterLines(appLang || 'vi');
   });
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
@@ -199,6 +221,37 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
 
   const [uploadingIngest, setUploadingIngest] = useState(false);
 
+  const handleApplyStarter = () => {
+    const starter = getTemplateStarterLines(cvLang);
+    setCvLines(starter);
+    setActiveKey(null);
+    toastSuccess(t.sampleApplied);
+  };
+
+  const handleSaveToProfile = async () => {
+    if (!supabase || !profile) return;
+    const validLines = cvLines.filter((l) => l.value.trim() !== '');
+    if (validLines.length === 0) {
+      toastError(cvLang === 'en' ? 'No lines to save' : 'Chưa có dòng nào để lưu');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const drafts = validLines.map((l, idx) => ({
+        key: l.key,
+        name: l.name,
+        value: l.value,
+        display_order: idx,
+      }));
+      await batchInsertLines(drafts, profile.id);
+      toastSuccess(t.savedToProfileSuccess);
+    } catch (err: any) {
+      toastError(cvLang === 'en' ? 'Save failed' : 'Lưu thất bại', err?.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const addBlankLine = () => {
     // Anti-spam safeguard: Don't create another empty line if one already exists
     const hasEmpty = cvLines.some((l) => !l.value.trim());
@@ -216,36 +269,101 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
     if (!file || !supabase) return;
     const MAX_SIZE_BYTES = 10 * 1024 * 1024;
     if (file.size > MAX_SIZE_BYTES) {
-      alert(`Dung lượng file (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn tối đa 10MB.`);
+      toastError(
+        cvLang === 'en' ? 'File too large' : 'File quá lớn',
+        cvLang === 'en'
+          ? `File size (${(file.size / 1024 / 1024).toFixed(1)}MB) exceeds 10MB limit.`
+          : `Dung lượng file (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn tối đa 10MB.`
+      );
       return;
     }
     setUploadingIngest(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Chưa đăng nhập");
+      if (!user) throw new Error('Chưa đăng nhập');
       const resumeId = crypto.randomUUID();
       const storagePath = buildResumeStoragePath(user.id, resumeId, file.name);
-      const { error: uploadErr } = await supabase.storage.from("resumes").upload(storagePath, file, { upsert: false });
+      const { error: uploadErr } = await supabase.storage.from('resumes').upload(storagePath, file, { upsert: false });
       if (uploadErr) throw uploadErr;
-      await supabase.from("resumes").insert({
-        id: resumeId, user_id: user.id, bucket_id: "resumes", storage_path: storagePath,
-        original_filename: file.name, title: file.name.replace(/\.[^.]+$/, ""), mime_type: file.type,
-        size_bytes: file.size, is_default: false,
+      await supabase.from('resumes').insert({
+        id: resumeId,
+        user_id: user.id,
+        bucket_id: 'resumes',
+        storage_path: storagePath,
+        original_filename: file.name,
+        title: file.name.replace(/\.[^.]+$/, ''),
+        mime_type: file.type || 'application/octet-stream',
+        size_bytes: file.size,
+        is_default: false,
       });
+
       const session = (await supabase.auth.getSession()).data.session;
+      let parsedLines: CvLine[] = [];
+      let parsedHeader: Partial<CvHeader> = {};
+
       if (session?.access_token) {
-        try { await ingestResume(resumeId, session.access_token); } catch {}
+        try {
+          const ingestRes = await ingestResume(resumeId, session.access_token);
+          if (ingestRes?.lines && ingestRes.lines.length > 0) {
+            parsedLines = ingestRes.lines.map((l) => ({
+              key: crypto.randomUUID(),
+              sourceId: null,
+              name: l.name,
+              value: l.value,
+              selected: true,
+            }));
+          }
+          if (ingestRes?.header) {
+            parsedHeader = ingestRes.header;
+          }
+        } catch (backendErr) {
+          console.warn('Backend ingest error, falling back to client parser:', backendErr);
+        }
       }
-      const { data } = await supabase.from("profile_lines").select("*").eq("user_id", user.id).order("display_order");
-      if (data && data.length > 0) {
-        const fresh = data as UserProfileLine[];
-        setCvLines(fresh.map(profileLineToCvLine));
+
+      // Fallback if backend returned no lines (e.g. plain text or client extraction)
+      if (parsedLines.length === 0) {
+        try {
+          const fileText = await file.text();
+          if (fileText && fileText.trim().length > 20) {
+            const parsed = parseMarkdownToCvLines(fileText);
+            if (parsed.lines.length > 0) {
+              parsedLines = parsed.lines;
+              parsedHeader = { ...parsedHeader, ...parsed.header };
+            }
+          }
+        } catch {
+          // ignore binary text decode failure
+        }
+      }
+
+      if (parsedLines.length > 0) {
+        setCvLines(parsedLines);
+        if (parsedHeader.email || parsedHeader.phone || parsedHeader.full_name) {
+          setHeader((h) => ({
+            ...h,
+            full_name: parsedHeader.full_name || h.full_name,
+            email: parsedHeader.email || h.email,
+            phone: parsedHeader.phone || h.phone,
+          }));
+        }
+        toastSuccess(t.extractedLinesSuccess(parsedLines.length));
+      } else {
+        toastError(
+          cvLang === 'en' ? 'Extraction warning' : 'Cảnh báo bóc tách',
+          cvLang === 'en'
+            ? 'Uploaded CV successfully, but could not detect structured text sections. You can edit directly or use starter template.'
+            : 'Đã tải CV lên nhưng chưa nhận diện được các mục văn bản rõ ràng. Bạn có thể tự thêm dòng hoặc áp dụng mẫu có sẵn.'
+        );
       }
     } catch (err: any) {
-      alert(`Không thể bóc tách CV: ${err?.message || "Lỗi không xác định"}`);
+      toastError(
+        cvLang === 'en' ? 'Extraction failed' : 'Bóc tách thất bại',
+        err?.message || (cvLang === 'en' ? 'Unknown error' : 'Lỗi không xác định')
+      );
     } finally {
       setUploadingIngest(false);
-      e.target.value = "";
+      e.target.value = '';
     }
   };
 
@@ -322,6 +440,33 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
               🇬🇧 English
             </button>
           </div>
+
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.95 }}
+            onClick={handleApplyStarter}
+            className="px-3 py-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/30 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+            title={t.applySampleTemplateHint}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            <span className="hidden md:inline">{t.applySampleTemplate}</span>
+          </motion.button>
+
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.95 }}
+            onClick={() => void handleSaveToProfile()}
+            disabled={savingProfile}
+            className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm disabled:opacity-50"
+            title={t.saveToProfile}
+          >
+            {savingProfile ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            )}
+            <span className="hidden md:inline">{savingProfile ? t.savingToProfile : t.saveToProfile}</span>
+          </motion.button>
 
           <motion.button
             type="button"
@@ -682,6 +827,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
           editedCount={editedCount}
           newCount={newCount}
           selectedCount={selectedCount}
+          initialTitle={initialTitle}
           lang={cvLang}
           onConfirm={async (opts) => {
             await handleExportConfirm(opts);

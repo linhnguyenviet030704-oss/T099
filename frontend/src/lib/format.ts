@@ -95,12 +95,74 @@ export const ENUM_LABELS = {
   line_type: {
     summary: 'Giới thiệu bản thân',
     experience: 'Kinh nghiệm làm việc',
-    education: 'Học vấn',
+    education: 'Trình độ học vấn',
     skill: 'Kỹ năng',
     project: 'Dự án',
     certification: 'Chứng chỉ',
     language: 'Ngoại ngữ',
     link: 'Liên kết',
     other: 'Thông tin bổ sung',
-  }
+  },
 };
+
+export const ENUM_LABELS_EN = {
+  profile_role: {
+    candidate: 'Candidate',
+    recruiter: 'Recruiter',
+    admin: 'Administrator',
+  },
+  company_verification_status: {
+    pending: 'Pending Review',
+    verified: 'Verified',
+    rejected: 'Rejected',
+  },
+  job_post_status: {
+    draft: 'Draft',
+    published: 'Hiring',
+    closed: 'Closed',
+    archived: 'Archived',
+  },
+  employment_type: {
+    full_time: 'Full-time',
+    part_time: 'Part-time',
+    internship: 'Internship',
+    contract: 'Contract',
+    remote: 'Remote',
+    hybrid: 'Hybrid',
+  },
+  application_status: {
+    pending: 'Submitted',
+    screening: 'Screening',
+    interview: 'Interviewing',
+    offer: 'Offer Extended',
+    accepted: 'Accepted',
+    rejected: 'Not Selected',
+    withdrawn: 'Withdrawn',
+  },
+  recruiter_registration_status: {
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected',
+  },
+  line_type: {
+    summary: 'Summary',
+    experience: 'Work Experience',
+    education: 'Education',
+    skill: 'Skills',
+    project: 'Projects',
+    certification: 'Certifications',
+    language: 'Languages',
+    link: 'Links',
+    other: 'Additional Information',
+  },
+};
+
+export function getEnumLabels(lang: 'vi' | 'en' = 'vi') {
+  return lang === 'en' ? ENUM_LABELS_EN : ENUM_LABELS;
+}
+
+export function getLineTypeLabelFormatted(type: string, lang: 'vi' | 'en' = 'vi'): string {
+  const dict = lang === 'en' ? ENUM_LABELS_EN.line_type : ENUM_LABELS.line_type;
+  return (dict as Record<string, string>)[type] || type;
+}
+

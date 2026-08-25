@@ -70,6 +70,8 @@ export async function generateTextPdf(
   lines: CvLine[],
   accent = '#10b981',
   docNode?: HTMLElement,
+  lang: 'vi' | 'en' = 'vi',
+  customTitles?: Partial<Record<LineType, string>>,
 ): Promise<Blob> {
   const { default: jsPDF } = await import('jspdf');
   const pdf = new jsPDF('p', 'mm', 'a4');
@@ -115,7 +117,11 @@ export async function generateTextPdf(
   pdf.setFont(fontName, 'bold');
   pdf.setFontSize(24);
   pdf.setTextColor(17, 24, 39);
-  pdf.text(header.full_name || 'Họ và tên', marginX, y);
+  pdf.text(
+    header.full_name || (lang === 'en' ? 'Full Name' : 'Họ và tên'),
+    marginX,
+    y,
+  );
   y += 8;
 
   // Header — contact line
@@ -145,12 +151,13 @@ export async function generateTextPdf(
     pdf.setFont(fontName, 'bold');
     pdf.setFontSize(11);
     pdf.setTextColor(ar, ag, ab);
-    pdf.text(sectionLabel(type).toUpperCase(), marginX, y);
+    pdf.text(sectionLabel(type, lang, customTitles).toUpperCase(), marginX, y);
     y += 2;
     pdf.setDrawColor(229, 231, 235);
     pdf.setLineWidth(0.3);
     pdf.line(marginX, y, pageWidth - marginX, y);
     y += 6;
+
 
     for (const line of inType) {
       const rawText = line.value || '';

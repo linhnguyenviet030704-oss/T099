@@ -31,16 +31,27 @@ interface TemplateProps {
   header: CvHeader;
   lines: CvLine[];
   accent: string;
+  lang?: 'vi' | 'en';
+  customTitles?: Partial<Record<LineType, string>>;
 }
 
+const defaultName = (name: string, lang: 'vi' | 'en' = 'vi') =>
+  name || (lang === 'en' ? 'Full Name' : 'Họ và tên');
+
 /* ----------------------------- MODERN ----------------------------- */
-const ModernTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
-  const sections = groupLines(lines);
+const ModernTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4, padding: '16mm 16mm' }}>
       <div style={{ borderBottom: `3px solid ${accent}`, paddingBottom: 14 }}>
         <h1 style={{ fontSize: 30, fontWeight: 800, margin: 0, color: '#111827', letterSpacing: -0.5 }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
         <div style={{ marginTop: 8, fontSize: 12, color: '#4b5563', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {header.email && <span>✉ {header.email}</span>}
@@ -67,7 +78,7 @@ const ModernTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
             ))}
           </div>
         ))}
-        {sections.length === 0 && <EmptyNote />}
+        {sections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
@@ -104,18 +115,26 @@ const Entry: React.FC<{ line: CvLine; dense?: boolean }> = ({ line, dense }) => 
   );
 };
 
-const EmptyNote: React.FC = () => (
+const EmptyNote: React.FC<{ lang?: 'vi' | 'en' }> = ({ lang = 'vi' }) => (
   <p style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: 13 }}>
-    Chưa có dòng nào được chọn để hiển thị trong CV.
+    {lang === 'en'
+      ? 'No entries selected to display in CV.'
+      : 'Chưa có dòng nào được chọn để hiển thị trong CV.'}
   </p>
 );
 
 /* ----------------------------- SIDEBAR ----------------------------- */
-const SidebarTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
+const SidebarTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
   const sideTypes = SIDEBAR_TYPES;
   const mainTypes = SECTION_ORDER.filter((t) => !sideTypes.includes(t)) as LineType[];
-  const sideSections = groupLines(lines, sideTypes);
-  const mainSections = groupLines(lines, mainTypes);
+  const sideSections = groupLines(lines, sideTypes, lang, customTitles);
+  const mainSections = groupLines(lines, mainTypes, lang, customTitles);
 
   return (
     <div style={{ ...A4, display: 'flex', minHeight: '297mm' }}>
@@ -138,11 +157,11 @@ const SidebarTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => 
           {initials(header.full_name)}
         </div>
         <h1 style={{ fontSize: 20, fontWeight: 800, textAlign: 'center', margin: '0 0 18px', lineHeight: 1.2 }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
 
         <div style={{ marginBottom: 18 }}>
-          <h2 style={sideHeading}>Liên hệ</h2>
+          <h2 style={sideHeading}>{lang === 'en' ? 'Contact' : 'Liên hệ'}</h2>
           <div style={{ fontSize: 11, lineHeight: 1.7, wordBreak: 'break-word' }}>
             {header.email && <div>{header.email}</div>}
             {header.phone && <div>{header.phone}</div>}
@@ -186,7 +205,7 @@ const SidebarTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => 
             </div>
           </div>
         ))}
-        {mainSections.length === 0 && sideSections.length === 0 && <EmptyNote />}
+        {mainSections.length === 0 && sideSections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
@@ -203,13 +222,18 @@ const sideHeading: React.CSSProperties = {
 };
 
 /* ----------------------------- CLASSIC ----------------------------- */
-const ClassicTemplate: React.FC<TemplateProps> = ({ header, lines }) => {
-  const sections = groupLines(lines);
+const ClassicTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4, padding: '18mm 20mm', fontFamily: "Georgia, 'Times New Roman', serif" }}>
       <div style={{ textAlign: 'center', borderBottom: '2px solid #1e293b', paddingBottom: 14 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: 1, color: '#1e293b' }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
         <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
           {[header.email, header.phone].filter(Boolean).join('  |  ')}
@@ -240,15 +264,21 @@ const ClassicTemplate: React.FC<TemplateProps> = ({ header, lines }) => {
             ))}
           </div>
         ))}
-        {sections.length === 0 && <EmptyNote />}
+        {sections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
 };
 
 /* ----------------------------- COMPACT ----------------------------- */
-const CompactTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
-  const sections = groupLines(lines);
+const CompactTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4, padding: '14mm 14mm' }}>
       <div
@@ -263,7 +293,7 @@ const CompactTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => 
         }}
       >
         <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#111827' }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
         <div style={{ fontSize: 11, color: '#4b5563', textAlign: 'right', lineHeight: 1.5 }}>
           {header.email && <div>{header.email}</div>}
@@ -290,7 +320,7 @@ const CompactTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => 
             ))}
           </div>
         ))}
-        {sections.length === 0 && <EmptyNote />}
+        {sections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
@@ -301,16 +331,24 @@ interface CvTemplateRendererProps {
   header: CvHeader;
   lines: CvLine[];
   accent: string;
+  lang?: 'vi' | 'en';
+  customTitles?: Partial<Record<LineType, string>>;
 }
 
 /* ----------------------------- ELEGANT ----------------------------- */
-const ElegantTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
-  const sections = groupLines(lines);
+const ElegantTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4, padding: '20mm 18mm', fontFamily: "Georgia, 'Times New Roman', serif" }}>
       <div style={{ textAlign: 'center' }}>
         <h1 style={{ fontSize: 30, fontWeight: 400, margin: 0, letterSpacing: 3, color: '#1f2937' }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
         <div
           style={{
@@ -348,19 +386,24 @@ const ElegantTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => 
             ))}
           </div>
         ))}
-        {sections.length === 0 && <EmptyNote />}
+        {sections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
 };
 
 /* ----------------------------- MINIMAL ----------------------------- */
-const MinimalTemplate: React.FC<TemplateProps> = ({ header, lines }) => {
-  const sections = groupLines(lines);
+const MinimalTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4, padding: '18mm 18mm' }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, color: '#111827' }}>
-        {header.full_name || 'Họ và tên'}
+        {defaultName(header.full_name, lang)}
       </h1>
       <div style={{ marginTop: 4, fontSize: 11, color: '#6b7280' }}>
         {[header.email, header.phone].filter(Boolean).join('  /  ')}
@@ -389,21 +432,27 @@ const MinimalTemplate: React.FC<TemplateProps> = ({ header, lines }) => {
             </div>
           </div>
         ))}
-        {sections.length === 0 && <EmptyNote />}
+        {sections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
 };
 
 /* --------------------------- PROFESSIONAL --------------------------- */
-const ProfessionalTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
-  const sections = groupLines(lines);
+const ProfessionalTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4 }}>
       {/* Banner header */}
       <div style={{ background: accent, color: '#fff', padding: '16mm 16mm 10mm' }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
         <div style={{ marginTop: 8, fontSize: 11.5, opacity: 0.95, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           {header.email && <span>✉ {header.email}</span>}
@@ -432,15 +481,21 @@ const ProfessionalTemplate: React.FC<TemplateProps> = ({ header, lines, accent }
             ))}
           </div>
         ))}
-        {sections.length === 0 && <EmptyNote />}
+        {sections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
 };
 
 /* ----------------------------- CREATIVE ----------------------------- */
-const CreativeTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
-  const sections = groupLines(lines);
+const CreativeTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4, padding: '0' }}>
       <div
@@ -471,7 +526,7 @@ const CreativeTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) =>
         </div>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>
-            {header.full_name || 'Họ và tên'}
+            {defaultName(header.full_name, lang)}
           </h1>
           <div style={{ marginTop: 6, fontSize: 11.5, opacity: 0.95 }}>
             {[header.email, header.phone].filter(Boolean).join('   ·   ')}
@@ -508,20 +563,26 @@ const CreativeTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) =>
             ))}
           </div>
         ))}
-        {sections.length === 0 && <EmptyNote />}
+        {sections.length === 0 && <EmptyNote lang={lang} />}
       </div>
     </div>
   );
 };
 
 /* ----------------------------- TIMELINE ----------------------------- */
-const TimelineTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
-  const sections = groupLines(lines);
+const TimelineTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
+  const sections = groupLines(lines, undefined, lang, customTitles);
   return (
     <div style={{ ...A4, padding: '16mm 16mm' }}>
       <div style={{ borderBottom: `2px solid ${accent}`, paddingBottom: 12, marginBottom: 18 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: '#111827' }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
         <div style={{ marginTop: 6, fontSize: 11.5, color: '#6b7280' }}>
           {[header.email, header.phone].filter(Boolean).join('   ·   ')}
@@ -563,17 +624,23 @@ const TimelineTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) =>
           </div>
         </div>
       ))}
-      {sections.length === 0 && <EmptyNote />}
+      {sections.length === 0 && <EmptyNote lang={lang} />}
     </div>
   );
 };
 
 /* ---------------------------- TWO COLUMN ---------------------------- */
-const TwoColumnTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) => {
+const TwoColumnTemplate: React.FC<TemplateProps> = ({
+  header,
+  lines,
+  accent,
+  lang = 'vi',
+  customTitles,
+}) => {
   const leftTypes = SIDEBAR_TYPES;
   const rightTypes = SECTION_ORDER.filter((t) => !leftTypes.includes(t)) as LineType[];
-  const leftSections = groupLines(lines, leftTypes);
-  const rightSections = groupLines(lines, rightTypes);
+  const leftSections = groupLines(lines, leftTypes, lang, customTitles);
+  const rightSections = groupLines(lines, rightTypes, lang, customTitles);
 
   const colHeading: React.CSSProperties = {
     fontSize: 12,
@@ -597,7 +664,7 @@ const TwoColumnTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) =
         }}
       >
         <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: '#111827' }}>
-          {header.full_name || 'Họ và tên'}
+          {defaultName(header.full_name, lang)}
         </h1>
         <div style={{ marginTop: 6, fontSize: 11.5, color: '#6b7280' }}>
           {[header.email, header.phone].filter(Boolean).join('   ·   ')}
@@ -627,7 +694,7 @@ const TwoColumnTemplate: React.FC<TemplateProps> = ({ header, lines, accent }) =
       </div>
       {leftSections.length === 0 && rightSections.length === 0 && (
         <div style={{ padding: '0 16mm 12mm' }}>
-          <EmptyNote />
+          <EmptyNote lang={lang} />
         </div>
       )}
     </div>
@@ -639,30 +706,34 @@ export const CvTemplateRenderer: React.FC<CvTemplateRendererProps> = ({
   header,
   lines,
   accent,
+  lang = 'vi',
+  customTitles,
 }) => {
+  const commonProps = { header, lines, accent, lang, customTitles };
   switch (templateId) {
     case 'sidebar':
-      return <SidebarTemplate header={header} lines={lines} accent={accent} />;
+      return <SidebarTemplate {...commonProps} />;
     case 'classic':
-      return <ClassicTemplate header={header} lines={lines} accent={accent} />;
+      return <ClassicTemplate {...commonProps} />;
     case 'compact':
-      return <CompactTemplate header={header} lines={lines} accent={accent} />;
+      return <CompactTemplate {...commonProps} />;
     case 'elegant':
-      return <ElegantTemplate header={header} lines={lines} accent={accent} />;
+      return <ElegantTemplate {...commonProps} />;
     case 'minimal':
-      return <MinimalTemplate header={header} lines={lines} accent={accent} />;
+      return <MinimalTemplate {...commonProps} />;
     case 'professional':
-      return <ProfessionalTemplate header={header} lines={lines} accent={accent} />;
+      return <ProfessionalTemplate {...commonProps} />;
     case 'creative':
-      return <CreativeTemplate header={header} lines={lines} accent={accent} />;
+      return <CreativeTemplate {...commonProps} />;
     case 'timeline':
-      return <TimelineTemplate header={header} lines={lines} accent={accent} />;
+      return <TimelineTemplate {...commonProps} />;
     case 'twocolumn':
-      return <TwoColumnTemplate header={header} lines={lines} accent={accent} />;
+      return <TwoColumnTemplate {...commonProps} />;
     case 'modern':
     default:
-      return <ModernTemplate header={header} lines={lines} accent={accent} />;
+      return <ModernTemplate {...commonProps} />;
   }
 };
 
 export default CvTemplateRenderer;
+

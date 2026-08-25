@@ -90,7 +90,7 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
         email={email}
         sourceLines={sourceLines}
         onClose={onClose}
-        onExport={async ({ docNode, header, lines, options, templateId }) => {
+        onExport={async ({ docNode, header, lines, options, templateId, lang, customTitles }) => {
           const result = await exportCv({
             userId: profile.id,
             docNode,
@@ -99,7 +99,10 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
             options,
             sourceById,
             templateId,
+            lang,
+            customTitles,
           });
+
           try {
             if (session?.access_token) {
               await ingestResume(result.resumeId, session.access_token);

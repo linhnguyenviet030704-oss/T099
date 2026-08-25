@@ -3,10 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Eye, EyeOff } from 'lucide-react';
 import { CvLine } from '../../lib/cv';
-import { LINE_TYPE_OPTIONS } from '../../lib/profileLines';
-
-const lineTypeLabel = (value: string): string =>
-  LINE_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
+import { getLineTypeLabel } from '../../lib/profileLines';
 
 interface SortableCvLineProps {
   line: CvLine;
@@ -14,7 +11,9 @@ interface SortableCvLineProps {
   onToggleSelect: (key: string) => void;
   onRemove: (key: string) => void;
   onSelect: (key: string) => void;
+  lang?: 'vi' | 'en';
 }
+
 
 /**
  * One draggable row inside the CV preview column. Shows selection toggle,
@@ -27,6 +26,7 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
   onToggleSelect,
   onRemove,
   onSelect,
+  lang = 'vi',
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: line.key });
@@ -36,6 +36,8 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  const isEn = lang === 'en';
 
   return (
     <div
@@ -54,24 +56,25 @@ export const SortableCvLine: React.FC<SortableCvLineProps> = ({
         {...listeners}
         onClick={(e) => e.stopPropagation()}
         className="mt-0.5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-grab active:cursor-grabbing touch-none"
-        title="Kéo để sắp xếp"
+        title={isEn ? "Drag to sort" : "Kéo để sắp xếp"}
       >
         <GripVertical className="h-4 w-4" />
       </button>
 
       <div className="flex-1 min-w-0">
         <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 mb-1">
-          {lineTypeLabel(line.name)}
+          {getLineTypeLabel(line.name, lang)}
         </span>
         <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-3 whitespace-pre-line">
-          {line.value || '(Chưa có nội dung)'}
+          {line.value || (isEn ? '(No content)' : '(Chưa có nội dung)')}
         </p>
         {line.sourceId === null && (
           <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 px-1.5 py-0.5 rounded">
-            Dòng mới
+            {isEn ? 'New' : 'Dòng mới'}
           </span>
         )}
       </div>
+
 
       <div className="flex items-center gap-1 shrink-0">
         <button

@@ -90,17 +90,31 @@ export interface CvSection {
   lines: CvLine[];
 }
 
-const SECTION_LABELS: Record<LineType, string> = {
-  summary: 'Giới thiệu',
+export const SECTION_LABELS_VI: Record<LineType, string> = {
+  summary: 'Giới thiệu bản thân',
   experience: 'Kinh nghiệm làm việc',
-  education: 'Học vấn',
+  education: 'Trình độ học vấn',
   project: 'Dự án',
   skill: 'Kỹ năng',
   certification: 'Chứng chỉ',
   language: 'Ngoại ngữ',
   link: 'Liên kết',
-  other: 'Thông tin khác',
+  other: 'Thông tin bổ sung',
 };
+
+export const SECTION_LABELS_EN: Record<LineType, string> = {
+  summary: 'Summary',
+  experience: 'Work Experience',
+  education: 'Education',
+  project: 'Projects',
+  skill: 'Skills',
+  certification: 'Certifications',
+  language: 'Languages',
+  link: 'Links',
+  other: 'Additional Information',
+};
+
+export const SECTION_LABELS: Record<LineType, string> = SECTION_LABELS_VI;
 
 /** Default visual ordering of sections in a CV. */
 export const SECTION_ORDER: LineType[] = [
@@ -123,7 +137,23 @@ export const SIDEBAR_TYPES: LineType[] = [
   'link',
 ];
 
-export const sectionLabel = (type: LineType): string => SECTION_LABELS[type];
+export const getSectionLabel = (
+  type: LineType,
+  lang: 'vi' | 'en' = 'vi',
+  customTitles?: Partial<Record<LineType, string>>,
+): string => {
+  if (customTitles?.[type]?.trim()) {
+    return customTitles[type]!.trim();
+  }
+  const dict = lang === 'en' ? SECTION_LABELS_EN : SECTION_LABELS_VI;
+  return dict[type] ?? SECTION_LABELS_VI[type] ?? type;
+};
+
+export const sectionLabel = (
+  type: LineType,
+  lang: 'vi' | 'en' = 'vi',
+  customTitles?: Partial<Record<LineType, string>>,
+): string => getSectionLabel(type, lang, customTitles);
 
 /**
  * Groups selected lines into ordered sections by type. Within each section the
@@ -133,6 +163,8 @@ export const sectionLabel = (type: LineType): string => SECTION_LABELS[type];
 export function groupLines(
   lines: CvLine[],
   onlyTypes?: LineType[],
+  lang: 'vi' | 'en' = 'vi',
+  customTitles?: Partial<Record<LineType, string>>,
 ): CvSection[] {
   const selected = lines.filter((l) => l.selected);
   const sections: CvSection[] = [];
@@ -140,8 +172,10 @@ export function groupLines(
     if (onlyTypes && !onlyTypes.includes(type)) continue;
     const inType = selected.filter((l) => l.name === type);
     if (inType.length > 0) {
-      sections.push({ type, label: SECTION_LABELS[type], lines: inType });
+      const label = getSectionLabel(type, lang, customTitles);
+      sections.push({ type, label, lines: inType });
     }
   }
   return sections;
 }
+

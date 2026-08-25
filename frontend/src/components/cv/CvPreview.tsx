@@ -5,11 +5,15 @@ import { CvDocument } from './CvDocument';
 
 const A4_WIDTH_PX = 794; // 210mm at 96dpi
 
+import { LineType } from '../../lib/profileLines';
+
 interface CvPreviewProps {
   header: CvHeader;
   lines: CvLine[];
   templateId: CvTemplateId;
   accent?: string;
+  lang?: 'vi' | 'en';
+  customTitles?: Partial<Record<LineType, string>>;
 }
 
 /**
@@ -19,7 +23,7 @@ interface CvPreviewProps {
  * points at the unscaled CvDocument node for accurate WYSIWYG PDF capture.
  */
 export const CvPreview = forwardRef<HTMLDivElement, CvPreviewProps>(
-  ({ header, lines, templateId, accent }, ref) => {
+  ({ header, lines, templateId, accent, lang = 'vi', customTitles }, ref) => {
     const wrapRef = useRef<HTMLDivElement>(null);
     const innerRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(0.5);
@@ -43,7 +47,7 @@ export const CvPreview = forwardRef<HTMLDivElement, CvPreviewProps>(
       ro.observe(wrap);
       if (innerRef.current) ro.observe(innerRef.current);
       return () => ro.disconnect();
-    }, [header, lines, templateId, accent]);
+    }, [header, lines, templateId, accent, lang, customTitles]);
 
     return (
       <div ref={wrapRef} className="w-full overflow-hidden flex justify-center">
@@ -64,6 +68,8 @@ export const CvPreview = forwardRef<HTMLDivElement, CvPreviewProps>(
                 lines={lines}
                 templateId={templateId}
                 accent={accent}
+                lang={lang}
+                customTitles={customTitles}
               />
             </div>
           </div>
@@ -72,6 +78,7 @@ export const CvPreview = forwardRef<HTMLDivElement, CvPreviewProps>(
     );
   },
 );
+
 
 CvPreview.displayName = 'CvPreview';
 

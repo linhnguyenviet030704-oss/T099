@@ -22,6 +22,9 @@ import {
   Layers,
   ChevronDown,
   Upload,
+  Globe,
+  Sliders,
+  RotateCcw,
 } from 'lucide-react';
 import { UserProfileLine, Profile } from '../../types';
 import {
@@ -30,19 +33,27 @@ import {
   createBlankCvLine,
   profileLineToCvLine,
 } from '../../lib/cv';
-import { LINE_TYPE_OPTIONS, lineContentDiffers } from '../../lib/profileLines';
+import {
+  LineType,
+  lineContentDiffers,
+  getLineTypeLabel,
+} from '../../lib/profileLines';
 import { SortableCvLine } from './SortableCvLine';
 import { CvPreview } from './CvPreview';
 import { CvLineEditor } from './CvLineEditor';
 import { CvExportModal, ExportOptions } from './CvExportModal';
 import { SplitPane } from '../SplitPane';
-import { CV_TEMPLATES, CvTemplateId } from '../../lib/cvTemplates';
+import {
+  CV_TEMPLATES,
+  CvTemplateId,
+  SECTION_ORDER,
+  SECTION_LABELS_VI,
+  SECTION_LABELS_EN,
+} from '../../lib/cvTemplates';
 import { supabase } from '../../lib/supabase';
 import { buildResumeStoragePath } from '../../lib/storage';
 import { ingestResume } from '../../lib/ingest';
-
-const lineTypeLabel = (value: string): string =>
-  LINE_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? value;
+import { useLang } from '../../context/LangContext';
 
 export interface CvBuilderHandle {
   buildLines: CvLine[];
@@ -60,6 +71,8 @@ interface CvBuilderProps {
     lines: CvLine[];
     options: ExportOptions;
     templateId: CvTemplateId;
+    lang: 'vi' | 'en';
+    customTitles?: Partial<Record<LineType, string>>;
   }) => Promise<void>;
 }
 
@@ -75,6 +88,11 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
   onClose,
   onExport,
 }) => {
+  const { lang: appLang, t } = useLang();
+  const [cvLang, setCvLang] = useState<'vi' | 'en'>(appLang || 'vi');
+  const [customTitles, setCustomTitles] = useState<Partial<Record<LineType, string>>>({});
+  const [showTitleCustomizer, setShowTitleCustomizer] = useState(false);
+
   const [header, setHeader] = useState<CvHeader>({
     full_name: profile.full_name || '',
     email: email || profile.email || '',
@@ -225,11 +243,15 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
   };
 
   const handleExportConfirm = async (options: ExportOptions) => {
-    if (!docRef.current) throw new Error('Không tìm thấy bản xem trước CV.');
+    if (!docRef.current) throw new Error(cvLang === 'en' ? 'CV preview not found.' : 'Không tìm thấy bản xem trước CV.');
     // Filter out empty lines to prevent empty payload spam
     const validLines = cvLines.filter((l) => l.value.trim() !== '');
     if (validLines.length === 0) {
-      throw new Error('CV chưa có dòng nội dung hợp lệ nào để xuất.');
+      throw new Error(
+        cvLang === 'en'
+          ? 'CV has no valid content lines to export.'
+          : 'CV chưa có dòng nội dung hợp lệ nào để xuất.',
+      );
     }
     await onExport({
       docNode: docRef.current,
@@ -237,23 +259,78 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
       lines: validLines,
       options,
       templateId,
+      lang: cvLang,
+      customTitles,
     });
   };
+
+  const isEn = cvLang === 'en';
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Builder toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-        <div className="flex items-center gap-2">
-          <Layers className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+            <Layers className="h-5 w-5" />
+          </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Trình tạo CV</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t.cvBuilderTitle}</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {selectedCount} dòng hiển thị • {newCount} dòng mới • {editedCount} dòng đã sửa
+              {t.linesSummary(selectedCount, newCount, editedCount)}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+
+        {/* Action Controls & Language Selector */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end">
+          {/* Section Language Switcher Pill */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
+            <Globe className="h-3.5 w-3.5 text-slate-400 dark:text-slate-400 ml-1" />
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mr-1 hidden sm:inline">
+              {t.cvSectionLanguage}:
+            </span>
+            <button
+              type="button"
+              onClick={() => setCvLang('vi')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                cvLang === 'vi'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+              }`}
+              title="Tiêu đề hồ sơ hiển thị Tiếng Việt"
+            >
+              🇻🇳 Tiếng Việt
+            </button>
+            <button
+              type="button"
+              onClick={() => setCvLang('en')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                cvLang === 'en'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+              }`}
+              title="Change CV section titles to English"
+            >
+              🇬🇧 English
+            </button>
+          </div>
+
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowTitleCustomizer((v) => !v)}
+            className={`px-3 py-2 border rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+              showTitleCustomizer
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
+                : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border-transparent text-slate-600 dark:text-slate-300'
+            }`}
+            title={t.customSectionTitles}
+          >
+            <Sliders className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{t.customSectionTitles}</span>
+          </motion.button>
+
           <motion.button
             type="button"
             whileTap={{ scale: 0.95 }}
@@ -261,8 +338,9 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
             className="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
           >
             <X className="h-3.5 w-3.5" />
-            Thoát
+            {t.exitBtn}
           </motion.button>
+
           <motion.button
             type="button"
             whileTap={{ scale: 0.95 }}
@@ -271,10 +349,61 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-md shadow-emerald-200 dark:shadow-emerald-900/30"
           >
             <FileDown className="h-4 w-4" />
-            Xuất CV
+            {t.exportCV}
           </motion.button>
         </div>
       </div>
+
+      {/* Optional Title Customizer Panel */}
+      {showTitleCustomizer && (
+        <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800/60 rounded-2xl p-4 sm:p-5 space-y-4 animate-slide-up shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                <Sliders className="h-3.5 w-3.5" />
+                {t.customSectionTitles} ({isEn ? 'English' : 'Tiếng Việt'})
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {t.sectionTitlesHint}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCustomTitles({})}
+              className="text-xs text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 cursor-pointer"
+            >
+              <RotateCcw className="h-3 w-3" />
+              {t.resetTitles}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {SECTION_ORDER.map((type) => {
+              const defaultLabel = isEn ? SECTION_LABELS_EN[type] : SECTION_LABELS_VI[type];
+              const value = customTitles[type] ?? '';
+              return (
+                <div key={type} className="space-y-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+                    {getLineTypeLabel(type, cvLang)}
+                  </label>
+                  <input
+                    type="text"
+                    value={value}
+                    placeholder={defaultLabel}
+                    onChange={(e) =>
+                      setCustomTitles((prev) => ({
+                        ...prev,
+                        [type]: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Template picker */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
@@ -284,10 +413,10 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
           className="w-full flex items-center justify-between cursor-pointer group"
         >
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">
-            Chọn mẫu CV ({CV_TEMPLATES.length})
+            {t.selectTemplate} ({CV_TEMPLATES.length})
           </p>
           <span className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-            {templatesOpen ? 'Thu gọn' : 'Mở rộng'}
+            {templatesOpen ? t.collapse : t.expand}
             <ChevronDown
               className={`h-4 w-4 transition-transform duration-200 ${
                 templatesOpen ? 'rotate-180' : ''
@@ -322,7 +451,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
           </div>
         ) : (
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-            Mẫu đang chọn:{' '}
+            {t.selectedTemplateText}{' '}
             <span className="font-bold text-indigo-600 dark:text-indigo-400">
               {CV_TEMPLATES.find((t) => t.id === templateId)?.name}
             </span>
@@ -339,177 +468,179 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
           <div className="space-y-4 pr-0 lg:pr-1">
             {/* Source pool */}
             <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Kho dòng hồ sơ Master (Database)
-              </h4>
-              {availableSource.length > 0 && (
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  {t.masterPool}
+                </h4>
+                {availableSource.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={addAllSource}
+                    className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer"
+                  >
+                    {t.addAllSource}
+                  </button>
+                )}
+              </div>
+
+              {availableSource.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
+                  {t.allSourceAdded}
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {availableSource.map((line) => (
+                    <button
+                      key={line.id}
+                      type="button"
+                      onClick={() => addSourceLine(line)}
+                      className="w-full text-left rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 p-3 transition cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                          {getLineTypeLabel(line.name, cvLang)}
+                        </span>
+                        <Plus className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mt-1 line-clamp-2 whitespace-pre-line">
+                        {line.value}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={addAllSource}
-                  className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer"
+                  onClick={addBlankLine}
+                  className="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                 >
-                  + Thêm tất cả
+                  <Plus className="h-4 w-4" />
+                  {t.createNewLine}
                 </button>
+                <label className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer bg-indigo-50/50 dark:bg-indigo-900/10">
+                  <Upload className="h-4 w-4" />
+                  {uploadingIngest ? t.uploadingIngestText : t.uploadIngest}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    disabled={uploadingIngest}
+                    className="hidden"
+                    onChange={(e) => void handleFileUpload(e)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Inline editor for the active line */}
+            {activeLine && (
+              <CvLineEditor
+                line={activeLine}
+                onChange={updateActiveLine}
+                onClose={() => setActiveKey(null)}
+                lang={cvLang}
+              />
+            )}
+
+            {/* Header editor */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  {t.nameLabel}
+                </label>
+                <input
+                  type="text"
+                  value={header.full_name}
+                  onChange={(e) =>
+                    setHeader((h) => ({ ...h, full_name: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  {t.emailLabel}
+                </label>
+                <input
+                  type="email"
+                  value={header.email}
+                  onChange={(e) =>
+                    setHeader((h) => ({ ...h, email: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  {t.phoneLabel}
+                </label>
+                <input
+                  type="text"
+                  value={header.phone}
+                  onChange={(e) =>
+                    setHeader((h) => ({ ...h, phone: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Sortable line list controls */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  {t.sortAndSelect} ({cvLines.length})
+                </h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAllSelected(true)}
+                    className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
+                  >
+                    <CheckSquare className="h-3 w-3" /> {t.selectAll}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAllSelected(false)}
+                    className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Square className="h-3 w-3" /> {t.deselectAll}
+                  </button>
+                </div>
+              </div>
+
+              {cvLines.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
+                  {t.noSelectedLines}
+                </p>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={cvLines.map((l) => l.key)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {cvLines.map((line) => (
+                        <SortableCvLine
+                          key={line.key}
+                          line={line}
+                          isActive={line.key === activeKey}
+                          onToggleSelect={toggleSelect}
+                          onRemove={removeFromCv}
+                          onSelect={setActiveKey}
+                          lang={cvLang}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
-
-            {availableSource.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
-                Tất cả dòng hồ sơ master đã có trong CV. Bạn có thể bấm tạo dòng mới hoặc tải file CV để nhập thêm.
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {availableSource.map((line) => (
-                  <button
-                    key={line.id}
-                    type="button"
-                    onClick={() => addSourceLine(line)}
-                    className="w-full text-left rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 p-3 transition cursor-pointer group"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
-                        {lineTypeLabel(line.name)}
-                      </span>
-                      <Plus className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mt-1 line-clamp-2 whitespace-pre-line">
-                      {line.value}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={addBlankLine}
-                className="border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
-              >
-                <Plus className="h-4 w-4" />
-                Tạo dòng mới
-              </button>
-              <label className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 hover:border-indigo-400 dark:hover:border-indigo-500 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 rounded-xl py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer bg-indigo-50/50 dark:bg-indigo-900/10">
-                <Upload className="h-4 w-4" />
-                {uploadingIngest ? 'Đang bóc tách...' : 'Tải CV bóc tách'}
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  disabled={uploadingIngest}
-                  className="hidden"
-                  onChange={(e) => void handleFileUpload(e)}
-                />
-              </label>
-            </div>
-          </div>
-
-          {/* Inline editor for the active line */}
-          {activeLine && (
-            <CvLineEditor
-              line={activeLine}
-              onChange={updateActiveLine}
-              onClose={() => setActiveKey(null)}
-            />
-          )}
-
-          {/* Header editor */}
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Họ và tên
-              </label>
-              <input
-                type="text"
-                value={header.full_name}
-                onChange={(e) =>
-                  setHeader((h) => ({ ...h, full_name: e.target.value }))
-                }
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Email
-              </label>
-              <input
-                type="email"
-                value={header.email}
-                onChange={(e) =>
-                  setHeader((h) => ({ ...h, email: e.target.value }))
-                }
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Số điện thoại
-              </label>
-              <input
-                type="text"
-                value={header.phone}
-                onChange={(e) =>
-                  setHeader((h) => ({ ...h, phone: e.target.value }))
-                }
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Sortable line list controls */}
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Sắp xếp & chọn dòng ({cvLines.length})
-              </h4>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAllSelected(true)}
-                  className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
-                >
-                  <CheckSquare className="h-3 w-3" /> Chọn tất cả
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAllSelected(false)}
-                  className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
-                >
-                  <Square className="h-3 w-3" /> Bỏ chọn
-                </button>
-              </div>
-            </div>
-
-            {cvLines.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
-                Chưa có dòng nào. Thêm từ kho ở trên hoặc tạo dòng mới.
-              </p>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={cvLines.map((l) => l.key)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {cvLines.map((line) => (
-                      <SortableCvLine
-                        key={line.key}
-                        line={line}
-                        isActive={line.key === activeKey}
-                        onToggleSelect={toggleSelect}
-                        onRemove={removeFromCv}
-                        onSelect={setActiveKey}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-          </div>
           </div>
         }
         right={
@@ -518,14 +649,21 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
             <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-2 sm:p-4 lg:sticky lg:top-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                  Bản xem trước CV
+                  {t.cvPreviewTitle} ({isEn ? 'English' : 'Tiếng Việt'})
                 </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                    {cvLang === 'en' ? '🇬🇧 English titles' : '🇻🇳 Tiêu đề tiếng Việt'}
+                  </span>
+                </div>
               </div>
               <CvPreview
                 ref={docRef}
                 header={header}
                 lines={cvLines}
                 templateId={templateId}
+                lang={cvLang}
+                customTitles={customTitles}
               />
             </div>
           </div>
@@ -537,6 +675,7 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
           editedCount={editedCount}
           newCount={newCount}
           selectedCount={selectedCount}
+          lang={cvLang}
           onConfirm={async (opts) => {
             await handleExportConfirm(opts);
             setShowExport(false);
@@ -549,3 +688,4 @@ export const CvBuilder: React.FC<CvBuilderProps> = ({
 };
 
 export default CvBuilder;
+

@@ -7,6 +7,8 @@ import { batchInsertLines, batchUpdateLines, LineDraft } from './profileLines';
 import { UserProfileLine } from '../types';
 import { CvTemplateId, CV_TEMPLATES } from './cvTemplates';
 
+import { LineType } from './profileLines';
+
 export interface CvExportParams {
   userId: string;
   docNode: HTMLElement;
@@ -15,7 +17,10 @@ export interface CvExportParams {
   options: ExportOptions;
   sourceById: Record<string, UserProfileLine>;
   templateId: CvTemplateId;
+  lang?: 'vi' | 'en';
+  customTitles?: Partial<Record<LineType, string>>;
 }
+
 
 export interface CvExportResult {
   resumeId: string;
@@ -32,7 +37,7 @@ export interface CvExportResult {
  */
 export async function exportCv(params: CvExportParams): Promise<CvExportResult> {
   if (!supabase) throw new Error('Supabase client chưa được cấu hình.');
-  const { userId, docNode, header, lines, options, sourceById, templateId } = params;
+  const { userId, docNode, header, lines, options, sourceById, templateId, lang = 'vi', customTitles } = params;
 
   if (options.saveEditedToSource) {
     const edited = lines
@@ -67,7 +72,8 @@ export async function exportCv(params: CvExportParams): Promise<CvExportResult> 
   const blob =
     options.mode === 'wysiwyg'
       ? await generateWysiwygPdf(docNode)
-      : await generateTextPdf(header, lines, accent, docNode);
+      : await generateTextPdf(header, lines, accent, docNode, lang, customTitles);
+
 
   const resumeId = crypto.randomUUID();
   const safeTitle = options.title.replace(/[^a-zA-Z0-9-_ ]/g, '').trim() || 'cv';

@@ -17,6 +17,7 @@ interface CvExportModalProps {
   selectedCount: number;
   onConfirm: (opts: ExportOptions) => Promise<void>;
   onClose: () => void;
+  lang?: 'vi' | 'en';
 }
 
 /**
@@ -29,7 +30,9 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
   selectedCount,
   onConfirm,
   onClose,
+  lang = 'vi',
 }) => {
+  const isEn = lang === 'en';
   const [mode, setMode] = useState<CvPdfMode>('wysiwyg');
   const [title, setTitle] = useState('');
   const [saveEditedToSource, setSaveEditedToSource] = useState(editedCount > 0);
@@ -38,14 +41,18 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const defaultTitle = useMemo(
-    () => `CV - ${new Date().toLocaleDateString('vi-VN')}`,
-    [],
+    () => (isEn ? `CV - ${new Date().toLocaleDateString('en-US')}` : `CV - ${new Date().toLocaleDateString('vi-VN')}`),
+    [isEn],
   );
 
   const handleConfirm = async () => {
     setError(null);
     if (selectedCount === 0) {
-      setError('CV chưa có dòng nào được chọn để hiển thị.');
+      setError(
+        isEn
+          ? 'No entries selected to display in CV.'
+          : 'CV chưa có dòng nào được chọn để hiển thị.',
+      );
       return;
     }
     try {
@@ -57,7 +64,7 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
         addNewToSource,
       });
     } catch (err: any) {
-      setError(err?.message || 'Không thể tạo CV.');
+      setError(err?.message || (isEn ? 'Failed to create CV.' : 'Không thể tạo CV.'));
       setBusy(false);
     }
   };
@@ -66,7 +73,9 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg shadow-2xl space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Xuất CV thành tài liệu</h3>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            {isEn ? 'Export CV Document' : 'Xuất CV thành tài liệu'}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -87,7 +96,7 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
         {/* PDF mode */}
         <div className="space-y-2">
           <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-            Chế độ tạo PDF
+            {isEn ? 'PDF Rendering Mode' : 'Chế độ tạo PDF'}
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
@@ -100,9 +109,13 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
               }`}
             >
               <FileImage className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mb-1.5" />
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Bản dựng hình ảnh</p>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                {isEn ? 'Pixel-perfect WYSIWYG' : 'Bản dựng hình ảnh'}
+              </p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
-                Khớp 100% bản xem trước. Tiếng Việt chuẩn. File nặng hơn.
+                {isEn
+                  ? 'Matches the live preview 100%. Supports all fonts & styling.'
+                  : 'Khớp 100% bản xem trước. Tiếng Việt chuẩn. File nặng hơn.'}
               </p>
             </button>
             <button
@@ -115,9 +128,13 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
               }`}
             >
               <FileType className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mb-1.5" />
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Bản chữ sắc nét</p>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                {isEn ? 'Sharp Vector Text' : 'Bản chữ sắc nét'}
+              </p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
-                Chữ vector chọn/tìm được. File nhẹ. Dùng font Unicode.
+                {isEn
+                  ? 'Selectable & searchable vector text. Lightweight file size.'
+                  : 'Chữ vector chọn/tìm được. File nhẹ. Dùng font Unicode.'}
               </p>
             </button>
           </div>
@@ -126,7 +143,7 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
         {/* CV title */}
         <div className="space-y-1.5">
           <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-            Tên hồ sơ CV (lưu vào tủ hồ sơ)
+            {isEn ? 'CV Document Title (saved to CV Vault)' : 'Tên hồ sơ CV (lưu vào tủ hồ sơ)'}
           </label>
           <input
             type="text"
@@ -149,8 +166,17 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
                   className="mt-0.5 accent-indigo-600"
                 />
                 <span className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
-                  Lưu thay đổi của <strong className="text-indigo-600 dark:text-indigo-400">{editedCount}</strong> dòng
-                  đã sửa vào hồ sơ gốc (thông tin mặc định).
+                  {isEn ? (
+                    <>
+                      Save changes from <strong className="text-indigo-600 dark:text-indigo-400">{editedCount}</strong> edited
+                      entries back to master profile.
+                    </>
+                  ) : (
+                    <>
+                      Lưu thay đổi của <strong className="text-indigo-600 dark:text-indigo-400">{editedCount}</strong> dòng
+                      đã sửa vào hồ sơ gốc (thông tin mặc định).
+                    </>
+                  )}
                 </span>
               </label>
             )}
@@ -163,8 +189,17 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
                   className="mt-0.5 accent-indigo-600"
                 />
                 <span className="text-sm text-slate-600 dark:text-slate-300 leading-snug">
-                  Thêm <strong className="text-indigo-600 dark:text-indigo-400">{newCount}</strong> dòng mới tạo trong
-                  CV vào hồ sơ gốc (thông tin mặc định).
+                  {isEn ? (
+                    <>
+                      Add <strong className="text-indigo-600 dark:text-indigo-400">{newCount}</strong> newly created entries
+                      to master profile.
+                    </>
+                  ) : (
+                    <>
+                      Thêm <strong className="text-indigo-600 dark:text-indigo-400">{newCount}</strong> dòng mới tạo trong
+                      CV vào hồ sơ gốc (thông tin mặc định).
+                    </>
+                  )}
                 </span>
               </label>
             )}
@@ -178,7 +213,7 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
             disabled={busy}
             className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
           >
-            Hủy bỏ
+            {isEn ? 'Cancel' : 'Hủy bỏ'}
           </button>
           <button
             type="button"
@@ -189,12 +224,12 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
             {busy ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Đang tạo CV...
+                {isEn ? 'Generating CV...' : 'Đang tạo CV...'}
               </>
             ) : (
               <>
                 <Save className="h-3.5 w-3.5" />
-                Tạo & lưu CV
+                {isEn ? 'Create & Save CV' : 'Tạo & lưu CV'}
               </>
             )}
           </button>
@@ -205,3 +240,4 @@ export const CvExportModal: React.FC<CvExportModalProps> = ({
 };
 
 export default CvExportModal;
+

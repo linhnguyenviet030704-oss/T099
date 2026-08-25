@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Save, AlertCircle, X, Copy } from 'lucide-react';
 import {
   LineDraft,
-  LINE_TYPE_OPTIONS,
+  getLineTypeOptions,
   createEmptyDraft,
   validateDraft,
 } from '../lib/profileLines';
@@ -12,6 +12,7 @@ interface BatchLineFormProps {
   onCancel: () => void;
   /** starting display order for the first row */
   startOrder?: number;
+  lang?: 'vi' | 'en';
 }
 
 /**
@@ -23,10 +24,14 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
   onSubmit,
   onCancel,
   startOrder = 0,
+  lang = 'vi',
 }) => {
+  const isEn = lang === 'en';
+  const options = getLineTypeOptions(lang);
   const [drafts, setDrafts] = useState<LineDraft[]>([
     createEmptyDraft(startOrder),
   ]);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -155,7 +160,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Phân loại <span className="text-emerald-500">*</span>
+                  {isEn ? 'Category' : 'Phân loại'} <span className="text-emerald-500">*</span>
                 </label>
                 <select
                   value={draft.name}
@@ -166,7 +171,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
                   }
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 >
-                  {LINE_TYPE_OPTIONS.map((opt) => (
+                  {options.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -176,7 +181,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
 
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Thứ tự hiển thị
+                  {isEn ? 'Display order' : 'Thứ tự hiển thị'}
                 </label>
                 <input
                   type="number"
@@ -192,7 +197,7 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
 
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Nội dung <span className="text-emerald-500">*</span>
+                  {isEn ? 'Content' : 'Nội dung'} <span className="text-emerald-500">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -200,10 +205,11 @@ export const BatchLineForm: React.FC<BatchLineFormProps> = ({
                   onChange={(e) =>
                     updateDraft(draft.key, { value: e.target.value })
                   }
-                  placeholder="Ví dụ: Tốt nghiệp đại học quốc gia HCM"
+                  placeholder={isEn ? "e.g. Graduated from National University" : "Ví dụ: Tốt nghiệp đại học quốc gia HCM"}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
                 />
               </div>
+
             </div>
           </div>
         ))}

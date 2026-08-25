@@ -3,10 +3,10 @@ import { supabase } from './supabase';
 
 export type LineType = UserProfileLine['name'];
 
-export const LINE_TYPE_OPTIONS: { value: LineType; label: string }[] = [
+export const LINE_TYPE_OPTIONS_VI: { value: LineType; label: string }[] = [
   { value: 'summary', label: 'Giới thiệu bản thân' },
   { value: 'experience', label: 'Kinh nghiệm làm việc' },
-  { value: 'education', label: 'Học vấn' },
+  { value: 'education', label: 'Trình độ học vấn' },
   { value: 'skill', label: 'Kỹ năng' },
   { value: 'project', label: 'Dự án' },
   { value: 'certification', label: 'Chứng chỉ' },
@@ -14,6 +14,32 @@ export const LINE_TYPE_OPTIONS: { value: LineType; label: string }[] = [
   { value: 'link', label: 'Liên kết' },
   { value: 'other', label: 'Thông tin bổ sung' },
 ];
+
+export const LINE_TYPE_OPTIONS_EN: { value: LineType; label: string }[] = [
+  { value: 'summary', label: 'Summary' },
+  { value: 'experience', label: 'Work Experience' },
+  { value: 'education', label: 'Education' },
+  { value: 'skill', label: 'Skills' },
+  { value: 'project', label: 'Projects' },
+  { value: 'certification', label: 'Certifications' },
+  { value: 'language', label: 'Languages' },
+  { value: 'link', label: 'Links' },
+  { value: 'other', label: 'Additional Information' },
+];
+
+export const LINE_TYPE_OPTIONS = LINE_TYPE_OPTIONS_VI;
+
+export const getLineTypeOptions = (lang: 'vi' | 'en' = 'vi') =>
+  lang === 'en' ? LINE_TYPE_OPTIONS_EN : LINE_TYPE_OPTIONS_VI;
+
+export const getLineTypeLabel = (
+  value: string,
+  lang: 'vi' | 'en' = 'vi',
+): string => {
+  const options = getLineTypeOptions(lang);
+  return options.find((o) => o.value === value)?.label ?? value;
+};
+
 
 /** A blank draft used by the batch add form. */
 export interface LineDraft {

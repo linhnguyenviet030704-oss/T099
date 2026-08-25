@@ -33,7 +33,7 @@ export async function generateWysiwygPdf(
   ]);
 
   const canvas = await html2canvas(node, {
-    scale: 2,
+    scale: 3,
     useCORS: true,
     backgroundColor: '#ffffff',
     logging: false,
@@ -55,10 +55,10 @@ export async function generateWysiwygPdf(
 
   // If fitToSinglePage requested OR document fits within 1 page with bottom margin
   if (options?.fitToSinglePage || canvas.height <= canvasPageHeight - bottomMarginCanvas) {
-    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    const imgData = canvas.toDataURL('image/png');
     const imgWidth = pageWidthMm;
     const imgHeight = Math.min(pageHeightMm - (pageHeightMm * bottomMarginRatio), (canvas.height * imgWidth) / canvas.width);
-    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
     return pdf.output('blob');
   }
 
@@ -144,8 +144,8 @@ export async function generateWysiwygPdf(
       );
     }
 
-    const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
-    pdf.addImage(pageImgData, 'JPEG', 0, 0, pageWidthMm, pageHeightMm);
+    const pageImgData = pageCanvas.toDataURL('image/png');
+    pdf.addImage(pageImgData, 'PNG', 0, 0, pageWidthMm, pageHeightMm);
 
     currentY += sliceHeight;
     pageIndex++;

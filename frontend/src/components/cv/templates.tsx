@@ -14,9 +14,12 @@ const A4: React.CSSProperties = {
   width: '210mm',
   minHeight: '297mm',
   boxSizing: 'border-box',
-  fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-  color: '#1f2937',
+  fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', -apple-system, Arial, sans-serif",
+  color: '#111827',
   background: '#ffffff',
+  WebkitFontSmoothing: 'antialiased',
+  MozOsxFontSmoothing: 'grayscale',
+  textRendering: 'optimizeLegibility',
 };
 
 const initials = (name: string): string =>

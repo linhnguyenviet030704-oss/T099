@@ -183,3 +183,41 @@ export interface CompareCandidatesResponse {
   top_candidate_id: string | null;
   summary: string | null;
 }
+
+export interface ComparedJobCompany {
+  id: string;
+  name: string;
+  logo_storage_path: string | null;
+}
+
+export interface ComparedJob {
+  job_id: string;
+  title: string;
+  company: ComparedJobCompany | null;
+  location: string | null;
+  employment_type: EmploymentType | string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  currency: string;
+  deadline_at: string | null;
+  anonymous_label: string;
+  metrics: CandidateMetrics;
+  total_score: number;
+  average_score: number;
+  rank: number;
+}
+
+export interface CompareJobsRequest {
+  job_ids: string[];
+  resume_id?: string | null;
+}
+
+export interface CompareJobsResponse {
+  candidate_id: string;
+  resume_id: string;
+  resume_title: string | null;
+  jobs: ComparedJob[];
+  top_job_id: string | null;
+  summary: string | null;
+}
+

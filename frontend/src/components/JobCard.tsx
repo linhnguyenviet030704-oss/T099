@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { MapPin, DollarSign, Calendar, Bookmark, BookmarkCheck, ExternalLink } from "lucide-react";
+import { MapPin, DollarSign, Calendar, Bookmark, BookmarkCheck, ExternalLink, Layers, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import type { JobPost } from "../types";
@@ -12,9 +12,20 @@ interface Props {
   compact?: boolean;
   saved?: boolean;
   onToggleSave?: (jobId: string) => void;
+  selectedForCompare?: boolean;
+  compareLabel?: string;
+  onToggleCompare?: (job: JobPost) => void;
 }
 
-export default function JobCard({ job, compact = false, saved = false, onToggleSave }: Props) {
+export default function JobCard({
+  job,
+  compact = false,
+  saved = false,
+  onToggleSave,
+  selectedForCompare = false,
+  compareLabel,
+  onToggleCompare,
+}: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const company = job.company;
@@ -28,6 +39,12 @@ export default function JobCard({ job, compact = false, saved = false, onToggleS
     }
     onToggleSave?.(job.id);
   };
+
+  const handleCompare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleCompare?.(job);
+  };
+
 
   return (
     <motion.div
@@ -57,21 +74,49 @@ export default function JobCard({ job, compact = false, saved = false, onToggleS
               </h3>
             </div>
           </div>
-          {onToggleSave && (
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={handleSave}
-              className={`p-2 rounded-xl transition-all flex-shrink-0 ${
-                saved
-                  ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30"
-                  : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-              }`}
-              title={saved ? "Bỏ lưu việc làm" : "Lưu việc làm"}
-            >
-              {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-            </motion.button>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onToggleCompare && (
+              <motion.button
+                whileTap={{ scale: 0.88 }}
+                onClick={handleCompare}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  selectedForCompare
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                    : "text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700"
+                }`}
+                title={selectedForCompare ? "Bỏ chọn so sánh" : "Thêm vào so sánh việc làm"}
+              >
+                {selectedForCompare ? (
+                  <>
+                    <Check size={12} className="stroke-[3]" />
+                    <span>{compareLabel ? `So sánh (${compareLabel})` : "Đã chọn"}</span>
+                  </>
+                ) : (
+                  <>
+                    <Layers size={12} />
+                    <span>So sánh</span>
+                  </>
+                )}
+              </motion.button>
+            )}
+
+            {onToggleSave && (
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={handleSave}
+                className={`p-2 rounded-xl transition-all flex-shrink-0 ${
+                  saved
+                    ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30"
+                    : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                }`}
+                title={saved ? "Bỏ lưu việc làm" : "Lưu việc làm"}
+              >
+                {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+              </motion.button>
+            )}
+          </div>
         </div>
+
 
         <div className="flex flex-wrap gap-2 mb-3">
           <Badge variant={EMPLOYMENT_BADGE[job.employment_type] || "muted"}>

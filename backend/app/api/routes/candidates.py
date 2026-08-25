@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from backend.app.api.schemas.compare import CompareCandidatesRequest, CompareCandidatesResponse
+from backend.app.api.schemas.compare import (
+    CompareCandidatesRequest,
+    CompareCandidatesResponse,
+    CompareJobsRequest,
+    CompareJobsResponse,
+)
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
 from backend.app.core.exceptions import ForbiddenError
@@ -10,10 +15,11 @@ from backend.app.core.security import AuthenticatedUser
 from backend.app.dependencies.services import get_profile_service
 from backend.app.guardrails.rate_limit import enforce_chat_rate_limit
 from backend.app.services.matching.compare import compare_candidates_for_job
+from backend.app.services.matching.compare_jobs import compare_jobs_for_candidate
 from backend.app.services.profile_service import ProfileService
 from supabase import Client
 
-router = APIRouter(tags=["candidates"])
+router = APIRouter(tags=["compare"])
 
 
 @router.post("/candidates/compare", response_model=CompareCandidatesResponse)
@@ -36,3 +42,21 @@ async def compare_candidates(
         api_key=settings.qwen_api_key,
         base_url=settings.qwen_base_url,
     )
+
+
+@router.post("/jobs/compare", response_model=CompareJobsResponse)
+async def compare_jobs(
+    request: CompareJobsRequest,
+    current_user: AuthenticatedUser = Depends(enforce_chat_rate_limit),
+    client: Client = Depends(get_supabase_client),
+) -> CompareJobsResponse:
+    """Compare 2-5 Job Descriptions visually for a candidate based on candidate's anonymized CV using AI Career Advisor."""
+    return await compare_jobs_for_candidate(
+        client=client,
+        actor_id=current_user.id,
+        job_ids=request.job_ids,
+        resume_id=request.resume_id,
+        api_key=settings.qwen_api_key,
+        base_url=settings.qwen_base_url,
+    )
+

@@ -1,21 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, X, Bookmark } from "lucide-react";
+import { Search, Filter, X, Bookmark, Layers } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import type { EmploymentType, JobPost } from "../types";
 import { ENUM_LABELS } from "../lib/format";
 import JobCard from "../components/JobCard";
 import AnimatedPage, { staggerContainer, fadeUp } from "../components/AnimatedPage";
-
 import { JobCardSkeleton } from "../components/ui/Skeleton";
 import { useToast } from "../context/ToastContext";
+import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
+import JobComparisonModal from "../components/candidate/JobComparisonModal";
 
 const JOB_TYPES = Object.keys(ENUM_LABELS.employment_type) as EmploymentType[];
 
 export default function JobListPage() {
   const { user } = useAuth();
-  const { success, info } = useToast();
+  const { success, info, error: toastError } = useToast();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,36 @@ export default function JobListPage() {
   const [location, setLocation] = useState("");
   const [savedOnly, setSavedOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Compare states
+  const [selectedCompareJobs, setSelectedCompareJobs] = useState<JobPost[]>([]);
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [resumes, setResumes] = useState<CandidateResumeOption[]>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+
+  // Fetch candidate resumes
+  const fetchResumes = useCallback(async () => {
+    if (!supabase || !user) return;
+    try {
+      const { data, error: rErr } = await supabase
+        .from("resumes")
+        .select("id, title, is_default")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (!rErr && data) {
+        setResumes(data);
+        const def = data.find((r: any) => r.is_default);
+        setSelectedResumeId(def?.id || data[0]?.id || null);
+      }
+    } catch {
+      // ignore
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void fetchResumes();
+  }, [fetchResumes]);
 
   useEffect(() => {
     if (!supabase) {
@@ -59,6 +90,41 @@ export default function JobListPage() {
       cancelled = true;
     };
   }, [user]);
+
+  const handleToggleCompare = (job: JobPost) => {
+    setSelectedCompareJobs((prev) => {
+      const exists = prev.some((j) => j.id === job.id);
+      if (exists) {
+        return prev.filter((j) => j.id !== job.id);
+      }
+      if (prev.length >= 5) {
+        info("Chỉ có thể so sánh tối đa 5 việc làm cùng lúc");
+        return prev;
+      }
+      return [...prev, job];
+    });
+  };
+
+  const handleRemoveCompare = (jobId: string) => {
+    setSelectedCompareJobs((prev) => prev.filter((j) => j.id !== jobId));
+  };
+
+  const handleClearCompare = () => {
+    setSelectedCompareJobs([]);
+  };
+
+  const handleOpenCompareModal = () => {
+    if (!user) {
+      info("Vui lòng đăng nhập để sử dụng tính năng so sánh việc làm với CV");
+      return;
+    }
+    if (selectedCompareJobs.length < 2) {
+      info("Vui lòng chọn từ 2 đến 5 việc làm để so sánh");
+      return;
+    }
+    setIsCompareModalOpen(true);
+  };
+
 
   const handleToggleSaved = async (jobId: string) => {
     if (!supabase || !user) return;
@@ -174,14 +240,53 @@ export default function JobListPage() {
           </div>
         ) : (
           <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((job) => (
-              <motion.div key={job.id} variants={fadeUp}>
-                <JobCard job={job} saved={savedIds.includes(job.id)} onToggleSave={handleToggleSaved} />
-              </motion.div>
-            ))}
+            {filtered.map((job) => {
+              const compareIdx = selectedCompareJobs.findIndex((j) => j.id === job.id);
+              const isSelected = compareIdx !== -1;
+              const letterLabel = isSelected ? String.fromCharCode(65 + compareIdx) : undefined;
+
+              return (
+                <motion.div key={job.id} variants={fadeUp}>
+                  <JobCard
+                    job={job}
+                    saved={savedIds.includes(job.id)}
+                    onToggleSave={handleToggleSaved}
+                    selectedForCompare={isSelected}
+                    compareLabel={letterLabel}
+                    onToggleCompare={handleToggleCompare}
+                  />
+                </motion.div>
+              );
+            })}
           </motion.div>
         )}
       </div>
+
+      {/* Floating Job Compare Dock */}
+      <JobCompareDock
+        selectedJobs={selectedCompareJobs.map((j) => ({
+          id: j.id,
+          title: j.title,
+          companyName: j.company?.name,
+          logoUrl: j.company?.logo_storage_path,
+        }))}
+        onRemove={handleRemoveCompare}
+        onClear={handleClearCompare}
+        onCompare={handleOpenCompareModal}
+        resumes={resumes}
+        selectedResumeId={selectedResumeId}
+        onSelectResume={setSelectedResumeId}
+      />
+
+      {/* Visual Comparison Modal */}
+      <JobComparisonModal
+        isOpen={isCompareModalOpen}
+        onClose={() => setIsCompareModalOpen(false)}
+        jobIds={selectedCompareJobs.map((j) => j.id)}
+        resumeId={selectedResumeId}
+        resumes={resumes}
+      />
     </AnimatedPage>
   );
 }
+

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, MapPin, DollarSign, ExternalLink, Bot, User,
   PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, FileText,
+  Layers, Check,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -12,6 +13,8 @@ import { ENUM_LABELS, formatCurrency } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
 import Badge from "../components/Badge";
 import { useToast } from "../context/ToastContext";
+import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
+import JobComparisonModal from "../components/candidate/JobComparisonModal";
 
 const QUICK_PROMPT = "Gợi ý việc phù hợp";
 const FIT_GOOD = 0.45;
@@ -63,7 +66,19 @@ function groupJobs(jobs: ChatJob[]) {
   return buckets;
 }
 
-function JobRecommendationCard({ job, onNavigate }: { job: ChatJob; onNavigate: (id: string) => void }) {
+function JobRecommendationCard({
+  job,
+  onNavigate,
+  selectedForCompare = false,
+  compareLabel,
+  onToggleCompare,
+}: {
+  job: ChatJob;
+  onNavigate: (id: string) => void;
+  selectedForCompare?: boolean;
+  compareLabel?: string;
+  onToggleCompare?: (job: ChatJob) => void;
+}) {
   const score = displayScore(job);
   const band = fitBand(score);
   const pct = Math.round(score * 100);
@@ -104,25 +119,62 @@ function JobRecommendationCard({ job, onNavigate }: { job: ChatJob; onNavigate: 
         </div>
       </div>
 
-      <button
-        onClick={() => onNavigate(job.id)}
-        className="mt-3 w-full py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-center gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"
-      >
-        Xem chi tiết tin <ExternalLink size={11} />
-      </button>
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          onClick={() => onNavigate(job.id)}
+          className="flex-1 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-center gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"
+        >
+          Xem chi tiết <ExternalLink size={11} />
+        </button>
+
+        {onToggleCompare && (
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleCompare(job);
+            }}
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1 transition-all ${
+              selectedForCompare
+                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
+            }`}
+            title={selectedForCompare ? "Bỏ chọn so sánh" : "Thêm vào so sánh việc làm"}
+          >
+            {selectedForCompare ? (
+              <>
+                <Check size={12} className="stroke-[3]" />
+                <span>{compareLabel || "Đã chọn"}</span>
+              </>
+            ) : (
+              <>
+                <Layers size={12} />
+                <span>So sánh</span>
+              </>
+            )}
+          </motion.button>
+        )}
+      </div>
     </div>
   );
 }
 
+
 export default function AISuggestionsPage() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
-  const { error: toastError } = useToast();
+  const { info, error: toastError } = useToast();
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [rerank, setRerank] = useState<"qwen" | "agent">("qwen");
   const [defaultCv, setDefaultCv] = useState<ResumeInfo | null>(null);
+
+  // Compare states
+  const [selectedCompareJobs, setSelectedCompareJobs] = useState<ChatJob[]>([]);
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [resumes, setResumes] = useState<CandidateResumeOption[]>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
 
   const [leftOpen, setLeftOpen] = useState(isDesktop);
   const [rightOpen, setRightOpen] = useState(isDesktop);
@@ -133,10 +185,23 @@ export default function AISuggestionsPage() {
   ]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Load candidate default resume info
+  // Load candidate default resume info and all resumes
   const loadDefaultCv = useCallback(async () => {
     if (!supabase || !user) return;
     try {
+      const { data: allResumes } = await supabase
+        .from("resumes")
+        .select("id, title, is_default")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      if (allResumes && allResumes.length > 0) {
+        setResumes(allResumes);
+        const def = allResumes.find((r: any) => r.is_default);
+        setSelectedResumeId(def?.id || allResumes[0]?.id || null);
+      }
+
       const { data } = await supabase
         .from("resumes")
         .select("id, title, storage_path, created_at")
@@ -152,6 +217,41 @@ export default function AISuggestionsPage() {
       console.error("Failed to load default CV", err);
     }
   }, [user]);
+
+  const handleToggleCompare = (job: ChatJob) => {
+    setSelectedCompareJobs((prev) => {
+      const exists = prev.some((j) => j.id === job.id);
+      if (exists) {
+        return prev.filter((j) => j.id !== job.id);
+      }
+      if (prev.length >= 5) {
+        info("Chỉ có thể so sánh tối đa 5 việc làm cùng lúc");
+        return prev;
+      }
+      return [...prev, job];
+    });
+  };
+
+  const handleRemoveCompare = (jobId: string) => {
+    setSelectedCompareJobs((prev) => prev.filter((j) => j.id !== jobId));
+  };
+
+  const handleClearCompare = () => {
+    setSelectedCompareJobs([]);
+  };
+
+  const handleOpenCompareModal = () => {
+    if (!user) {
+      info("Vui lòng đăng nhập để sử dụng tính năng so sánh việc làm với CV");
+      return;
+    }
+    if (selectedCompareJobs.length < 2) {
+      info("Vui lòng chọn từ 2 đến 5 việc làm để so sánh");
+      return;
+    }
+    setIsCompareModalOpen(true);
+  };
+
 
   useEffect(() => { void loadDefaultCv(); }, [loadDefaultCv]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sending]);
@@ -404,13 +504,22 @@ export default function AISuggestionsPage() {
                                 </span>
                               </h2>
                               <div className="flex flex-row flex-wrap gap-3">
-                                {list.map((job) => (
-                                  <JobRecommendationCard
-                                    key={job.id}
-                                    job={job}
-                                    onNavigate={(id) => navigate(`/jobs/${id}`)}
-                                  />
-                                ))}
+                                {list.map((job) => {
+                                  const compareIdx = selectedCompareJobs.findIndex((j) => j.id === job.id);
+                                  const isSelected = compareIdx !== -1;
+                                  const letterLabel = isSelected ? String.fromCharCode(65 + compareIdx) : undefined;
+
+                                  return (
+                                    <JobRecommendationCard
+                                      key={job.id}
+                                      job={job}
+                                      onNavigate={(id) => navigate(`/jobs/${id}`)}
+                                      selectedForCompare={isSelected}
+                                      compareLabel={letterLabel}
+                                      onToggleCompare={handleToggleCompare}
+                                    />
+                                  );
+                                })}
                               </div>
                             </div>
                           );
@@ -418,6 +527,7 @@ export default function AISuggestionsPage() {
                       </div>
                     </motion.div>
                   );
+
                 })}
               </AnimatePresence>
 
@@ -548,6 +658,31 @@ export default function AISuggestionsPage() {
       >
         <PanelRight size={18} />
       </motion.button>
+
+      {/* Floating Job Compare Dock */}
+      <JobCompareDock
+        selectedJobs={selectedCompareJobs.map((j) => ({
+          id: j.id,
+          title: j.title,
+          companyName: j.company_name || undefined,
+        }))}
+        onRemove={handleRemoveCompare}
+        onClear={handleClearCompare}
+        onCompare={handleOpenCompareModal}
+        resumes={resumes}
+        selectedResumeId={selectedResumeId}
+        onSelectResume={setSelectedResumeId}
+      />
+
+      {/* Visual Comparison Modal */}
+      <JobComparisonModal
+        isOpen={isCompareModalOpen}
+        onClose={() => setIsCompareModalOpen(false)}
+        jobIds={selectedCompareJobs.map((j) => j.id)}
+        resumeId={selectedResumeId}
+        resumes={resumes}
+      />
     </AnimatedPage>
   );
 }
+

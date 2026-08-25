@@ -124,39 +124,38 @@ async def retrieve_jobs_for_resume(
         return result.data
 
     resume_row = await asyncio.to_thread(_default_resume)
-    if not resume_row or not resume_row.get("id"):
-        return None
-    resume_id = UUID(str(resume_row["id"]))
-
-    status = await try_ingest_resume(
-        resume_store, resume_id, encode=encode, complete=complete, api_key=api_key, base_url=base_url
-    )
-    if status is None:
-        return None
-
-    def _parsed() -> dict[str, Any] | None:
-        result = (
-            client.table("embedded_resumes")
-            .select("markdown, clean_markdown, metadata, embedding, model")
-            .eq("resume_id", str(resume_id))
-            .maybe_single()
-            .execute()
+    parsed: dict[str, Any] | None = None
+    if resume_row and resume_row.get("id"):
+        resume_id = UUID(str(resume_row["id"]))
+        status = await try_ingest_resume(
+            resume_store, resume_id, encode=encode, complete=complete, api_key=api_key, base_url=base_url
         )
-        return result.data
+        if status is not None:
+            def _parsed() -> dict[str, Any] | None:
+                result = (
+                    client.table("embedded_resumes")
+                    .select("markdown, clean_markdown, metadata, embedding, model")
+                    .eq("resume_id", str(resume_id))
+                    .maybe_single()
+                    .execute()
+                )
+                return result.data
 
-    parsed = await asyncio.to_thread(_parsed)
-    if not parsed:
+            parsed = await asyncio.to_thread(_parsed)
+
+    # If no resume and no query provided, return None (matches old behavior for blank general recommend with no CV)
+    if not parsed and not query.strip():
         return None
 
-    metadata = parsed.get("metadata") or {}
+    metadata = (parsed or {}).get("metadata") or {}
     verified = list(metadata.get("verified_skills") or [])
     inferred = list(metadata.get("inferred_skills") or [])
     cv_skills = list(metadata.get("skills") or [*verified, *inferred])
-    clean = parsed.get("clean_markdown") or ""
-    markdown = parsed.get("markdown") or ""
+    clean = (parsed or {}).get("clean_markdown") or ""
+    markdown = (parsed or {}).get("markdown") or ""
     cv_text = clean or markdown
-    cv_embedding = _as_embedding(parsed.get("embedding"))
-    cv_model = parsed.get("model") or ""
+    cv_embedding = _as_embedding((parsed or {}).get("embedding"))
+    cv_model = (parsed or {}).get("model") or ""
     cv_has_evidence = (
         bool(metadata.get("skill_records"))
         and (metadata.get("ingest_status") or "ok") == "ok"
@@ -201,11 +200,6 @@ async def retrieve_jobs_for_resume(
                 base_url=base_url,
             )
 
-    # ponytail: For issue #3, consider pre-embedding jobs at publish time via
-    # a background worker or Supabase Edge Functions instead of on-the-fly here.
-    # This prevents potential HTTP Gateway Timeout (504) when many jobs lack
-    # embeddings and the user request must wait for sequential Qwen API calls.
-    # Current on-the-fly approach is acceptable for MVP with reasonable cache hit rate.
     refreshed = await asyncio.gather(*(_ingest_bounded(job) for job in jobs))
     for row in refreshed:
         if row and row.get("job_post_id"):
@@ -254,8 +248,8 @@ async def retrieve_jobs_for_resume(
             }
         )
 
-    bm25_q = bm25_query(cv_text, cv_skills)
-    scores = bm25_scores(docs, bm25_q) if docs else []
+    bm25_q = bm25_query(cv_text, cv_skills) if (cv_text or cv_skills) else ""
+    scores = bm25_scores(docs, bm25_q) if (docs and bm25_q) else [0.0] * len(docs)
     for row, score in zip(candidates, scores, strict=False):
         row["bm25_score"] = score
 
@@ -265,24 +259,39 @@ async def retrieve_jobs_for_resume(
         match_num = re.search(r"#(\d+)", query_lower)
         target_num = match_num.group(1) if match_num else None
 
-        for candidate in candidates:
+        # Clean query tokens for word/domain matching
+        raw_words = [w.strip("#,?.!:;()[]\"'").lower() for w in query_lower.split()]
+        stopwords = {"tìm", "việc", "làm", "các", "những", "hiện", "có", "cho", "tại", "ở", "công", "và", "hoặc", "là", "thì"}
+        words = [w for w in raw_words if len(w) > 1 and w not in stopwords]
+
+        # Direct BM25 score of user query
+        direct_scores = bm25_scores(docs, query_lower) if docs else []
+
+        for idx, candidate in enumerate(candidates):
             boost = 0.0
             title = (candidate.get("title") or "").lower()
             location = (candidate.get("location") or "").lower()
             company = (candidate.get("company_name") or "").lower()
+            body = (candidate.get("markdown") or "").lower()
+            job_skills_str = " ".join(candidate.get("skills") or []).lower()
 
-            if target_num and (f"#{target_num}" in title or f"#{target_num}" in (candidate.get("id") or "")):
+            if target_num and (f"#{target_num}" in title or f"#{target_num}" in (candidate.get("job_id") or "")):
                 boost += 5.0  # Dominant boost for exact job number match like #4 or #2
 
-            for word in query_lower.split():
-                clean_word = word.strip("#,?.!").lower()
-                if len(clean_word) > 1:
-                    if clean_word in title:
-                        boost += 0.4
-                    if clean_word in company:
-                        boost += 0.4
-                    if clean_word in location:
-                        boost += 0.2
+            if direct_scores and idx < len(direct_scores):
+                boost += float(direct_scores[idx]) * 2.0
+
+            for clean_word in words:
+                if clean_word in title:
+                    boost += 2.0
+                if clean_word in job_skills_str:
+                    boost += 1.5
+                if clean_word in company:
+                    boost += 1.2
+                if clean_word in body:
+                    boost += 1.0
+                if clean_word in location:
+                    boost += 0.5
 
             if boost > 0:
                 current_bm25 = float(candidate.get("bm25_score") or 0.0)

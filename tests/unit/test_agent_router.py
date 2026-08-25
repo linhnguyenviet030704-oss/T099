@@ -34,6 +34,20 @@ def test_classify_intent_chitchat():
     assert res["needs_db_query"] is False
 
 
+def test_classify_intent_search_by_domain_logistic():
+    res = classify_intent("Logistic")
+    assert res["intent"] == "SEARCH_BY_DOMAIN"
+    assert res["needs_db_query"] is True
+    assert res["db_query_params"].get("domain") == "logistic"
+
+
+def test_classify_intent_list_available_jobs():
+    res = classify_intent("Các công việc hiện có")
+    assert res["intent"] == "LIST_AVAILABLE_JOBS"
+    assert res["needs_db_query"] is True
+
+
+
 @pytest.mark.asyncio
 async def test_router_node_returns_state_updates():
     state = {"query": "Tôi cần bổ sung kỹ năng gì cho công ty VNG?"}

@@ -257,3 +257,44 @@ async def test_ingest_reuses_batch_read_instead_of_per_job_point_reads(monkeypat
     # every job was handed a prefetched answer (None == no cached row)
     assert len(seen) == 4
     assert all(existing is None for _jid, existing in seen)
+
+
+@pytest.mark.asyncio
+async def test_retrieve_jobs_without_resume_when_query_provided(monkeypatch):
+    from backend.app.services.matching import retrieve_jobs as module
+
+    job_id = str(uuid4())
+    table_data = {
+        "resumes": None,
+        "job_posts": [
+            {
+                "id": job_id,
+                "title": "Logistics Coordinator",
+                "description": "Quản lý kho vận và vận chuyển",
+                "requirements": "Kinh nghiệm Logistics",
+                "location": "TP.HCM",
+                "employment_type": "full_time",
+                "salary_min": None,
+                "salary_max": None,
+                "currency": "VND",
+                "skill_constraints": {},
+                "skill_constraints_confirmed_at": None,
+                "companies": {"name": "Logistics Express"},
+            }
+        ],
+        "embedded_jobs": [],
+    }
+    client = _RoutingClient(table_data)
+
+    async def _mock_ingest_job(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(module, "try_ingest_job", _mock_ingest_job)
+
+    result = await module.retrieve_jobs_for_resume(client, uuid4(), query="Logistic")
+
+    assert result is not None
+    assert len(result["candidates"]) == 1
+    assert result["candidates"][0]["title"] == "Logistics Coordinator"
+    assert result["candidates"][0]["bm25_score"] > 0
+

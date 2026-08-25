@@ -102,3 +102,102 @@ async def test_recommend_graph_skill_gap_advice_routes_to_advice_node():
     assert "Bạn cần bổ sung kiến thức UX Principles" in result["response"]
     assert result["candidates"] == []
 
+
+@pytest.mark.asyncio
+async def test_recommend_graph_search_by_domain_logistic():
+    job_logistic = str(uuid4())
+    job_it = str(uuid4())
+
+    async def retrieve():
+        return {
+            "cv_skills": ["python"],
+            "cv_verified": ["python"],
+            "cv_has_evidence": True,
+            "cv_text": "Python dev",
+            "candidates": [
+                {
+                    "job_id": job_logistic,
+                    "title": "Senior Product Owner (Logistics Platform)",
+                    "company_name": "Quantum Logistics",
+                    "skills": ["product management", "logistics"],
+                    "distance_expanded": 0.5,
+                    "bm25_score": 4.5,
+                    "skill_constraints": {"must": [], "preferred": [], "mentioned": [], "excluded": []},
+                    "constraints_confirmed": False,
+                    "markdown": "Vị trí Logistics ERP và quản lý kho vận.",
+                    "clean_markdown": "Vị trí Logistics ERP và quản lý kho vận.",
+                    "skill_records": [],
+                },
+                {
+                    "job_id": job_it,
+                    "title": "Backend Python",
+                    "company_name": "Tech Corp",
+                    "skills": ["python"],
+                    "distance_expanded": 0.1,
+                    "bm25_score": 0.0,
+                    "skill_constraints": {"must": [], "preferred": [], "mentioned": [], "excluded": []},
+                    "constraints_confirmed": False,
+                    "markdown": "Python API",
+                    "clean_markdown": "Python API",
+                    "skill_records": [],
+                },
+            ],
+        }
+
+    graph = build_recommend_graph(retrieve=retrieve)
+    result = await graph.ainvoke({"query": "Logistic", "rerank_mode": "agent"})
+
+    assert "Logistics" in result["response"] or "Logistic" in result["response"]
+    assert len(result["candidates"]) == 2
+    # The logistics job should be ranked top due to search intent matching
+    assert result["candidates"][0]["job_id"] == job_logistic
+
+
+@pytest.mark.asyncio
+async def test_recommend_graph_list_available_jobs():
+    job_1 = str(uuid4())
+    job_2 = str(uuid4())
+
+    async def retrieve():
+        return {
+            "cv_skills": [],
+            "cv_verified": [],
+            "cv_has_evidence": False,
+            "cv_text": "",
+            "candidates": [
+                {
+                    "job_id": job_1,
+                    "title": "Software Engineer",
+                    "company_name": "VNG",
+                    "skills": ["java"],
+                    "distance_expanded": None,
+                    "bm25_score": 0.0,
+                    "skill_constraints": {"must": [], "preferred": [], "mentioned": [], "excluded": []},
+                    "constraints_confirmed": False,
+                    "markdown": "Tuyển Software Engineer",
+                    "clean_markdown": "Tuyển Software Engineer",
+                    "skill_records": [],
+                },
+                {
+                    "job_id": job_2,
+                    "title": "Data Analyst",
+                    "company_name": "Shopee",
+                    "skills": ["sql", "python"],
+                    "distance_expanded": None,
+                    "bm25_score": 0.0,
+                    "skill_constraints": {"must": [], "preferred": [], "mentioned": [], "excluded": []},
+                    "constraints_confirmed": False,
+                    "markdown": "Tuyển Data Analyst",
+                    "clean_markdown": "Tuyển Data Analyst",
+                    "skill_records": [],
+                },
+            ],
+        }
+
+    graph = build_recommend_graph(retrieve=retrieve)
+    result = await graph.ainvoke({"query": "Các công việc hiện có", "rerank_mode": "agent"})
+
+    assert "việc làm đang" in result["response"]
+    assert len(result["candidates"]) == 2
+
+

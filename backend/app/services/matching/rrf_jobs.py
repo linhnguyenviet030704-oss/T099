@@ -89,6 +89,20 @@ def score_jobs_for_resume(
     fused = rrf_fuse(rankings, k=rrf_k, ranks=ranks)
     by_id = {_job_doc_id(row): row for row in annotated}
     ranked: list[dict[str, Any]] = []
+
+    if not fused and annotated:
+        # Fallback when neither dense nor BM25 ranking produced results (e.g. browsing all jobs without CV)
+        for rank, row in enumerate(annotated, start=1):
+            ranked.append(
+                {
+                    **row,
+                    "rrf_raw": 1.0 / (rrf_k + rank),
+                    "rrf_score": max(0.5 - (rank * 0.02), 0.1),
+                    "rrf_rank": rank,
+                }
+            )
+        return partition_rows(ranked)
+
     for rank, (doc_id, raw) in enumerate(fused, start=1):
         row = by_id.get(doc_id)
         if not row:
@@ -96,7 +110,12 @@ def score_jobs_for_resume(
         norm_score = rrf_normalize(raw, n_lists=2, k=rrf_k)
         job_skills = list(row.get("skills") or [])
         skill_cov = float(row.get("skill_score") or 0.0)
-        if not cv_skills and not cv_verified and not cv_has_evidence:
+        bm25_val = float(row.get("bm25_score") or 0.0)
+
+        # Do not penalize if user performed an explicit keyword search that matched
+        if bm25_val >= 1.0:
+            pass
+        elif not cv_skills and not cv_verified and not cv_has_evidence:
             norm_score = min(norm_score * 0.1, 0.08)
         elif job_skills and not cv_skills:
             norm_score = min(norm_score * 0.1, 0.08)

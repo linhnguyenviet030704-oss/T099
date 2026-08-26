@@ -11,8 +11,6 @@ from backend.app.agents.matching.nodes.rerank import make_rerank_node
 from backend.app.agents.matching.nodes.respond import respond_node
 from backend.app.agents.matching.nodes.rrf import rrf_node
 from backend.app.agents.matching.nodes.skill import skill_node
-from backend.app.agents.nodes.retrieval import kg_retrieval_node
-from backend.app.agents.nodes.router import router_node
 from backend.app.agents.state import AgentState
 from backend.app.services.matching.rerank import RerankFn
 from backend.app.shared_brain import AgentBrain
@@ -43,9 +41,7 @@ def build_matching_graph(
         }
 
     graph = StateGraph(AgentState)
-    graph.add_node("router", router_node)
     graph.add_node("retrieve", retrieve_node)
-    graph.add_node("kg_retrieval", kg_retrieval_node)
     graph.add_node("skill", skill_node)
     graph.add_node("rrf", rrf_node)
     graph.add_node("rerank", make_rerank_node(rerank_fn=rerank_fn))
@@ -60,10 +56,8 @@ def build_matching_graph(
     )
     graph.add_node("respond", respond_node)
 
-    graph.set_entry_point("router")
-    graph.add_edge("router", "retrieve")
-    graph.add_edge("retrieve", "kg_retrieval")
-    graph.add_edge("kg_retrieval", "skill")
+    graph.set_entry_point("retrieve")
+    graph.add_edge("retrieve", "skill")
     graph.add_edge("skill", "rrf")
     graph.add_edge("rrf", "rerank")
     graph.add_edge("rerank", "explain")

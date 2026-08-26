@@ -382,3 +382,18 @@ async def test_ingest_graph_runs_extract_node_before_summarize(monkeypatch):
 
     assert calls == ["extract"]
     assert set(result["metadata"]["skills"]) == {"python", "fastapi", "docker"}
+
+
+@pytest.mark.asyncio
+async def test_matching_graph_has_no_router_or_kg_retrieval_nodes():
+    """router/kg_retrieval write intent+kg_context into AgentState but no
+    node in this graph reads either — they were wired for the recommend
+    graph and never connected here. This locks in their removal."""
+    async def retrieve(_job_id):
+        return {"jd_skills": [], "candidates": []}
+
+    graph = build_matching_graph(retrieve=retrieve)
+    node_names = set(graph.get_graph().nodes) - {"__start__", "__end__"}
+    assert "router" not in node_names
+    assert "kg_retrieval" not in node_names
+    assert node_names == {"retrieve", "skill", "rrf", "rerank", "explain", "respond"}

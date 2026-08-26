@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Awaitable, Callable
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from backend.app.agents.evaluation.types import IntentType
 from backend.app.agents.routing.intents import classify_intent
@@ -131,32 +131,38 @@ class ChatService:
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
         classification = classify_intent(request.message)
 
+        # Determine session_id
+        session_id = request.session_id or (uuid4() if actor_id is not None else None)
+
         # Short-circuit: pure chitchat — no CV load, no LLM call
         if request.job_id is None and classification.intent == IntentType.CHITCHAT:
-            response = ChatResponse(response=CHITCHAT_RESPONSE)
+            response = ChatResponse(response=CHITCHAT_RESPONSE, session_id=session_id)
         # Short-circuit: invalid/off-topic input
         elif classification.intent in (
             IntentType.OUT_OF_SCOPE,
             IntentType.CONTENT_TOO_SHORT,
             IntentType.INVALID_FORMAT,
         ):
-            response = ChatResponse(response=INVALID_RESPONSE)
+            response = ChatResponse(response=INVALID_RESPONSE, session_id=session_id)
         # Recruiter flow: match candidates against a job
         elif request.job_id is not None:
             response = await self._recommend_candidates(request, actor_id)
+            response.session_id = session_id
         # Evaluation flows (skill gap / self-evaluate)
         elif classification.dispatch_target == "evaluation" and self._dispatch_evaluation is not None:
             response = await self._dispatch_evaluation(actor_id, request.message)
+            response.session_id = session_id
         # Default: recommend jobs for candidate
         else:
             response = await self._recommend_jobs(request, actor_id)
+            response.session_id = session_id
 
         # Save to history
-        if actor_id is not None and self._client is not None:
+        if actor_id is not None and self._client is not None and session_id is not None:
             await _save_message(
                 self._client,
                 actor_id,
-                request.session_id,
+                session_id,
                 "user",
                 request.message,
                 [],
@@ -164,7 +170,7 @@ class ChatService:
             await _save_message(
                 self._client,
                 actor_id,
-                request.session_id,
+                session_id,
                 "assistant",
                 response.response,
                 _serialize_recommendations(response),

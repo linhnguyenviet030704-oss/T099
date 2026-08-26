@@ -420,13 +420,22 @@ export default function AISuggestionsPage() {
     if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
-    const sid = sessionId || undefined;
+    let sid = sessionId;
+    if (!sid) {
+      sid = crypto.randomUUID();
+      setSessionId(sid);
+      localStorage.setItem("chat_session_id", sid);
+    }
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);
     try {
-      const body = await apiJson<{ response: string; jobs?: ChatJob[] }>("/chat", session.access_token, {
+      const body = await apiJson<{ response: string; jobs?: ChatJob[]; session_id?: string }>("/chat", session.access_token, {
         method: "POST",
         body: JSON.stringify({ message: msgText, rerank, session_id: sid }),
       });
+      if (body.session_id && body.session_id !== sessionId) {
+        setSessionId(body.session_id);
+        localStorage.setItem("chat_session_id", body.session_id);
+      }
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, jobs: body.jobs || [] }]);
       // Refresh chat sessions in sidebar
       void loadChatHistory();

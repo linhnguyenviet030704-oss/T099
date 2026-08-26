@@ -14,6 +14,7 @@ from backend.app.api.schemas.chat import (
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.core.exceptions import ForbiddenError
 from backend.app.core.security import AuthenticatedUser
+from backend.app.dependencies.auth import get_current_user
 from backend.app.dependencies.services import get_chat_service, get_profile_service
 from backend.app.guardrails.rate_limit import enforce_chat_rate_limit
 from backend.app.services.chat_service import ChatService
@@ -43,7 +44,7 @@ async def chat(
 
 @router.get("/chat/sessions", response_model=ChatSessionsResponse)
 async def list_chat_sessions(
-    _user: AuthenticatedUser = Depends(),
+    _user: AuthenticatedUser = Depends(get_current_user),
     client: Client = Depends(get_supabase_client),
 ) -> ChatSessionsResponse:
     result = (
@@ -95,7 +96,7 @@ async def list_chat_sessions(
 @router.delete("/chat/sessions/{session_id}")
 async def delete_chat_session(
     session_id: str,
-    _user: AuthenticatedUser = Depends(),
+    _user: AuthenticatedUser = Depends(get_current_user),
     client: Client = Depends(get_supabase_client),
 ) -> dict:
     sid = UUID(session_id)
@@ -106,7 +107,7 @@ async def delete_chat_session(
 @router.get("/chat/history/{session_id}", response_model=ChatHistoryResponse)
 async def get_chat_history(
     session_id: str,
-    _user: AuthenticatedUser = Depends(),
+    _user: AuthenticatedUser = Depends(get_current_user),
     client: Client = Depends(get_supabase_client),
 ) -> ChatHistoryResponse:
     sid = UUID(session_id)

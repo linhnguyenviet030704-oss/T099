@@ -43,8 +43,10 @@ class RecommendedCandidate(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     analysis: str = ""
+    session_id: UUID | None = None
     jobs: list[RecommendedJob] = Field(default_factory=list)
     candidates: list[RecommendedCandidate] = Field(default_factory=list)
+
 
 
 class RecommendationItem(BaseModel):

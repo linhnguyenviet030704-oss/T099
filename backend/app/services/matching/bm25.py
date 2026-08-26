@@ -6,7 +6,7 @@ import math
 import re
 from functools import lru_cache
 
-from backend.app.services.matching.skills import _normalize_text, extract_skills, load_skills_catalog, skill_variants
+from backend.app.services.matching.skills import _normalize_text, extract_skills, load_taxonomy_index
 
 K1 = 1.5
 B = 0.75
@@ -77,30 +77,53 @@ def competition_ranks(keys: list) -> list[int]:
 
 
 @lru_cache(maxsize=1)
-def _alias_patterns() -> tuple[tuple[re.Pattern, str], ...]:
-    pairs: list[tuple[str, str]] = []
-    for ids in load_skills_catalog().values():
-        for skill_id in ids:
-            for variant in skill_variants(skill_id):
-                if len(variant) < 2:
-                    continue
-                pairs.append((variant, skill_id))
+def _sorted_alias_pairs() -> tuple[tuple[str, str], ...]:
+    """(variant, canonical_slug) for every taxonomy variant, longest first.
+    Sourced from load_taxonomy_index() (variant -> slug) rather than
+    rebuilding the mapping from load_skills_catalog(), whose keys are
+    display names (e.g. "Node.js") — using those display names as the
+    replacement token instead of the canonical slug ("nodejs") meant a
+    literal "Node.js" mention got substituted right back as "Node.js"
+    (a no-op with padding), leaving the dot exposed for the shorter "node"
+    and "js" alias patterns to still match afterwards and fragment the
+    token into spurious "node" + "javascript" hits."""
+    pairs = [(variant, slug) for variant, slug in load_taxonomy_index().items() if len(variant) >= 2]
     pairs.sort(key=lambda item: len(item[0]), reverse=True)
-    compiled: list[tuple[re.Pattern, str]] = []
+    return tuple(pairs)
+
+
+def _alias_regex(variant: str) -> str:
+    if re.fullmatch(r"[a-z0-9]+", variant, flags=re.IGNORECASE):
+        return rf"(?<![a-z0-9_]){re.escape(variant)}(?![a-z0-9_])"
+    return re.escape(variant)
+
+
+@lru_cache(maxsize=1)
+def _combined_alias_matcher() -> tuple[re.Pattern, dict[str, str]]:
+    """One alternation over every alias, matched in a single left-to-right
+    scan instead of one sequential full-text re.sub pass per alias (~1500
+    of them, each copying the entire document string). Alternatives stay
+    longest-variant-first (from _sorted_alias_pairs) so overlapping aliases
+    at the same position resolve the same way sequential substitution did
+    — longest specific alias wins over a shorter one."""
+    pairs = _sorted_alias_pairs()
+    combined = re.compile("|".join(f"(?:{_alias_regex(variant)})" for variant, _ in pairs), re.IGNORECASE)
+    lookup: dict[str, str] = {}
     for variant, skill_id in pairs:
-        if re.fullmatch(r"[a-z0-9]+", variant, flags=re.IGNORECASE):
-            pattern = rf"(?<![a-z0-9_]){re.escape(variant)}(?![a-z0-9_])"
-        else:
-            pattern = re.escape(variant)
-        compiled.append((re.compile(pattern, re.IGNORECASE), skill_id))
-    return tuple(compiled)
+        lookup.setdefault(variant.casefold(), skill_id)
+    return combined, lookup
 
 
 def _protect_aliases(text: str) -> str:
-    out = text
-    for pattern, skill_id in _alias_patterns():
-        out = pattern.sub(f" {skill_id} ", out)
-    return out
+    if not text:
+        return text
+    combined, lookup = _combined_alias_matcher()
+
+    def repl(match: re.Match) -> str:
+        skill_id = lookup.get(match.group(0).casefold())
+        return f" {skill_id} " if skill_id else match.group(0)
+
+    return combined.sub(repl, text)
 
 
 def matching_tokens(text: str, *, drop_stopwords: bool = False) -> list[str]:

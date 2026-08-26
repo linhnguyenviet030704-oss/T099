@@ -141,17 +141,27 @@ def related_skills(canonical: str, *, depth: int = 2) -> list[str]:
     return sorted(siblings)[:8]
 
 
+@lru_cache(maxsize=1)
+def _sorted_taxonomy_terms() -> tuple[tuple[str, str], ...]:
+    """(variant, canonical) pairs, longest variant first. load_taxonomy_index()
+    is itself cached and never mutated, so re-sorting its ~1500 entries on
+    every extract_skills() call (once per document scored, so once per
+    candidate in a retrieval pool) was pure waste, even though the sort
+    itself is a small slice of extract_skills' total cost next to the O(variants)
+    substring scan below."""
+    return tuple(sorted(load_taxonomy_index().items(), key=lambda item: len(item[0]), reverse=True))
+
+
 def extract_skills(text: str, taxonomy_index: dict[str, str] | None = None) -> list[str]:
     """Scan text for known taxonomy terms (longest synonym first), then a
     bounded fuzzy pass for near-miss spellings not covered by any alias
     (e.g. "Kuberentes" typo, "Postgre SQL" spacing)."""
-    index = taxonomy_index or load_taxonomy_index()
     normalized = _normalize_text(text)
     haystack = f" {normalized} "
 
     found: list[str] = []
     seen: set[str] = set()
-    terms = sorted(index.items(), key=lambda item: len(item[0]), reverse=True)
+    terms = _sorted_taxonomy_terms() if taxonomy_index is None else sorted(taxonomy_index.items(), key=lambda item: len(item[0]), reverse=True)
     for variant, canonical in terms:
         needle = f" {variant} "
         if needle in haystack and canonical not in seen:
@@ -177,12 +187,16 @@ def extract_skills(text: str, taxonomy_index: dict[str, str] | None = None) -> l
     return found
 
 
-def expand_query(text: str, *, depth: int = 2) -> str:
+def expand_query(text: str, *, depth: int = 2, extracted: list[str] | None = None) -> str:
     """Expand a query with found skills and their natural-language labels for
     better recall in semantic search. Slugs (snake_case) are intentionally
-    absent — embedding spaces care about meaning, not identifiers."""
+    absent — embedding spaces care about meaning, not identifiers.
+
+    `extracted` lets a caller that already ran extract_skills(text) for its
+    own purposes (e.g. building the BM25 query from the same text) pass
+    that result in instead of paying for a second identical scan."""
     del depth
-    found = extract_skills(text)
+    found = extracted if extracted is not None else extract_skills(text)
     if not found:
         return text
     extras: list[str] = []

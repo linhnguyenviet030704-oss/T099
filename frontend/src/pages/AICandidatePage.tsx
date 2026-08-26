@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, Bot, User, FileText, ExternalLink,
-  PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, Check,
+  PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, Check, Plus,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -40,6 +40,7 @@ type ChatCandidate = {
 };
 type HistoryRun = { id: string; created_at: string; rerank_mode: string | null; rerank_status: string | null; recruiter_message: string | null };
 type Message = { id: string; role: "user" | "system"; text: string; candidates?: ChatCandidate[] };
+type SavedSession = { id: string; created_at: string; first_message: string };
 type JobOption = JobPost & { company_name?: string };
 type FitKey = "good" | "ok" | "poor";
 
@@ -180,8 +181,10 @@ export default function AICandidatePage() {
   const [selectedCompareCandidates, setSelectedCompareCandidates] = useState<SelectedCandidateItem[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." },
+    { id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm "Gợi ý ứng viên phù hợp"." },
   ]);
+  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id_candidate"));
+  const [chatHistory, setChatHistory] = useState<SavedSession[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const handleToggleCompare = (cand: ChatCandidate) => {
@@ -249,6 +252,70 @@ export default function AICandidatePage() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  // Ensure session exists
+  useEffect(() => {
+    if (!sessionId) {
+      const newId = crypto.randomUUID();
+      setSessionId(newId);
+      localStorage.setItem("chat_session_id_candidate", newId);
+    }
+  }, [sessionId]);
+
+  // Load session list
+  const loadChatHistory = useCallback(async () => {
+    if (!supabase || !user) return;
+    try {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("id, session_id, created_at, content")
+        .eq("user_id", user.id)
+        .eq("role", "user")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (data) {
+        const sessions = Array.from(
+          new Map(data.map((m) => [m.session_id, { id: m.session_id, created_at: m.created_at, first_message: m.content }])).values()
+        );
+        setChatHistory(sessions);
+      }
+    } catch (err) {
+      console.error("Failed to load chat history", err);
+    }
+  }, [user]);
+
+  useEffect(() => { void loadChatHistory(); }, [loadChatHistory]);
+
+  // Load session messages
+  const loadSession = useCallback(async (sid: string) => {
+    if (!session?.access_token) return;
+    try {
+      const data = await apiJson<{ messages: { id: string; role: string; content: string; recommendations: any[] }[] }>(
+        `/chat/history/${sid}`,
+        session.access_token
+      );
+      setMessages(
+        data.messages.map((m) => ({
+          id: m.id,
+          role: m.role as "user" | "system",
+          text: m.content,
+          candidates: m.recommendations?.filter((r) => r.type === "candidate").map((r) => r.data) || [],
+        }))
+      );
+      setSessionId(sid);
+      localStorage.setItem("chat_session_id_candidate", sid);
+    } catch (err) {
+      console.error("Failed to load session", err);
+    }
+  }, [session]);
+
+  // New chat
+  const startNewChat = () => {
+    const newId = crypto.randomUUID();
+    setSessionId(newId);
+    localStorage.setItem("chat_session_id_candidate", newId);
+    setMessages([{ id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm "Gợi ý ứng viên phù hợp"." }]);
+  };
+
   const handleSelectJob = async (nextId: string) => {
     setJobId(nextId);
     setSelectedCompareCandidates([]);
@@ -297,7 +364,7 @@ export default function AICandidatePage() {
     try {
       const body = await apiJson<{ response: string; candidates?: ChatCandidate[] }>("/chat", session.access_token, {
         method: "POST",
-        body: JSON.stringify({ message: msgText, job_id: jobId, rerank }),
+        body: JSON.stringify({ message: msgText, job_id: jobId, rerank, session_id: sessionId || undefined }),
       });
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, candidates: body.candidates || [] }]);
     } catch (err: unknown) {
@@ -320,6 +387,16 @@ export default function AICandidatePage() {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs">
+        {/* New Chat Button */}
+        <button
+          type="button"
+          onClick={startNewChat}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
+        >
+          <Plus size={14} /> Cuộc trò chuyện mới
+        </button>
+
+        {/* Current Session */}
         <div>
           <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Phiên hiện tại</p>
           {chatTurns.length === 0 ? (
@@ -334,6 +411,33 @@ export default function AICandidatePage() {
             </ul>
           )}
         </div>
+
+        {/* Saved Sessions */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Phiên đã lưu</p>
+          {chatHistory.length === 0 ? (
+            <p className="text-slate-400">Chưa có phiên nào được lưu.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {chatHistory.map((sess) => (
+                <li
+                  key={sess.id}
+                  onClick={() => void loadSession(sess.id)}
+                  className={`rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${
+                    sessionId === sess.id
+                      ? "bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200"
+                      : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600"
+                  }`}
+                >
+                  <p className="truncate line-clamp-1">{sess.first_message}</p>
+                  <p className="text-[10px] text-slate-400">{new Date(sess.created_at).toLocaleString("vi-VN")}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Lượt gợi ý */}
         <div>
           <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Lượt gợi ý</p>
           {history.length === 0 ? (

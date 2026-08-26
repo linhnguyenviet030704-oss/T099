@@ -42,6 +42,7 @@ type ChatJob = {
 };
 
 type Message = { id: string; role: "user" | "system"; text: string; jobs?: ChatJob[] };
+type ChatHistoryItem = { id: string; created_at: string; first_message: string };
 type FitKey = "good" | "ok" | "poor";
 type ResumeInfo = { id: string; title: string; filename: string; created_at: string };
 
@@ -183,7 +184,73 @@ export default function AISuggestionsPage() {
   const [messages, setMessages] = useState<Message[]>([
     { id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." },
   ]);
+  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Ensure session exists
+  useEffect(() => {
+    if (!sessionId) {
+      const newId = crypto.randomUUID();
+      setSessionId(newId);
+      localStorage.setItem("chat_session_id", newId);
+    }
+  }, [sessionId]);
+
+  // Load session list from API
+  const loadChatHistory = useCallback(async () => {
+    if (!supabase || !user) return;
+    try {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("id, session_id, created_at, content")
+        .eq("user_id", user.id)
+        .eq("role", "user")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (data) {
+        const sessions = Array.from(
+          new Map(data.map((m) => [m.session_id, { id: m.session_id, created_at: m.created_at, first_message: m.content }])).values()
+        );
+        setChatHistory(sessions);
+      }
+    } catch (err) {
+      console.error("Failed to load chat history", err);
+    }
+  }, [user]);
+
+  useEffect(() => { void loadChatHistory(); }, [loadChatHistory]);
+
+  // Load session messages
+  const loadSession = useCallback(async (sid: string) => {
+    if (!session?.access_token) return;
+    try {
+      const data = await apiJson<{ messages: { id: string; role: string; content: string; recommendations: any[] }[] }>(
+        `/chat/history/${sid}`,
+        session.access_token
+      );
+      setMessages(
+        data.messages.map((m) => ({
+          id: m.id,
+          role: m.role as "user" | "system",
+          text: m.content,
+          jobs: m.recommendations?.filter((r) => r.type === "job").map((r) => r.data) || [],
+        }))
+      );
+      setSessionId(sid);
+      localStorage.setItem("chat_session_id", sid);
+    } catch (err) {
+      console.error("Failed to load session", err);
+    }
+  }, [session]);
+
+  // New chat
+  const startNewChat = () => {
+    const newId = crypto.randomUUID();
+    setSessionId(newId);
+    localStorage.setItem("chat_session_id", newId);
+    setMessages([{ id: "welcome", role: "system", text: "Xin chào! Bấm "Gợi ý việc phù hợp" hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." }]);
+  };
 
   // Load candidate default resume info and all resumes
   const loadDefaultCv = useCallback(async () => {
@@ -272,11 +339,12 @@ export default function AISuggestionsPage() {
     if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
+    const sid = sessionId || undefined;
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);
     try {
       const body = await apiJson<{ response: string; jobs?: ChatJob[] }>("/chat", session.access_token, {
         method: "POST",
-        body: JSON.stringify({ message: msgText, rerank }),
+        body: JSON.stringify({ message: msgText, rerank, session_id: sid }),
       });
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, jobs: body.jobs || [] }]);
     } catch (err: unknown) {
@@ -300,8 +368,18 @@ export default function AISuggestionsPage() {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs">
+        {/* Current session messages */}
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Phiên chat hiện tại</p>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">Phiên hiện tại</p>
+            <button
+              type="button"
+              onClick={startNewChat}
+              className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              + Mới
+            </button>
+          </div>
           {chatTurns.length === 0 ? (
             <p className="text-slate-400">Chưa có tin nhắn.</p>
           ) : (
@@ -314,6 +392,32 @@ export default function AISuggestionsPage() {
             </ul>
           )}
         </div>
+
+        {/* Saved sessions */}
+        {chatHistory.length > 0 && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Cuộc trò chuyện đã lưu</p>
+            <ul className="space-y-1.5">
+              {chatHistory.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => void loadSession(s.id)}
+                    className={`w-full text-left rounded-lg px-2 py-1.5 line-clamp-2 transition-colors ${
+                      sessionId === s.id
+                        ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-medium"
+                        : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    <span className="text-[10px] text-slate-400">{new Date(s.created_at).toLocaleString("vi-VN")}</span>
+                    <br />
+                    {s.first_message}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

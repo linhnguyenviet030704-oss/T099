@@ -1,16 +1,43 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
-from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate, RecommendedJob
+from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendationItem, RecommendedCandidate, RecommendedJob
 from backend.app.config.models import FINAL_CANDIDATE_K
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
 
 logger = get_logger(__name__)
+
+
+def _serialize_recommendations(response: ChatResponse) -> list[dict]:
+    items = []
+    for job in response.jobs:
+        items.append({"id": str(job.id), "type": "job", "data": job.model_dump(mode="json")})
+    for cand in response.candidates:
+        items.append({"id": str(cand.application_id), "type": "candidate", "data": cand.model_dump(mode="json")})
+    return items
+
+
+async def _save_message(
+    client, user_id: UUID, session_id: UUID | None, role: str, content: str, recommendations: list[dict]
+) -> None:
+    if session_id is None:
+        return
+    try:
+        client.table("chat_messages").insert({
+            "session_id": str(session_id),
+            "user_id": str(user_id),
+            "role": role,
+            "content": content,
+            "recommendations": json.dumps(recommendations),
+        }).execute()
+    except Exception:
+        logger.exception("Failed to save chat message")
 
 FetchJobs = Callable[[], Awaitable[list[dict[str, Any]]]]
 FetchCandidates = Callable[[UUID, UUID], Awaitable[list[dict[str, Any]]]]
@@ -78,17 +105,41 @@ class ChatService:
         assert_job_access: AssertJobAccess | None = None,
         match_candidates: MatchCandidates | None = None,
         recommend_jobs: RecommendJobs | None = None,
+        supabase_client=None,
     ) -> None:
         self._fetch_jobs = fetch_jobs
         self._fetch_candidates = fetch_candidates
         self._assert_job_access = assert_job_access
         self._match_candidates = match_candidates
         self._recommend_jobs_fn = recommend_jobs
+        self._client = supabase_client
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
         if request.job_id is not None:
-            return await self._recommend_candidates(request, actor_id)
-        return await self._recommend_jobs(request, actor_id)
+            response = await self._recommend_candidates(request, actor_id)
+        else:
+            response = await self._recommend_jobs(request, actor_id)
+
+        # Save to history
+        if actor_id is not None and self._client is not None:
+            await _save_message(
+                self._client,
+                actor_id,
+                request.session_id,
+                "user",
+                request.message,
+                [],
+            )
+            await _save_message(
+                self._client,
+                actor_id,
+                request.session_id,
+                "assistant",
+                response.response,
+                _serialize_recommendations(response),
+            )
+
+        return response
 
     async def _recommend_jobs(self, request: ChatRequest, actor_id: UUID | None) -> ChatResponse:
         if self._recommend_jobs_fn is not None and actor_id is not None:

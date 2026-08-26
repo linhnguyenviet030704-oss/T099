@@ -8,6 +8,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=5000)
     job_id: UUID | None = None
     rerank: Literal["qwen", "agent"] = "qwen"
+    session_id: UUID | None = None
 
 
 class RecommendedJob(BaseModel):
@@ -44,3 +45,26 @@ class ChatResponse(BaseModel):
     analysis: str = ""
     jobs: list[RecommendedJob] = Field(default_factory=list)
     candidates: list[RecommendedCandidate] = Field(default_factory=list)
+
+
+class RecommendationItem(BaseModel):
+    """Single recommendation item (job or candidate) stored in DB."""
+    id: str
+    type: Literal["job", "candidate"]
+    data: dict
+
+
+class ChatMessageRecord(BaseModel):
+    """A single message in chat history."""
+    id: UUID
+    session_id: UUID
+    role: Literal["user", "assistant"]
+    content: str
+    recommendations: list[RecommendationItem] = Field(default_factory=list)
+    created_at: str
+
+
+class ChatHistoryResponse(BaseModel):
+    """Response for chat history endpoint."""
+    session_id: UUID
+    messages: list[ChatMessageRecord]

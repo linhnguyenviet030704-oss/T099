@@ -159,7 +159,7 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
 
         return jobs_response_from_graph(result)
 
-    return ChatService(fetch_jobs, fetch_candidates, assert_access, match_candidates, recommend_jobs)
+    return ChatService(fetch_jobs, fetch_candidates, assert_access, match_candidates, recommend_jobs, client)
 
 
 def get_admin_service(

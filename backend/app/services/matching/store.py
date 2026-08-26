@@ -40,17 +40,22 @@ class SupabaseResumeStore:
 
     async def get_storage_updated_at(self, bucket_id: str, storage_path: str) -> str | None:
         def _query() -> str | None:
-            parts = storage_path.rsplit("/", 1)
-            folder, filename = (parts[0], parts[1]) if len(parts) == 2 else ("", parts[0])
+            # Fail closed on any error here (parsing, the list() call, or
+            # unexpected response shapes) — this is a best-effort freshness
+            # lookup, not a source of truth, and some callers (e.g. the
+            # resumes API route) invoke ingest_resume directly with no
+            # retry/absorb wrapper around it.
             try:
+                parts = storage_path.rsplit("/", 1)
+                folder, filename = (parts[0], parts[1]) if len(parts) == 2 else ("", parts[0])
                 entries = self._client.storage.from_(bucket_id).list(folder, {"search": filename})
+                for entry in entries or []:
+                    if entry.get("name") == filename:
+                        updated_at = entry.get("updated_at")
+                        return str(updated_at) if updated_at else None
+                return None
             except Exception:
                 return None
-            for entry in entries or []:
-                if entry.get("name") == filename:
-                    updated_at = entry.get("updated_at")
-                    return str(updated_at) if updated_at else None
-            return None
 
         return await asyncio.to_thread(_query)
 

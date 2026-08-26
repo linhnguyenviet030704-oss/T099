@@ -57,18 +57,32 @@ async def ingest_resume(
         and meta.get("summary_prompt_version") == SUMMARIZE_PROMPT_VERSION
     )
 
+    # Read the storage object's freshness token once, before downloading —
+    # not after. This makes a replace-during-download race resolve toward
+    # "treat as changed, re-check" rather than "treat as unchanged forever":
+    # if the object is replaced after this read, the *next* call's live
+    # lookup won't match what we stored here, and correctly falls through
+    # to a full re-check. Reading it after download (the original version)
+    # could persist (old-bytes-hash, new-file-timestamp), which would then
+    # match forever and silently serve stale data — this ordering also
+    # collapses what used to be two separate get_storage_updated_at calls.
+    storage_updated_at = await store.get_storage_updated_at(bucket_id, storage_path)
+
     # Fast path: the storage object's own updated_at proves it hasn't
     # changed since we last hashed it, so skip the download+hash entirely.
     # Never trust a missing/failed metadata lookup as "unchanged" — only a
     # positive, matching timestamp short-circuits here.
-    if existing and versions_current and existing.get("storage_updated_at"):
-        current_updated_at = await store.get_storage_updated_at(bucket_id, storage_path)
-        if current_updated_at is not None and current_updated_at == existing["storage_updated_at"]:
-            return "exists"
+    if (
+        existing
+        and versions_current
+        and existing.get("storage_updated_at")
+        and storage_updated_at is not None
+        and storage_updated_at == existing["storage_updated_at"]
+    ):
+        return "exists"
 
     blob = await store.download(bucket_id, storage_path)
     digest = hashlib.sha256(blob).hexdigest()
-    storage_updated_at = await store.get_storage_updated_at(bucket_id, storage_path)
     if existing and existing.get("content_hash") == digest and versions_current:
         if storage_updated_at is not None and storage_updated_at != existing.get("storage_updated_at"):
             await store.touch_storage_updated_at(resume_id, storage_updated_at)

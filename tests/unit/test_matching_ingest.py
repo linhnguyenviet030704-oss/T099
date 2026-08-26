@@ -204,6 +204,9 @@ async def test_ingest_falls_back_to_download_when_storage_timestamp_changed():
     assert status == "exists"  # bytes are still the same, just detected the slow way
     assert store.downloads == 1
     assert store.touched == {"resume_id": resume_id, "storage_updated_at": "2026-08-26T00:00:00Z"}
+    # storage_updated_at is read once (before download) and reused for the
+    # touch check, not fetched again afterward.
+    assert store.storage_meta_calls == 1
 
 
 @pytest.mark.asyncio
@@ -237,3 +240,5 @@ async def test_ingest_falls_back_to_download_when_storage_metadata_unavailable()
     status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
     assert status == "exists"
     assert store.downloads == 1  # missing metadata must never skip the correctness-critical hash check
+    # A single lookup attempt up front, not a retry after download.
+    assert store.storage_meta_calls == 1

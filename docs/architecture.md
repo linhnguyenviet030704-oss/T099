@@ -157,14 +157,12 @@ graph LR
 
 ```mermaid
 graph LR
-    START((Start)) --> router[1. router<br/>Phân tích intent & context]
-    router --> retrieve[2. retrieve<br/>Load Job + Candidates pool<br/>Dense pgvector search]
-    retrieve --> kg_retrieval[3. kg_retrieval<br/>Truy vấn Skill Graph / Đồ thị tri thức]
-    kg_retrieval --> skill[4. skill<br/>Tính Skill Coverage & Soft Delta]
-    skill --> rrf[5. rrf<br/>Reciprocal Rank Fusion k=60]
-    rrf --> rerank[6. rerank<br/>Cross-Encoder / LLM Re-ranking]
-    rerank --> explain[7. explain<br/>Sinh giải thích ẩn danh CAND_xxx]
-    explain --> respond[8. respond<br/>Tổng hợp câu trả lời cho Recruiter]
+    START((Start)) --> retrieve[1. retrieve<br/>Load Job + Candidates pool<br/>Dense pgvector search]
+    retrieve --> skill[2. skill<br/>Tính Skill Coverage & Soft Delta]
+    skill --> rrf[3. rrf<br/>Reciprocal Rank Fusion k=60]
+    rrf --> rerank[4. rerank<br/>Cross-Encoder / LLM Re-ranking]
+    rerank --> explain[5. explain<br/>Sinh giải thích ẩn danh CAND_xxx]
+    explain --> respond[6. respond<br/>Tổng hợp câu trả lời cho Recruiter]
     respond --> END((End))
 ```
 
@@ -174,7 +172,7 @@ graph LR
    - Tự động ingest on-the-fly cho các hồ sơ chưa được vector hóa.
    - Sinh embedding kép: Truy vấn gốc và Truy vấn mở rộng kỹ năng đồng nghĩa.
    - Gọi hàm PostgreSQL RPC `match_resumes_for_job` (pgvector cosine distance).
-2. **`skill` & `kg_retrieval`**:
+2. **`skill`**:
    - Đối chiếu tập kỹ năng của ứng viên với yêu cầu JD dựa trên Đồ thị kỹ năng (`skill_graph.json`).
    - Tính toán `skill_score` (tỷ lệ bao phủ) và `soft_delta` (kỹ năng còn thiếu).
 3. **`rrf` (Reciprocal Rank Fusion)**:

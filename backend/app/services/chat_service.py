@@ -1,22 +1,60 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendedCandidate, RecommendedJob
+from backend.app.agents.evaluation.types import IntentType
+from backend.app.agents.routing.intents import classify_intent
+from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendationItem, RecommendedCandidate, RecommendedJob
 from backend.app.config.models import FINAL_CANDIDATE_K
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
 
+CHITCHAT_RESPONSE = (
+    "Chào bạn! Mình là trợ lý AI của hệ thống tuyển dụng. "
+    "Bạn có thể nhờ mình gợi ý việc làm phù hợp với CV, "
+    "tìm việc theo lĩnh vực/công ty, đánh giá CV, hoặc gợi ý lộ trình bổ sung kỹ năng."
+)
+INVALID_RESPONSE = "Nội dung không hợp lệ. Vui lòng mô tả yêu cầu rõ hơn."
+
 logger = get_logger(__name__)
+
+
+def _serialize_recommendations(response: ChatResponse) -> list[dict]:
+    items = []
+    for job in response.jobs:
+        items.append({"id": str(job.id), "type": "job", "data": job.model_dump(mode="json")})
+    for cand in response.candidates:
+        items.append({"id": str(cand.application_id), "type": "candidate", "data": cand.model_dump(mode="json")})
+    return items
+
+
+async def _save_message(
+    client, user_id: UUID, session_id: UUID | None, role: str, content: str, recommendations: list[dict]
+) -> None:
+    if session_id is None:
+        return
+    try:
+        client.table("chat_messages").insert({
+            "session_id": str(session_id),
+            "user_id": str(user_id),
+            "role": role,
+            "content": content,
+            "recommendations": recommendations,
+        }).execute()
+    except Exception:
+        logger.exception("Failed to save chat message")
+
 
 FetchJobs = Callable[[], Awaitable[list[dict[str, Any]]]]
 FetchCandidates = Callable[[UUID, UUID], Awaitable[list[dict[str, Any]]]]
 AssertJobAccess = Callable[[UUID, UUID], Awaitable[None]]
 MatchCandidates = Callable[[UUID, UUID, str, str], Awaitable[ChatResponse]]
 RecommendJobs = Callable[[UUID, str, str], Awaitable[ChatResponse]]
+DispatchEvaluation = Callable[[UUID, str], Awaitable[ChatResponse]]
 
 
 def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
@@ -78,17 +116,67 @@ class ChatService:
         assert_job_access: AssertJobAccess | None = None,
         match_candidates: MatchCandidates | None = None,
         recommend_jobs: RecommendJobs | None = None,
+        dispatch_evaluation: DispatchEvaluation | None = None,
+        supabase_client=None,
+        client=None,
     ) -> None:
         self._fetch_jobs = fetch_jobs
         self._fetch_candidates = fetch_candidates
         self._assert_job_access = assert_job_access
         self._match_candidates = match_candidates
         self._recommend_jobs_fn = recommend_jobs
+        self._dispatch_evaluation = dispatch_evaluation
+        self._client = supabase_client if supabase_client is not None else client
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
-        if request.job_id is not None:
-            return await self._recommend_candidates(request, actor_id)
-        return await self._recommend_jobs(request, actor_id)
+        classification = classify_intent(request.message)
+
+        # Determine session_id
+        session_id = request.session_id or (uuid4() if actor_id is not None else None)
+
+        # Short-circuit: pure chitchat — no CV load, no LLM call
+        if request.job_id is None and classification.intent == IntentType.CHITCHAT:
+            response = ChatResponse(response=CHITCHAT_RESPONSE, session_id=session_id)
+        # Short-circuit: invalid/off-topic input
+        elif classification.intent in (
+            IntentType.OUT_OF_SCOPE,
+            IntentType.CONTENT_TOO_SHORT,
+            IntentType.INVALID_FORMAT,
+        ):
+            response = ChatResponse(response=INVALID_RESPONSE, session_id=session_id)
+        # Recruiter flow: match candidates against a job
+        elif request.job_id is not None:
+            response = await self._recommend_candidates(request, actor_id)
+            response.session_id = session_id
+        # Evaluation flows (skill gap / self-evaluate)
+        elif classification.dispatch_target == "evaluation" and self._dispatch_evaluation is not None:
+            response = await self._dispatch_evaluation(actor_id, request.message)
+            response.session_id = session_id
+        # Default: recommend jobs for candidate
+        else:
+            response = await self._recommend_jobs(request, actor_id)
+            response.session_id = session_id
+
+        # Save to history
+        if actor_id is not None and self._client is not None and session_id is not None:
+            await _save_message(
+                self._client,
+                actor_id,
+                session_id,
+                "user",
+                request.message,
+                [],
+            )
+            await _save_message(
+                self._client,
+                actor_id,
+                session_id,
+                "assistant",
+                response.response,
+                _serialize_recommendations(response),
+            )
+
+        return response
 
     async def _recommend_jobs(self, request: ChatRequest, actor_id: UUID | None) -> ChatResponse:
         if self._recommend_jobs_fn is not None and actor_id is not None:

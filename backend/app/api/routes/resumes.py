@@ -104,7 +104,7 @@ def extract_cv_lines_from_markdown(
             else:
                 lines.append({"name": sec_type, "value": content})
 
-    if metadata and metadata.get("skills") and not any(l["name"] == "skill" for l in lines):
+    if metadata and metadata.get("skills") and not any(line["name"] == "skill" for line in lines):
         skills = metadata.get("skills")
         if isinstance(skills, list) and skills:
             lines.append({"name": "skill", "value": ", ".join(str(s) for s in skills)})
@@ -142,7 +142,7 @@ async def ingest_own_resume(
     return IngestResponse(
         status=status,
         markdown=markdown,
-        lines=[ParsedCvLine(name=l["name"], value=l["value"]) for l in parsed_lines],
+        lines=[ParsedCvLine(name=line["name"], value=line["value"]) for line in parsed_lines],
         header=CvHeaderInfo(
             full_name=header_info.get("full_name"),
             email=header_info.get("email"),

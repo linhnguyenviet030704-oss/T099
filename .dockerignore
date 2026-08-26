@@ -12,7 +12,6 @@ eval/
 *.md
 !requirements.txt
 .dockerignore
-Dockerfile
 docker-compose.yml
 frontend/
 node_modules/

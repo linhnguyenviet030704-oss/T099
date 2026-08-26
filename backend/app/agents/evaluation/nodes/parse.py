@@ -1,0 +1,171 @@
+"""Parse input node - extracts structured data from CV/JD text."""
+
+from __future__ import annotations
+
+import json
+import re
+from typing import Any
+
+from backend.app.agents.evaluation.state import EvaluationState
+from backend.app.agents.evaluation.types import ParsedProfile
+from backend.app.services.matching.skills import extract_skills
+from backend.app.shared_brain import AgentBrain
+
+
+# ponytail: Simple extraction with regex fallback, upgrade to LLM parsing if needed
+def _extract_years_experience(text: str) -> int | None:
+    """Extract years of experience from text."""
+    patterns = [
+        r"(\d+)\+?\s*(?:years?|năm)\s*(?:experience|kinh\s*nghiệm)",
+        r"kinh\s*nghiệm[:\s]*(\d+)\s*(?:years?|năm)",
+        r"(\d+)\+?\s*(?:yr|y)\.?\s*(?:exp|experience)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text.lower())
+        if match:
+            return int(match.group(1))
+    return None
+
+
+def _extract_education(text: str) -> list[str]:
+    """Extract education entries from text."""
+    education_keywords = [
+        "university", "college", "đại học", "cao đẳng",
+        "bachelor", "master", "phd", "cử nhân", "thạc sĩ",
+        "b.sc", "m.sc", "b.e", "m.e", "bách khoa",
+    ]
+    lines = text.split("\n")
+    education = []
+    for line in lines:
+        if any(kw in line.lower() for kw in education_keywords):
+            education.append(line.strip())
+    return education[:5]  # Limit to 5 entries
+
+
+def _extract_job_titles(text: str) -> list[str]:
+    """Extract job titles from text."""
+    title_patterns = [
+        r"(?:^|\n)([\w\s]+(?:Engineer|Developer|Manager|Designer|Analyst|Lead|Senior|Junior|Intern))(?:$|\n)",
+        r"(?:^|\n)([\w\s]+(?:Kỹ sư|Nhân viên|Trưởng phòng|Giám đốc|Chuyên viên))(?:$|\n)",
+    ]
+    titles = []
+    for pattern in title_patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        titles.extend(matches)
+    return list(dict.fromkeys(titles))[:10]  # Dedupe, limit to 10
+
+
+async def parse_input_node(
+    state: EvaluationState,
+    brain: AgentBrain | None = None,
+) -> dict[str, Any]:
+    """
+    Parse CV or JD text into structured ParsedProfile.
+
+    Uses LLM for complex extraction if brain is available,
+    falls back to regex patterns for simple extraction.
+    """
+    cv_text = state.get("cv_text")
+    jd_text = state.get("jd_text")
+
+    parsed_cv = None
+    parsed_jd = None
+
+    # Parse CV if provided
+    if cv_text and len(cv_text.strip()) > 50:
+        if brain:
+            # Use LLM for structured extraction
+            prompt = f"""Extract structured information from this CV/resume.
+
+Return JSON with these fields:
+- summary: Brief professional summary (1-2 sentences)
+- skills: List of technical and soft skills
+- verified_skills: Skills with clear evidence/experience
+- experience_years: Total years of relevant experience (number)
+- education: List of education entries
+- job_titles: List of job titles held
+- companies: List of companies worked at
+
+CV Text:
+{cv_text[:8000]}
+
+Respond ONLY with valid JSON."""
+
+            try:
+                response = brain.chat(prompt, json_object=True)
+                data = json.loads(response)
+                parsed_cv = ParsedProfile(
+                    raw_text=cv_text,
+                    summary=data.get("summary"),
+                    skills=data.get("skills", []),
+                    verified_skills=data.get("verified_skills", []),
+                    inferred_skills=list(set(data.get("skills", [])) - set(data.get("verified_skills", []))),
+                    experience_years=data.get("experience_years"),
+                    education=data.get("education", []),
+                    job_titles=data.get("job_titles", []),
+                    companies=data.get("companies", []),
+                )
+            except (json.JSONDecodeError, Exception):
+                # Fallback to regex extraction
+                pass
+
+        if not parsed_cv:
+            # Regex fallback
+            skills = extract_skills(cv_text)
+            parsed_cv = ParsedProfile(
+                raw_text=cv_text,
+                skills=skills,
+                verified_skills=skills[: len(skills) // 2],  # Assume half are verified
+                inferred_skills=skills[len(skills) // 2 :],
+                experience_years=_extract_years_experience(cv_text),
+                education=_extract_education(cv_text),
+                job_titles=_extract_job_titles(cv_text),
+            )
+
+    # Parse JD if provided
+    if jd_text and len(jd_text.strip()) > 50:
+        if brain:
+            prompt = f"""Extract structured information from this job description.
+
+Return JSON with these fields:
+- summary: Brief job summary (1-2 sentences)
+- skills: List of required skills
+- experience_years: Years of experience required (number)
+- education: Education requirements
+- job_titles: Job title (list)
+
+JD Text:
+{jd_text[:8000]}
+
+Respond ONLY with valid JSON."""
+
+            try:
+                response = brain.chat(prompt, json_object=True)
+                data = json.loads(response)
+                parsed_jd = ParsedProfile(
+                    raw_text=jd_text,
+                    summary=data.get("summary"),
+                    skills=data.get("skills", []),
+                    verified_skills=data.get("skills", []),  # All required skills are "verified"
+                    experience_years=data.get("experience_years"),
+                    education=data.get("education", []),
+                    job_titles=data.get("job_titles", [state.get("job_id", "Unknown Job")]),
+                )
+            except (json.JSONDecodeError, Exception):
+                pass
+
+        if not parsed_jd:
+            skills = extract_skills(jd_text)
+            parsed_jd = ParsedProfile(
+                raw_text=jd_text,
+                skills=skills,
+                verified_skills=skills,
+                experience_years=_extract_years_experience(jd_text),
+                education=_extract_education(jd_text),
+                job_titles=[state.get("job_id", "Unknown Job")],
+            )
+
+    return {
+        "parsed_cv": parsed_cv,
+        "parsed_jd": parsed_jd,
+    }

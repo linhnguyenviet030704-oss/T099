@@ -24,7 +24,7 @@ def make_advice_node(
         def _complete(prompt: str, **kwargs):
             if complete is not None:
                 return complete(prompt, **kwargs)
-            active_brain = brain or get_brain("recommend_agent")
+            active_brain = brain or get_brain("recommend")
             return active_brain.chat(prompt, api_key=api_key, base_url=base_url)
 
         query = str(state.get("query") or state.get("message") or "").strip()

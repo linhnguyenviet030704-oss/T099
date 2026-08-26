@@ -75,7 +75,7 @@ def build_recommend_graph(
 
     def route_after_kg(state: AgentState) -> str:
         intent = state.get("intent")
-        if intent in ("SKILL_GAP_ADVICE", "CHITCHAT"):
+        if intent == "SKILL_GAP_ADVICE":
             return "advice"
         return "score"
 

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, MapPin, DollarSign, ExternalLink, Bot, User,
   PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, FileText,
-  Layers, Check,
+  Layers, Check, Plus, Trash2, Clock,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -42,8 +42,34 @@ type ChatJob = {
 };
 
 type Message = { id: string; role: "user" | "system"; text: string; jobs?: ChatJob[] };
+type ChatHistoryItem = {
+  id: string;
+  first_message: string;
+  last_message?: string | null;
+  created_at: string;
+  updated_at?: string;
+  message_count?: number;
+};
 type FitKey = "good" | "ok" | "poor";
 type ResumeInfo = { id: string; title: string; filename: string; created_at: string };
+
+function formatSessionDate(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const timeStr = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return `Hôm nay ${timeStr}`;
+    if (isYesterday) return `Hôm qua ${timeStr}`;
+    return `${d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} ${timeStr}`;
+  } catch {
+    return dateStr;
+  }
+}
+
 
 const FIT_GROUPS: { key: FitKey; label: string; className: string }[] = [
   { key: "good", label: "Phù hợp cao", className: "text-emerald-600 dark:text-emerald-400" },
@@ -90,7 +116,7 @@ function JobRecommendationCard({
       : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-full flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
       <div>
         <div className="flex items-center justify-between mb-2 gap-2">
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
@@ -100,8 +126,8 @@ function JobRecommendationCard({
             </Badge>
           )}
         </div>
-        <p className="font-semibold text-sm truncate">{job.title}</p>
-        <p className="text-xs text-slate-500 truncate">{job.company_name || "Công ty đối tác"}</p>
+        <p className="font-semibold text-sm truncate" title={job.title}>{job.title}</p>
+        <p className="text-xs text-slate-500 truncate" title={job.company_name || "Công ty đối tác"}>{job.company_name || "Công ty đối tác"}</p>
         <div className="flex items-center justify-between gap-2 mt-2.5 text-xs text-slate-500">
           <span className="flex items-center gap-1 truncate"><MapPin size={11} className="shrink-0" />{job.location || "Toàn quốc"}</span>
           <span className="flex items-center gap-1 text-emerald-600 font-medium shrink-0"><DollarSign size={11} />{formatCurrency(job.salary_min, job.currency)}</span>
@@ -113,7 +139,7 @@ function JobRecommendationCard({
             <Sparkles size={12} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
             <span>Giải thích điểm phù hợp ({pct}%):</span>
           </div>
-          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal line-clamp-3" title={job.match_reason || undefined}>
             {job.match_reason || `Được AI đánh giá ${pct}% phù hợp với CV của bạn dựa trên phân tích kỹ năng và kinh nghiệm.`}
           </p>
         </div>
@@ -134,7 +160,7 @@ function JobRecommendationCard({
               e.stopPropagation();
               onToggleCompare(job);
             }}
-            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1 transition-all shrink-0 ${
               selectedForCompare
                 ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                 : "text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
@@ -183,7 +209,130 @@ export default function AISuggestionsPage() {
   const [messages, setMessages] = useState<Message[]>([
     { id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." },
   ]);
+  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
+  const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Ensure session exists
+  useEffect(() => {
+    if (!sessionId) {
+      const newId = crypto.randomUUID();
+      setSessionId(newId);
+      localStorage.setItem("chat_session_id", newId);
+    }
+  }, [sessionId]);
+
+  // Load session list from API
+  const loadChatHistory = useCallback(async () => {
+    if (!session?.access_token && (!supabase || !user)) return;
+    try {
+      if (session?.access_token) {
+        const data = await apiJson<{ sessions: ChatHistoryItem[] }>(
+          "/chat/sessions",
+          session.access_token
+        );
+        if (data?.sessions) {
+          setChatHistory(data.sessions);
+          return;
+        }
+      }
+      if (supabase && user) {
+        const { data } = await supabase
+          .from("chat_messages")
+          .select("id, session_id, created_at, content, role")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (data) {
+          const sessionsMap = new Map<string, ChatHistoryItem>();
+          for (const m of data) {
+            const sid = m.session_id;
+            if (!sessionsMap.has(sid)) {
+              sessionsMap.set(sid, {
+                id: sid,
+                created_at: m.created_at,
+                updated_at: m.created_at,
+                first_message: m.role === "user" ? m.content : "Cuộc trò chuyện",
+                message_count: 1,
+              });
+            } else {
+              const item = sessionsMap.get(sid)!;
+              item.message_count = (item.message_count || 1) + 1;
+              if (m.role === "user") item.first_message = m.content;
+            }
+          }
+          setChatHistory(Array.from(sessionsMap.values()));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load chat history", err);
+    }
+  }, [session, user]);
+
+  useEffect(() => { void loadChatHistory(); }, [loadChatHistory]);
+
+  // Load session messages
+  const loadSession = useCallback(async (sid: string) => {
+    if (!session?.access_token) return;
+    try {
+      const data = await apiJson<{ session_id: string; messages: { id: string; role: string; content: string; recommendations: any[] }[] }>(
+        `/chat/history/${sid}`,
+        session.access_token
+      );
+      if (data?.messages && data.messages.length > 0) {
+        setMessages(
+          data.messages.map((m) => ({
+            id: m.id,
+            role: m.role as "user" | "system",
+            text: m.content,
+            jobs: m.recommendations?.filter((r) => r.type === "job").map((r) => r.data) || [],
+          }))
+        );
+      } else {
+        setMessages([{ id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." }]);
+      }
+      setSessionId(sid);
+      localStorage.setItem("chat_session_id", sid);
+    } catch (err) {
+      console.error("Failed to load session", err);
+    }
+  }, [session]);
+
+  // Restore active session on mount
+  useEffect(() => {
+    const savedSid = localStorage.getItem("chat_session_id");
+    if (savedSid && session?.access_token) {
+      void loadSession(savedSid);
+    }
+  }, [session, loadSession]);
+
+  // Delete session
+  const handleDeleteSession = async (e: React.MouseEvent, sid: string) => {
+    e.stopPropagation();
+    if (!window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?")) return;
+    try {
+      if (session?.access_token) {
+        await apiJson(`/chat/sessions/${sid}`, session.access_token, { method: "DELETE" });
+      } else if (supabase && user) {
+        await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("session_id", sid);
+      }
+      setChatHistory((prev) => prev.filter((s) => s.id !== sid));
+      if (sessionId === sid) {
+        startNewChat();
+      }
+    } catch (err) {
+      console.error("Failed to delete session", err);
+      toastError("Lỗi", "Không thể xóa cuộc trò chuyện");
+    }
+  };
+
+  // New chat
+  const startNewChat = () => {
+    const newId = crypto.randomUUID();
+    setSessionId(newId);
+    localStorage.setItem("chat_session_id", newId);
+    setMessages([{ id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." }]);
+  };
 
   // Load candidate default resume info and all resumes
   const loadDefaultCv = useCallback(async () => {
@@ -252,7 +401,6 @@ export default function AISuggestionsPage() {
     setIsCompareModalOpen(true);
   };
 
-
   useEffect(() => { void loadDefaultCv(); }, [loadDefaultCv]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, sending]);
   useEffect(() => {
@@ -272,13 +420,25 @@ export default function AISuggestionsPage() {
     if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
+    let sid = sessionId;
+    if (!sid) {
+      sid = crypto.randomUUID();
+      setSessionId(sid);
+      localStorage.setItem("chat_session_id", sid);
+    }
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);
     try {
-      const body = await apiJson<{ response: string; jobs?: ChatJob[] }>("/chat", session.access_token, {
+      const body = await apiJson<{ response: string; jobs?: ChatJob[]; session_id?: string }>("/chat", session.access_token, {
         method: "POST",
-        body: JSON.stringify({ message: msgText, rerank }),
+        body: JSON.stringify({ message: msgText, rerank, session_id: sid }),
       });
+      if (body.session_id && body.session_id !== sessionId) {
+        setSessionId(body.session_id);
+        localStorage.setItem("chat_session_id", body.session_id);
+      }
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, jobs: body.jobs || [] }]);
+      // Refresh chat sessions in sidebar
+      void loadChatHistory();
     } catch (err: unknown) {
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." }]);
     } finally {
@@ -286,34 +446,93 @@ export default function AISuggestionsPage() {
     }
   };
 
-  const chatTurns = messages.filter((m) => m.id !== "welcome");
-
-  // Left Sidebar: Chat History / Current Sessions
+  // Left Sidebar: Chat History / Sessions List
   const historyPane = (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 dark:border-slate-700">
-        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-          <MessageSquare size={13} /> Lịch sử trò chuyện
+      {/* Header */}
+      <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <p className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <MessageSquare size={15} className="text-indigo-600 dark:text-indigo-400" />
+          <span>Lịch sử trò chuyện</span>
         </p>
-        <button type="button" onClick={() => setLeftOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Ẩn lịch sử">
+        <button
+          type="button"
+          onClick={() => setLeftOpen(false)}
+          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          aria-label="Ẩn lịch sử"
+        >
           <X size={14} />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs">
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Phiên chat hiện tại</p>
-          {chatTurns.length === 0 ? (
-            <p className="text-slate-400">Chưa có tin nhắn.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {chatTurns.map((m) => (
-                <li key={m.id} className={`rounded-lg px-2 py-1.5 line-clamp-2 ${m.role === "user" ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 font-medium" : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300"}`}>
-                  {m.text}
-                </li>
-              ))}
-            </ul>
-          )}
+
+      {/* New Chat Button */}
+      <div className="p-3 border-b border-slate-100 dark:border-slate-700">
+        <button
+          type="button"
+          onClick={startNewChat}
+          className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
+        >
+          <Plus size={14} className="stroke-[2.5]" />
+          <span>Cuộc trò chuyện mới</span>
+        </button>
+      </div>
+
+      {/* Sessions List */}
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-1 text-xs">
+        <div className="px-1 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+          Danh sách phiên chat ({chatHistory.length})
         </div>
+
+        {chatHistory.length === 0 ? (
+          <div className="px-3 py-6 text-center text-slate-400 space-y-1">
+            <MessageSquare size={22} className="mx-auto opacity-40 mb-2 text-indigo-400" />
+            <p className="font-semibold text-xs text-slate-600 dark:text-slate-300">Chưa có lịch sử chat</p>
+            <p className="text-[11px] text-slate-400">Gửi câu hỏi để tạo phiên trò chuyện mới.</p>
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {chatHistory.map((s) => {
+              const isActive = sessionId === s.id;
+              return (
+                <li key={s.id} className="group relative">
+                  <button
+                    type="button"
+                    onClick={() => void loadSession(s.id)}
+                    className={`w-full text-left rounded-xl p-2.5 transition-all pr-8 flex flex-col gap-1 border ${
+                      isActive
+                        ? "bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-700 text-slate-900 dark:text-white shadow-xs font-medium"
+                        : "bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/60 border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-400">
+                      <Clock size={11} className="shrink-0 text-slate-400" />
+                      <span>{formatSessionDate(s.updated_at || s.created_at)}</span>
+                      {s.message_count !== undefined && s.message_count > 0 && (
+                        <span className="ml-auto text-[9px] px-1.5 py-0.2 rounded-md bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
+                          {s.message_count} tin
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs line-clamp-2 leading-snug break-words">
+                      {s.first_message || "Cuộc trò chuyện"}
+                    </p>
+                  </button>
+
+                  {/* Delete button */}
+                  <button
+                    type="button"
+                    onClick={(e) => void handleDeleteSession(e, s.id)}
+                    className="absolute right-2 top-2.5 p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Xóa cuộc trò chuyện này"
+                    aria-label="Xóa cuộc trò chuyện"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -445,7 +664,7 @@ export default function AISuggestionsPage() {
 
       {/* Main Center Area */}
       <div className="flex-1 min-w-0 flex flex-col py-4 gap-3">
-        <div className="w-full lg:w-[90%] lg:mx-auto px-3 sm:px-4 flex flex-col flex-1 min-h-0 gap-3">
+        <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 flex flex-col flex-1 min-h-0 gap-3">
           {/* Header Bar */}
           <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
             <div className="flex items-center gap-3 min-w-0">
@@ -503,7 +722,7 @@ export default function AISuggestionsPage() {
                                   {list.length}
                                 </span>
                               </h2>
-                              <div className="flex flex-row flex-wrap gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {list.map((job) => {
                                   const compareIdx = selectedCompareJobs.findIndex((j) => j.id === job.id);
                                   const isSelected = compareIdx !== -1;

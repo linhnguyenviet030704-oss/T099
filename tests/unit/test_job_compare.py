@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.app.api.schemas.compare import (
     CandidateMetrics,
-    CompareJobsRequest,
     CompareJobsResponse,
-    MetricScore,
 )
 from backend.app.core.exceptions import AppError
 from backend.app.core.security import AuthenticatedUser

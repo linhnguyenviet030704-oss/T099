@@ -1,6 +1,6 @@
 # Golden Dataset Eval Report — Ingest Agent + Matching Agent
 
-- Chạy lúc: 2026-08-24T14:54:09.060564+00:00
+- Chạy lúc: 2026-08-26T18:36:22.324332+00:00
 - LLM backend dùng cho eval: OpenAI `gpt-4o-mini` (chat) + `text-embedding-3-small` (embedding, 1536-dim)
   - **Không phải Qwen** (`QWEN_API_KEY` trong `.env` trả về 403 Forbidden khi test) — theo yêu cầu, đổi sang OpenAI cho riêng pipeline eval này. Code production (`backend/app/clients/llm.py`) không bị đổi, vẫn gọi Qwen.
 - Nguồn JD: `data_find/data/vietjobs/VietJobs_full.csv` (VietJobs dataset), 20 JD chọn trong `evaluation/golden/jds.json`, trải trên 15 nhóm ngành IT
@@ -23,14 +23,14 @@ Precision/Recall dùng ngưỡng `grade >= 1` (LLM-judge relevance). MRR dùng n
 | JD-01 (Lập Trình Viên Full Stack (W) | 0.60 | 0.23 | 0.23 | 0.60 | 0.46 | 0.46 | 0.12 |
 | JD-02 (Frontend Developer (next.js,) | 0.80 | 0.57 | 0.87 | 0.60 | 0.86 | 0.88 | 1.00 |
 | JD-03 (Devops Engineer) | 0.80 | 0.22 | 0.52 | 0.90 | 0.50 | 0.70 | 0.33 |
-| JD-04 (Kỹ sư độ tin cậy trang web c) | 1.00 | 0.25 | 0.82 | 0.90 | 0.45 | 0.83 | 1.00 |
+| JD-04 (Kỹ sư độ tin cậy trang web c) | 1.00 | 0.25 | 0.82 | 0.80 | 0.40 | 0.80 | 1.00 |
 | JD-05 (System Administrator) | 0.80 | 0.25 | 0.44 | 0.90 | 0.56 | 0.66 | 0.25 |
 | JD-06 (Chuyên Viên IT (Chuyên Viên ) | 0.80 | 0.20 | 0.34 | 0.80 | 0.40 | 0.54 | 0.20 |
 | JD-07 (Thực tập bảo mật đám mây) | 1.00 | 0.21 | 0.63 | 0.90 | 0.38 | 0.60 | 0.33 |
 | JD-08 (Người kiểm tra bảo mật (Pent) | 1.00 | 0.56 | 1.00 | 0.70 | 0.78 | 0.92 | 1.00 |
 | JD-09 (Kỹ Sư Dữ Liệu Cấp Cao) | 0.80 | 0.21 | 0.66 | 0.80 | 0.42 | 0.70 | 0.00 |
 | JD-10 (Business Data Analyst) | 0.60 | 0.30 | 0.37 | 0.60 | 0.60 | 0.42 | 0.08 |
-| JD-11 (AI/NLP Engineer) | 0.40 | 0.50 | 0.30 | 0.40 | 1.00 | 0.59 | 0.14 |
+| JD-11 (AI/NLP Engineer) | 0.40 | 0.50 | 0.22 | 0.40 | 1.00 | 0.51 | 0.14 |
 | JD-12 (Nhân Viên Tester) | 0.60 | 0.20 | 0.41 | 0.80 | 0.53 | 0.66 | 0.17 |
 | JD-13 (Liên kết quản lý dự án) | 1.00 | 0.24 | 1.00 | 0.80 | 0.38 | 0.86 | 0.00 |
 | JD-14 (Kiến trúc sư giải pháp) | 0.80 | 0.33 | 0.85 | 0.80 | 0.67 | 0.84 | 0.00 |
@@ -40,7 +40,7 @@ Precision/Recall dùng ngưỡng `grade >= 1` (LLM-judge relevance). MRR dùng n
 | JD-18 (Senior UI/UX Design) | 0.40 | 0.67 | 0.61 | 0.20 | 0.67 | 0.61 | 0.33 |
 | JD-19 (DevOps Engineer - Vận Hành E) | 0.80 | 0.27 | 0.71 | 0.80 | 0.53 | 0.72 | 1.00 |
 | JD-20 (Kỹ Sư Lập Trình Embedded/IoT) | 0.20 | 0.25 | 0.08 | 0.30 | 0.75 | 0.39 | 0.17 |
-| **Trung bình (macro)** | **0.73** | **0.35** | **0.58** | **0.68** | **0.61** | **0.66** | **0.32** |
+| **Trung bình (macro)** | **0.73** | **0.35** | **0.57** | **0.68** | **0.60** | **0.66** | **0.32** |
 
 ## 1b. Reverse ranking metrics (Matching Agent, chiều CV -> JD / recommend)
 
@@ -54,7 +54,7 @@ Cùng pool 40 CV × 20 JD và qrels ở trên, xếp hạng theo chiều ngượ
 | G1-FS-02 | JD-01 | 3 | 2 | 0.60 | 0.75 | 0.69 | 0.40 | 1.00 | 0.75 | 0.33 |
 | G10-NE-01 | JD-15 | 10 | 1 | 0.60 | 0.50 | 0.65 | 0.60 | 1.00 | 0.87 | 0.00 |
 | G10-NE-02 | JD-15 | 1 | 1 | 0.40 | 1.00 | 1.00 | 0.20 | 1.00 | 1.00 | 0.00 |
-| G11-CC-01 | JD-16 | 1 | 2 | 1.00 | 0.45 | 0.80 | 0.80 | 0.73 | 0.75 | 1.00 |
+| G11-CC-01 | JD-16 | 1 | 2 | 1.00 | 0.45 | 0.80 | 0.80 | 0.73 | 0.76 | 1.00 |
 | G11-CC-02 | JD-16 | 4 | 1 | 0.60 | 0.38 | 0.65 | 0.70 | 0.88 | 0.81 | 0.00 |
 | G12-BC-01 | JD-17 | 5 | 2 | 0.40 | 0.50 | 0.39 | 0.40 | 1.00 | 0.53 | 0.20 |
 | G12-BC-03 | JD-17 | 6 | 1 | 1.00 | 0.38 | 0.47 | 0.90 | 0.69 | 0.63 | 0.14 |
@@ -143,70 +143,60 @@ Cùng pool 40 CV × 20 JD và qrels ở trên, xếp hạng theo chiều ngượ
 
 | CV | Faithfulness (summarize) | Skill false-positive | Skill false-negative (chưa xác thực, xem lưu ý trên) |
 |---|---|---|---|
+| G4-PT-01 | 0.90 | ['javascript', 'python'] | ['Python', 'JavaScript'] |
+| G5-BI-02 | 1.00 | ['sql_server', 'power_bi', 'excel', 'jquery'] | ['SQL'] |
+| G5-DA-02 | 1.00 | ['power_bi', 'pandas', 'excel'] | ['Python', 'SQL'] |
+| G4-PT-09 | 1.00 | ['owasp', 'bash'] | ['Python', 'Linux'] |
+| G9-CA-04 | 1.00 | ['kubernetes', 'terraform', 'azure', 'aws'] | ['Python', 'Linux', 'Git'] |
+| G7-AT-03 | 0.95 | ['github_actions', 'spring_boot', 'kubernetes', 'gitlab_ci', 'selenium', 'ansible', 'grafana', 'mysql', 'nginx', 'java', 'bash', 'helm', 'aws', 'golang', 'k6'] | ['Python', 'FastAPI', 'PostgreSQL', 'Docker', 'JavaScript', 'React', 'SQL', 'Linux'] |
+| G3-OP-02 | 1.00 | ['grafana', 'excel'] | ['Linux'] |
 | G1-FE-02 | 1.00 | ['bootstrap', 'postman', 'nodejs', 'mysql'] | ['Python', 'FastAPI', 'PostgreSQL', 'Docker', 'SQL', 'Linux'] |
-| G2-PE-02 | 1.00 | ['kubernetes', 'prometheus', 'terraform', 'gitlab_ci', 'ansible', 'jenkins', 'grafana', 'nodejs', 'cicd', 'nginx', 'bash', 'helm', 'aws', 'golang'] | ['Python', 'Docker', 'Linux', 'React'] |
+| G3-SA-03 | 0.90 | ['sql_server', 'elasticsearch', 'kubernetes', 'ansible'] | ['PostgreSQL', 'Git', 'Linux'] |
 | G1-FS-02 | 1.00 | ['tailwind_css', 'expressjs', 'mongodb', 'nodejs', 'nextjs', 'mysql', 'figma'] | ['Python', 'PostgreSQL', 'SQL', 'Linux'] |
+| G4-PT-02 | 1.00 | ['mysql', 'owasp', 'php'] | ['Python', 'Linux'] |
+| G10-NE-01 | 0.95 | ['ansible', 'cisco'] | ['Python'] |
+| G7-AT-01 | 1.00 | ['github_actions', 'gitlab_ci', 'selenium', 'jenkins', 'testng', 'java', 'k6', 'embedded_c'] | ['Python', 'FastAPI', 'PostgreSQL', 'React', 'Linux'] |
+| G3-OP-01 | 0.95 | ['elasticsearch', 'powershell', 'kubernetes', 'prometheus', 'confluence', 'grafana', 'azure', 'bash', 'jira'] | ['Python', 'SQL', 'Linux'] |
+| G3-SA-01 | 1.00 | ['linux', 'bash', 'ansible', 'grafana'] | ['Linux'] |
+| G8-BA-02 | 1.00 | ['confluence', 'excel', 'jira'] | ['SQL'] |
+| G4-PT-03 | 0.90 | ['github_actions', 'javascript', 'typescript', 'gitlab_ci', 'solidity', 'graphql', 'postman'] | ['Python', 'FastAPI', 'PostgreSQL', 'JavaScript', 'TypeScript', 'React', 'SQL'] |
+| G9-CA-02 | 1.00 | ['bash', 'kubernetes', 'prometheus', 'terraform', 'firewall', 'ansible', 'jenkins', 'grafana', 'mysql', 'cicd', 'nginx', 'helm', 'aws', 'vpn', 'github_actions'] | ['Python', 'Docker'] |
+| G6-NLP-02 | 1.00 | ['selenium', 'pytorch', 'postman', 'mysql'] | ['Python', 'Docker', 'Git'] |
+| G6-NLP-01 | 0.95 | ['machine_learning', 'elasticsearch', 'kubernetes', 'pytorch', 'nlp'] | ['Python', 'FastAPI', 'Docker'] |
 | G1-FE-01 | 1.00 | ['tailwind_css', 'angular', 'gitlab_ci', 'graphql', 'nextjs', 'webpack', 'jquery', 'html', 'redux', 'figma', 'vite', 'jest', 'vuejs', 'css', 'golang', 'testng'] | ['Python', 'PostgreSQL', 'SQL', 'Linux'] |
+| G2-PE-02 | 1.00 | ['kubernetes', 'prometheus', 'terraform', 'gitlab_ci', 'ansible', 'jenkins', 'grafana', 'nodejs', 'cicd', 'nginx', 'bash', 'helm', 'aws', 'golang'] | ['Python', 'Docker', 'Linux', 'React'] |
+| G10-NE-02 | 1.00 | ['packet_tracer', 'firewall', 'cisco', 'excel', 'ccna', 'vpn'] | - |
+| G2-DO-02 | 1.00 | ['kubernetes', 'ansible', 'jenkins', 'mysql', 'nginx', 'bash', 'aws'] | ['Docker', 'Linux', 'Git'] |
+| G8-BA-01 | 0.95 | - | - |
+| G5-DA-01 | 0.95 | ['sql_server', 'bigquery', 'power_bi', 'airflow'] | ['Python', 'SQL'] |
+| G11-CC-02 | 1.00 | ['kubernetes', 'powerpoint', 'terraform', 'aws', 'gcp', 'excel'] | ['docker', 'linux', 'sql'] |
 | G1-FS-01 | 0.95 | ['github_actions', 'ruby_on_rails', 'tailwind_css', 'expressjs', 'graphql', 'nodejs', 'nextjs', 'redis', 'ruby', 'css', 'testng'] | ['PostgreSQL', 'Python', 'FastAPI', 'Docker', 'Git', 'Linux'] |
 | G2-PE-01 | 1.00 | ['github_actions', 'gitlab_ci', 'kubernetes', 'prometheus', 'terraform', 'ansible', 'jenkins', 'grafana', 'bash', 'golang'] | ['Python', 'Docker', 'TypeScript', 'Git', 'Linux'] |
-| G2-DO-02 | 1.00 | ['kubernetes', 'ansible', 'jenkins', 'mysql', 'nginx', 'bash', 'aws'] | ['Docker', 'Linux', 'Git'] |
-| G2-DO-01 | 0.95 | ['github_actions', 'elasticsearch', 'kubernetes', 'prometheus', 'terraform', 'gitlab_ci', 'ansible', 'jenkins', 'grafana'] | ['Python', 'Docker', 'SQL', 'Git', 'Linux'] |
-| G3-SA-03 | 0.90 | ['sql_server', 'elasticsearch', 'kubernetes', 'ansible'] | ['PostgreSQL', 'Git', 'Linux'] |
-| G3-OP-02 | 1.00 | ['grafana', 'excel'] | ['Linux'] |
-| G4-PT-02 | 1.00 | ['mysql', 'owasp', 'php'] | ['Python', 'Linux'] |
-| G3-OP-01 | 0.95 | ['elasticsearch', 'powershell', 'kubernetes', 'prometheus', 'confluence', 'grafana', 'azure', 'bash', 'jira'] | ['Python', 'SQL', 'Linux'] |
-| G4-PT-01 | 0.90 | ['javascript', 'python'] | ['Python', 'JavaScript'] |
-| G4-PT-09 | 1.00 | ['owasp', 'bash'] | ['Python', 'Linux'] |
-| G3-SA-01 | 1.00 | ['linux', 'bash', 'ansible', 'grafana'] | ['Linux'] |
-| G4-PT-03 | 0.90 | ['github_actions', 'javascript', 'typescript', 'gitlab_ci', 'solidity', 'graphql', 'postman'] | ['Python', 'FastAPI', 'PostgreSQL', 'JavaScript', 'TypeScript', 'React', 'SQL'] |
-| G5-DA-02 | 1.00 | ['power_bi', 'pandas', 'excel'] | ['Python', 'SQL'] |
-| G5-BI-02 | 1.00 | ['sql_server', 'power_bi', 'excel', 'jquery'] | ['SQL'] |
-| G8-BA-01 | 0.95 | - | - |
-| G8-BA-02 | 1.00 | ['confluence', 'excel', 'jira'] | ['SQL'] |
 | G5-BI-01 | 0.90 | ['sql_server', 'snowflake', 'power_bi', 'tableau', 'azure', 'figma', 'excel', 'etl', 'salesforce', 'jquery'] | ['Python', 'Git', 'SQL'] |
-| G6-NLP-01 | 0.95 | ['machine_learning', 'elasticsearch', 'kubernetes', 'pytorch', 'nlp'] | ['Python', 'FastAPI', 'Docker'] |
-| G5-DA-01 | 0.95 | ['sql_server', 'bigquery', 'power_bi', 'airflow'] | ['Python', 'SQL'] |
-| G6-NLP-02 | 1.00 | ['selenium', 'pytorch', 'postman', 'mysql'] | ['Python', 'Docker', 'Git'] |
-| G9-CA-04 | 1.00 | ['kubernetes', 'terraform', 'azure', 'aws'] | ['Python', 'Linux', 'Git'] |
-| G10-NE-02 | 1.00 | ['packet_tracer', 'firewall', 'cisco', 'excel', 'ccna', 'vpn'] | - |
-| G11-CC-02 | 1.00 | ['kubernetes', 'powerpoint', 'terraform', 'aws', 'gcp', 'excel'] | ['docker', 'linux', 'sql'] |
-| G7-AT-01 | 1.00 | ['github_actions', 'gitlab_ci', 'selenium', 'jenkins', 'testng', 'java', 'k6', 'embedded_c'] | ['Python', 'FastAPI', 'PostgreSQL', 'React', 'Linux'] |
-| G7-AT-03 | 0.95 | ['github_actions', 'spring_boot', 'kubernetes', 'gitlab_ci', 'selenium', 'ansible', 'grafana', 'mysql', 'nginx', 'java', 'bash', 'helm', 'aws', 'golang', 'k6'] | ['Python', 'FastAPI', 'PostgreSQL', 'Docker', 'JavaScript', 'React', 'SQL', 'Linux'] |
-| G10-NE-01 | 0.95 | ['ansible', 'cisco'] | ['Python'] |
-| G9-CA-02 | 1.00 | ['bash', 'kubernetes', 'prometheus', 'terraform', 'firewall', 'ansible', 'jenkins', 'grafana', 'mysql', 'cicd', 'nginx', 'helm', 'aws', 'vpn', 'github_actions'] | ['Python', 'Docker'] |
-| G13-IXD-02 | 1.00 | ['illustrator', 'photoshop', 'figma'] | - |
+| G2-DO-01 | 0.95 | ['github_actions', 'elasticsearch', 'kubernetes', 'prometheus', 'terraform', 'gitlab_ci', 'ansible', 'jenkins', 'grafana'] | ['Python', 'Docker', 'SQL', 'Git', 'Linux'] |
 | G13-IXD-01 | 0.90 | ['git'] | ['React'] |
 | G14-ODO-02 | 1.00 | ['postgresql', 'javascript', 'laravel', 'jquery', 'nginx', 'odoo', 'php', 'golang'] | ['PostgreSQL', 'JavaScript', 'Python', 'Docker', 'Git'] |
-| G12-BC-01 | 0.95 | ['kubernetes', 'terraform', 'solidity', 'ethereum', 'kafka', 'java', 'rust', 'nodejs', 'evm', 'golang', 'can_bus'] | ['PostgreSQL', 'TypeScript'] |
-| G14-ODO-01 | 0.90 | ['gitlab_ci'] | ['Python', 'PostgreSQL', 'Docker', 'Git', 'Linux'] |
-| G12-BC-03 | 0.90 | ['kubernetes', 'prometheus', 'terraform', 'gitlab_ci', 'debezium', 'oracle_database', 'mysql', 'apache_spark', 'kafka', 'flink', 'cicd', 'java', 'nodejs', 'etl', 'evm', 'golang'] | ['Git', 'Linux'] |
-| G15-EMB-02 | 1.00 | ['python', 'linux', 'git'] | ['Python', 'Git', 'Linux'] |
+| G13-IXD-02 | 1.00 | ['illustrator', 'photoshop', 'figma'] | - |
 | G11-CC-01 | 0.90 | ['github_actions', 'powershell', 'terraform', 'azure'] | ['Git'] |
+| G15-EMB-02 | 1.00 | ['python', 'linux', 'git'] | ['Python', 'Git', 'Linux'] |
+| G14-ODO-01 | 0.90 | ['gitlab_ci'] | ['Python', 'PostgreSQL', 'Docker', 'Git', 'Linux'] |
+| G12-BC-01 | 0.95 | ['kubernetes', 'terraform', 'solidity', 'ethereum', 'kafka', 'java', 'rust', 'nodejs', 'evm', 'golang', 'can_bus'] | ['PostgreSQL', 'TypeScript'] |
 | G15-EMB-01 | 1.00 | ['python', 'linux', 'git'] | ['Python', 'Linux', 'Git'] |
+| G12-BC-03 | 0.90 | ['kubernetes', 'prometheus', 'terraform', 'gitlab_ci', 'debezium', 'oracle_database', 'mysql', 'apache_spark', 'kafka', 'flink', 'cicd', 'java', 'nodejs', 'etl', 'evm', 'golang'] | ['Git', 'Linux'] |
 
 **Faithfulness trung bình: 0.97** (40/40 CV có điểm hợp lệ)
 
 Case có claim không được support (đáng xem lại):
-- **G2-DO-01**: ['The summary does not mention the specific reduction in median pipeline time from 21 to 7 minutes, which is a significant detail in the original.', 'The summary omits the detail about the nine-month effort and persuasion involved in migrating services to a single templated chart.', "The summary does not include the detail about the internal 'deploy clinic' reducing ticket load significantly.", 'The summary does not mention the specific number of significant incidents handled as the infra responder.']
 - **G4-PT-01**: ['Mentor two junior testers.']
-- **G8-BA-01**: ['Handled roughly 3.4 million transactions a month within a year of launch.']
-- **G5-BI-01**: ['dataset certification', 'Other: Python, Git, Figma']
-- **G5-DA-01**: ['GA4']
 - **G7-AT-03**: ['Giảm chi phí CI cho các giai đoạn kiểm thử khoảng 35% (không có thông tin cụ thể về chi phí CI trong ORIGINAL).', 'Viết lớp kiểm thử tích hợp bằng Testcontainers (không có thông tin cụ thể về lớp kiểm thử tích hợp trong ORIGINAL).']
-- **G12-BC-01**: ['The summary does not mention the specific incident related to the bridge relayer monitoring, which involved a nonce-management bug that caused a 90-minute proof submission failure.']
+- **G8-BA-01**: ['Handled roughly 3.4 million transactions a month within a year of launch.']
+- **G5-DA-01**: ['GA4']
+- **G5-BI-01**: ['dataset certification', 'Other: Python, Git, Figma']
+- **G2-DO-01**: ['The summary does not mention the specific reduction in median pipeline time from 21 to 7 minutes, which is a significant detail in the original.', 'The summary omits the detail about the nine-month effort and persuasion involved in migrating services to a single templated chart.', "The summary does not include the detail about the internal 'deploy clinic' reducing ticket load significantly.", 'The summary does not mention the specific number of significant incidents handled as the infra responder.']
 - **G14-ODO-01**: ['Lập trình viên Python', 'Ứng dụng Django và Flask, PostgreSQL cho các công cụ nội bộ và trang web của khách hàng.']
+- **G12-BC-01**: ['The summary does not mention the specific incident related to the bridge relayer monitoring, which involved a nonce-management bug that caused a 90-minute proof submission failure.']
 
 ## 4. Ghi chú
 
 - Cache LLM/embedding tại `evaluation/golden/.cache/` theo content hash — chạy lại `run_eval.py` không tốn gọi API trùng lặp.
 - Đổi model (`CHAT_MODEL`/`EMBED_MODEL` trong `llm_openai.py`) thì phải xoá cache và chạy lại toàn bộ, không so sánh chéo được giữa các lần chạy khác model.
-
-## 5. Phát hiện: hiệu ứng "hub" embedding (đáng lưu ý khi đọc số liệu chiều JD -> CV)
-
-Kiểm tra trực tiếp khoảng cách cosine từ mỗi CV đến cả 20 JD-embedding (script chẩn đoán, không phải phần pipeline chính) cho thấy **4 CV — `G4-PT-09`, `G9-CA-04`, `G7-AT-03`, `G14-ODO-01` — có khoảng cách trung bình đến TOÀN BỘ 20 JD thấp hơn mọi CV tiếng Anh trong pool** (mean cosine distance 0.43–0.49, so với dải 0.50–0.64 của các CV còn lại), bất kể lĩnh vực chuyên môn thực tế của chúng (pentest, cloud architect, test automation, Odoo developer) khác nhau hoàn toàn và khác JD đang xét. Đây là hiện tượng "hubness" đã biết trong không gian embedding chiều cao (một số điểm trở thành "hàng xóm gần nhất" bất thường với rất nhiều điểm khác, không phụ thuộc nội dung ngữ nghĩa) — không phải lỗi trong script eval (khoảng cách/cosine/rank đều tính đúng), mà là đặc tính thật của `text-embedding-3-small` trên chính các văn bản CV này.
-
-Cả 4 CV "hub" đều dùng bản tóm tắt **tiếng Việt** (do CV nguồn là bản dịch VI, `summarize_resume()` tôn trọng ngôn ngữ gốc) — nhưng không phải mọi CV tiếng Việt đều là hub (4/8 CV VI còn lại nằm ở giữa dải phân bố, không bất thường), nên ngôn ngữ có thể là một yếu tố góp phần chứ không phải nguyên nhân duy nhất.
-
-**Hệ quả với số liệu:** ở chiều JD -> CV (mục 1), 4 CV hub này chiếm nhiều vị trí top-5 của các JD không liên quan (VD `G9-CA-04` xuất hiện trong top-5 của cả JD-01 Full Stack, JD-03 DevOps, JD-16 Cloud — hợp lý — lẫn JD-06 IT Operations, JD-09 Data Engineer — kém hợp lý hơn), có thể đẩy CV thật sự phù hợp ra khỏi top-K, làm giảm Recall@5/10 thật của các JD đó. MRR macro chiều JD->CV (0.32) thấp hơn đáng kể so với NDCG (0.66) một phần vì hiệu ứng này. Ở chiều CV -> JD (mục 1b), cùng 4 CV này lại có own-JD rank kém (`G9-CA-04`: hạng 14/20, `G7-AT-03`: hạng 7/20) — vì khi mọi JD đều "gần" như nhau với một CV hub, JD đúng không còn nổi bật lên rõ ràng.
-
-Đây là phát hiện thật về hành vi hệ thống, không phải giới hạn của bộ eval — golden set v1 (toàn CV tiếng Anh) chưa từng lộ ra hiện tượng này vì thiếu đa dạng ngôn ngữ/nội dung để hub xuất hiện rõ.

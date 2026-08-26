@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from backend.app.clients.supabase import get_supabase_client
-from backend.app.config.env import settings
 from backend.app.services.matching.embed import embed_text
 
 
@@ -214,14 +213,14 @@ async def hybrid_search(
     bm25_ranks = {rid: rank + 1 for rank, (rid, _) in enumerate(bm25_ranked)}
 
     # Combine with RRF
-    RRF_K = 60
+    rrf_k = 60
     vector_ranks = {r.id: rank + 1 for rank, r in enumerate(vector_results)}
 
     combined: dict[str, float] = {}
     for r in vector_results:
         vec_rank = vector_ranks.get(r.id, match_count)
         bm25_rank = bm25_ranks.get(r.id, match_count)
-        rrf_score = (1 / (RRF_K + vec_rank)) * alpha + (1 / (RRF_K + bm25_rank)) * (1 - alpha)
+        rrf_score = (1 / (rrf_k + vec_rank)) * alpha + (1 / (rrf_k + bm25_rank)) * (1 - alpha)
         combined[r.id] = rrf_score
 
     # Re-rank results

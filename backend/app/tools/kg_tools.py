@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.app.services.kg.client import get_kg_client, TaxonomyKnowledgeGraphClient
+from backend.app.services.kg.client import get_kg_client
 
 
 def get_skill_prerequisites(skill: str) -> list[str]:
@@ -91,7 +91,6 @@ def get_skill_gap(
         Tuple of (missing_skills, matched_skills)
     """
     candidate_set = {s.lower() for s in candidate_skills}
-    target_set = {s.lower() for s in target_skills}
 
     missing = [s for s in target_skills if s.lower() not in candidate_set]
     matched = [s for s in target_skills if s.lower() in candidate_set]

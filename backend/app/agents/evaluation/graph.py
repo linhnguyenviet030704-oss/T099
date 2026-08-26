@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
 
 from langgraph.graph import END, StateGraph
@@ -14,9 +14,7 @@ from backend.app.agents.evaluation.nodes import (
     score_node,
 )
 from backend.app.agents.evaluation.state import EvaluationState
-from backend.app.agents.evaluation.types import EvaluationType
 from backend.app.shared_brain import AgentBrain
-
 
 ScoreWeights = dict[str, float]
 

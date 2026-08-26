@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import unicodedata
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -68,8 +69,6 @@ def _parse_llm_response(raw: str) -> list[dict[str, Any]]:
         return data
     return []
 
-
-import unicodedata
 
 def _strip_accents(text: str) -> str:
     nfkd = unicodedata.normalize("NFKD", text)

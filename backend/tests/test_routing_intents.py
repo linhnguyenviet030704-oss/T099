@@ -5,12 +5,11 @@ import pytest
 
 from backend.app.agents.evaluation.types import IntentType, RejectionReason
 from backend.app.agents.routing.intents import (
-    classify_intent,
     check_off_topic,
     check_sensitive_content,
+    classify_intent,
     validate_content,
 )
-
 
 # === Case 1: Pure job browsing - NO CV ===
 

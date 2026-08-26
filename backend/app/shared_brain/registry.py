@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 from backend.app.config.env import settings
-from backend.app.config.models import AGENT_MODELS, get_agent_model
+from backend.app.config.models import AGENT_MODELS
 from backend.app.shared_brain.brain import AgentBrain
 from backend.app.shared_brain.providers.base import BaseLLMProvider
 from backend.app.shared_brain.providers.gemini_provider import GeminiProvider

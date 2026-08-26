@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from backend.app.agents.evaluation.graph import build_evaluation_graph
 from backend.app.agents.evaluation.state import EvaluationState
 from backend.app.agents.evaluation.types import EvaluationResult, EvaluationType

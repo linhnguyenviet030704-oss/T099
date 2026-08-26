@@ -5,12 +5,10 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 from backend.app.agents.evaluation.types import (
-    BenchmarkComparison,
     EvaluationResult,
     EvaluationType,
     IntentType,
     ParsedProfile,
-    RadarData,
     RejectionReason,
     SkillAnalysis,
 )

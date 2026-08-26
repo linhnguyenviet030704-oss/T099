@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from backend.app.agents.evaluation.state import EvaluationState
@@ -12,10 +11,8 @@ from backend.app.agents.evaluation.types import (
     RadarData,
     SkillAnalysis,
 )
-from backend.app.services.matching.skills import coverage_score, load_taxonomy_index
-from backend.app.tools.kg_tools import expand_skill_with_prerequisites, get_skill_gap
 from backend.app.shared_brain import AgentBrain
-
+from backend.app.tools.kg_tools import expand_skill_with_prerequisites
 
 # Default weights for scoring components
 DEFAULT_WEIGHTS = {
@@ -42,7 +39,6 @@ async def score_node(
     """
     parsed_cv = state.get("parsed_cv")
     parsed_jd = state.get("parsed_jd")
-    evaluation_type = state.get("evaluation_type", "full")
     reference_profiles = state.get("reference_profiles", [])
     kg_context = state.get("kg_context", {})
 
@@ -58,9 +54,6 @@ async def score_node(
 
         matched = [s for s in parsed_jd.skills if s.lower() in cv_skills_lower]
         missing = [s for s in parsed_jd.skills if s.lower() not in cv_skills_lower]
-
-        # Use taxonomy for smarter matching
-        taxonomy_index = load_taxonomy_index()
 
         matched_lower = {s.lower() for s in matched}
         expanded_cv = expand_skill_with_prerequisites(parsed_cv.skills)

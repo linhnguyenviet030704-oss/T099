@@ -11,13 +11,13 @@ from uuid import UUID
 
 from backend.app.api.schemas.compare import (
     CandidateMetrics,
-    CompareJobsResponse,
     ComparedJob,
     ComparedJobCompany,
+    CompareJobsResponse,
     MetricScore,
 )
 from backend.app.clients.llm import chat_complete
-from backend.app.core.exceptions import AppError, NotFoundError
+from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.skills import extract_skills
@@ -147,7 +147,7 @@ def _fallback_metrics_for_job(
     # 4. Overall fit
     overall_score = round(0.35 * skill_score + 0.35 * exp_score + 0.30 * edu_score, 1)
     overall_reason = (
-        f"Vị trí rất phù hợp với năng lực và mục tiêu phát triển của bạn."
+        "Vị trí rất phù hợp với năng lực và mục tiêu phát triển của bạn."
         if overall_score >= 7.5
         else "Mức độ phù hợp khá, cần chuẩn bị kỹ năng chuyên sâu."
     )

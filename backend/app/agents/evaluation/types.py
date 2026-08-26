@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class EvaluationType(str, Enum):
+class EvaluationType(StrEnum):
     """Type of evaluation to perform."""
 
     FULL = "full"  # Full evaluation with all metrics
@@ -16,7 +16,7 @@ class EvaluationType(str, Enum):
     QUICK = "quick"  # Fast evaluation with basic metrics
 
 
-class IntentType(str, Enum):
+class IntentType(StrEnum):
     """Intent types for routing agent."""
 
     # Evaluation intents
@@ -47,7 +47,7 @@ class IntentType(str, Enum):
     RATE_LIMITED = "rate_limited"
 
 
-class RejectionReason(str, Enum):
+class RejectionReason(StrEnum):
     """Reasons for rejecting a request."""
 
     MINIMUM_CONTENT_NOT_MET = "minimum_content_not_met"

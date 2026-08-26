@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from backend.app.agents.evaluation.state import EvaluationState
@@ -114,7 +113,7 @@ Missing critical skills ({len(skill_analysis.missing_critical)}): {', '.join(ski
 
     return f"""Bạn là một chuyên gia HR với 10 năm kinh nghiệm đánh giá ứng viên.
 
-Hãy viết một báo cáo đánh giá ngắn gọn (200-300 từ) bằng tiếng Việt, bao gồm:
+Hãy viết một báo cáo đánh giá ngắn gọn (200-300 từ) bằng tiếng Việt cho ứng viên ({cv_name}) ứng tuyển vị trí ({jd_name}), bao gồm:
 
 1. **Đánh giá tổng quan**: Nhận xét về mức độ phù hợp (Overall: {overall_score:.0f}/100)
 2. **Điểm mạnh**: Các điểm nổi bật ({scores_text})

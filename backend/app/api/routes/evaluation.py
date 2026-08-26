@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from backend.app.agents.evaluation import EvaluationAgent
 from backend.app.agents.evaluation.types import EvaluationType
@@ -159,7 +159,6 @@ async def evaluate_with_file(
 
     Accepts PDF, DOCX, or TXT files.
     """
-    import io
 
     # Read file content
     content = await cv_file.read()

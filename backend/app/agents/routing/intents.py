@@ -10,10 +10,9 @@ Upgrade path: train a small text classifier on collected user logs.
 from __future__ import annotations
 
 import re
-from enum import Enum
+from typing import NamedTuple
 
 from backend.app.agents.evaluation.types import IntentType, RejectionReason
-
 
 # === Domain / location / title keywords ===
 
@@ -122,8 +121,6 @@ OFF_TOPIC_KEYWORDS = [
 
 
 # === Classification result ===
-
-from typing import NamedTuple
 
 
 class IntentClassification(NamedTuple):

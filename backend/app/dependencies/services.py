@@ -1,3 +1,5 @@
+"""Service dependencies - wires agents with per-agent model selection."""
+
 from __future__ import annotations
 
 from fastapi import Depends
@@ -20,6 +22,7 @@ from backend.app.services.recommend import (
     list_applications_for_job,
     list_published_jobs,
 )
+from backend.app.shared_brain.registry import get_brain
 from supabase import Client
 
 logger = get_logger(__name__)
@@ -39,6 +42,10 @@ def get_profile_service(
 
 def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatService:
     store = SupabaseResumeStore(client)
+
+    # Get per-agent brains with correct models
+    matching_brain = get_brain("matching")
+    recommend_brain = get_brain("recommend")
 
     async def fetch_jobs() -> list:
         return await list_published_jobs(client)
@@ -63,8 +70,10 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
         graph = build_matching_graph(
             retrieve=retrieve,
             rerank_fn=None,
+            explain_complete=matching_brain.chat,
             explain_api_key=settings.qwen_api_key,
             explain_base_url=settings.qwen_base_url,
+            brain=matching_brain,
         )
         rid = request_id_ctx.get() or "-"
         result = await graph.ainvoke(
@@ -116,8 +125,10 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
         graph = build_recommend_graph(
             retrieve=retrieve,
             rerank_fn=None,
+            explain_complete=recommend_brain.chat,
             explain_api_key=settings.qwen_api_key,
             explain_base_url=settings.qwen_base_url,
+            brain=recommend_brain,
         )
         rid = request_id_ctx.get() or "-"
         result = await graph.ainvoke(
@@ -132,7 +143,6 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
             },
         )
 
-        # Persist audit log for analytics
         ranked = result.get("candidates") or []
         status = str((ranked[0].get("rerank_status") if ranked else None) or "not_requested")
         try:
@@ -156,3 +166,30 @@ def get_admin_service(
     repository: ProfileRepository = Depends(get_profile_repository),
 ) -> AdminService:
     return AdminService(repository)
+
+
+# === Per-agent brain accessors ===
+
+def get_routing_brain():
+    """Routing agent brain - LIGHT model."""
+    return get_brain("routing")
+
+
+def get_evaluation_brain():
+    """Evaluation agent brain - MAX model."""
+    return get_brain("evaluation")
+
+
+def get_ingest_brain():
+    """Ingest agent brain - PRO model."""
+    return get_brain("ingest")
+
+
+def get_matching_brain():
+    """Matching agent brain - PRO model."""
+    return get_brain("matching")
+
+
+def get_recommend_brain():
+    """Recommend agent brain - PRO model."""
+    return get_brain("recommend")

@@ -20,7 +20,7 @@ def make_explain_node(
         def _complete(prompt: str, **kwargs):
             if complete is not None:
                 return complete(prompt, **kwargs)
-            active_brain = brain or get_brain("matching_agent")
+            active_brain = brain or get_brain("matching")
             return active_brain.chat(prompt, api_key=api_key, base_url=base_url, json_object=True)
 
         candidates = list(state.get("candidates") or [])

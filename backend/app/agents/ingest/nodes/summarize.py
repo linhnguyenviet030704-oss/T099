@@ -29,7 +29,7 @@ def make_summarize_node(
         def _complete(prompt: str, **kwargs):
             if complete is not None:
                 return complete(prompt, **kwargs)
-            active_brain = brain or get_brain("ingest_agent")
+            active_brain = brain or get_brain("ingest")
             return active_brain.chat(prompt, api_key=api_key, base_url=base_url, json_object=True)
 
         source = state.get("markdown") or ""

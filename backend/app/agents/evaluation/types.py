@@ -26,6 +26,11 @@ class IntentType(str, Enum):
     SELF_EVALUATE = "self_evaluate"
     RECRUITER_SCREEN = "recruiter_screen"
 
+    # Compare intents (explicit flows for /compare endpoints)
+    # needs_cv=True, needs_db=True, needs_vector_search=False
+    COMPARE_CANDIDATES = "compare_candidates"  # /candidates/compare
+    COMPARE_JOBS = "compare_jobs"  # /jobs/compare
+
     # Existing intents (keep for compatibility)
     CHITCHAT = "chitchat"
     SKILL_GAP_ADVICE = "skill_gap_advice"

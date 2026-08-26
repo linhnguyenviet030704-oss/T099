@@ -1,8 +1,12 @@
+"""Brain registry - manages AgentBrain instances per agent with per-agent model selection."""
+
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from backend.app.config.env import settings
+from backend.app.config.models import AGENT_MODELS, get_agent_model
 from backend.app.shared_brain.brain import AgentBrain
 from backend.app.shared_brain.providers.base import BaseLLMProvider
 from backend.app.shared_brain.providers.gemini_provider import GeminiProvider
@@ -13,13 +17,47 @@ from backend.app.shared_brain.types import BrainConfig, BrainProvider
 
 
 class BrainRegistry:
-    """Central registry to manage and dispatch brains for all agents."""
+    """Central registry to manage and dispatch brains for all agents.
+
+    Each agent gets its own brain with a configured model.
+    Model selection: agent-specific config → env override → default
+    """
 
     def __init__(self) -> None:
         self._brains: dict[str, AgentBrain] = {}
 
+    def _resolve_llm_model(
+        self,
+        agent_name: str,
+        explicit_model: str | None,
+        settings_model: str | None,
+    ) -> str:
+        """Resolve LLM model for an agent.
+
+        Priority:
+        1. Explicit parameter (per-call override)
+        2. Env var MODEL_<AGENT_NAME_UPPER>
+        3. Config file AGENT_MODELS mapping
+        4. Settings default
+        """
+        if explicit_model:
+            return explicit_model
+
+        # Check env override
+        env_key = f"MODEL_{agent_name.upper()}"
+        env_value = os.environ.get(env_key)
+        if env_value:
+            return env_value
+
+        # Check config mapping
+        if agent_name in AGENT_MODELS:
+            return AGENT_MODELS[agent_name]
+
+        return settings_model or "qwen3.7-flash"
+
     def create_provider(
         self,
+        agent_name: str | None = None,
         provider_type: BrainProvider | str | None = None,
         *,
         api_key: str | None = None,
@@ -31,7 +69,13 @@ class BrainRegistry:
         temperature: float | None = None,
         **extra: Any,
     ) -> BaseLLMProvider:
+        """Create an LLM provider with resolved model for the agent."""
         prov_enum = BrainProvider.from_str(str(provider_type or settings.default_brain_provider))
+        resolved_model = self._resolve_llm_model(
+            agent_name or "default",
+            llm_model,
+            settings.llm_model,
+        )
 
         if prov_enum == BrainProvider.OPENAI:
             config = BrainConfig(
@@ -74,7 +118,7 @@ class BrainRegistry:
             provider=BrainProvider.QWEN,
             api_key=api_key if api_key is not None else settings.qwen_api_key,
             base_url=base_url if base_url is not None else settings.qwen_base_url,
-            llm_model=llm_model if llm_model is not None else settings.llm_model,
+            llm_model=resolved_model,  # Use resolved per-agent model
             embedding_model=embedding_model if embedding_model is not None else settings.embedding_model,
             rerank_base_url=rerank_base_url if rerank_base_url is not None else settings.qwen_rerank_base_url,
             rerank_model=rerank_model if rerank_model is not None else settings.qwen_rerank_model,
@@ -103,6 +147,7 @@ class BrainRegistry:
             llm_prov = custom_provider
         else:
             llm_prov = self.create_provider(
+                agent_name=agent_name,
                 provider_type=provider,
                 api_key=api_key,
                 base_url=base_url,

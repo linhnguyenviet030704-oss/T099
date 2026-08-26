@@ -5,11 +5,20 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
+from backend.app.agents.evaluation.types import IntentType
+from backend.app.agents.routing.intents import classify_intent
 from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendationItem, RecommendedCandidate, RecommendedJob
 from backend.app.config.models import FINAL_CANDIDATE_K
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
+
+CHITCHAT_RESPONSE = (
+    "Chào bạn! Mình là trợ lý AI của hệ thống tuyển dụng. "
+    "Bạn có thể nhờ mình gợi ý việc làm phù hợp với CV, "
+    "tìm việc theo lĩnh vực/công ty, đánh giá CV, hoặc gợi ý lộ trình bổ sung kỹ năng."
+)
+INVALID_RESPONSE = "Nội dung không hợp lệ. Vui lòng mô tả yêu cầu rõ hơn."
 
 logger = get_logger(__name__)
 
@@ -44,6 +53,7 @@ FetchCandidates = Callable[[UUID, UUID], Awaitable[list[dict[str, Any]]]]
 AssertJobAccess = Callable[[UUID, UUID], Awaitable[None]]
 MatchCandidates = Callable[[UUID, UUID, str, str], Awaitable[ChatResponse]]
 RecommendJobs = Callable[[UUID, str, str], Awaitable[ChatResponse]]
+DispatchEvaluation = Callable[[UUID, str], Awaitable[ChatResponse]]
 
 
 def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
@@ -105,6 +115,7 @@ class ChatService:
         assert_job_access: AssertJobAccess | None = None,
         match_candidates: MatchCandidates | None = None,
         recommend_jobs: RecommendJobs | None = None,
+        dispatch_evaluation: DispatchEvaluation | None = None,
         supabase_client=None,
     ) -> None:
         self._fetch_jobs = fetch_jobs
@@ -112,11 +123,29 @@ class ChatService:
         self._assert_job_access = assert_job_access
         self._match_candidates = match_candidates
         self._recommend_jobs_fn = recommend_jobs
+        self._dispatch_evaluation = dispatch_evaluation
         self._client = supabase_client
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
-        if request.job_id is not None:
+        classification = classify_intent(request.message)
+
+        # Short-circuit: pure chitchat — no CV load, no LLM call
+        if request.job_id is None and classification.intent == IntentType.CHITCHAT:
+            response = ChatResponse(response=CHITCHAT_RESPONSE)
+        # Short-circuit: invalid/off-topic input
+        elif classification.intent in (
+            IntentType.OUT_OF_SCOPE,
+            IntentType.CONTENT_TOO_SHORT,
+            IntentType.INVALID_FORMAT,
+        ):
+            response = ChatResponse(response=INVALID_RESPONSE)
+        # Recruiter flow: match candidates against a job
+        elif request.job_id is not None:
             response = await self._recommend_candidates(request, actor_id)
+        # Evaluation flows (skill gap / self-evaluate)
+        elif classification.dispatch_target == "evaluation" and self._dispatch_evaluation is not None:
+            response = await self._dispatch_evaluation(actor_id, request.message)
+        # Default: recommend jobs for candidate
         else:
             response = await self._recommend_jobs(request, actor_id)
 

@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from backend.app.agents.evaluation import EvaluationAgent
+from backend.app.agents.evaluation.types import EvaluationType, IntentType
+from backend.app.agents.routing.intents import classify_intent
 from backend.app.agents.matching.graph import build_matching_graph
 from backend.app.agents.recommend.graph import build_recommend_graph
 from backend.app.api.schemas.chat import ChatResponse
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
+from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger, request_id_ctx
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.services.admin_service import AdminService
@@ -159,7 +163,69 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
 
         return jobs_response_from_graph(result)
 
-    return ChatService(fetch_jobs, fetch_candidates, assert_access, match_candidates, recommend_jobs, client)
+    async def dispatch_evaluation(actor_id, message):
+        classification = classify_intent(message)
+        if classification.intent not in (IntentType.SKILL_GAP_ADVICE, IntentType.SELF_EVALUATE):
+            raise AppError(400, "Intent not supported for evaluation dispatch", "INVALID_EVAL_INTENT")
+
+        if actor_id is None:
+            return ChatResponse(response="Không xác định được người dùng.")
+
+        eval_type = EvaluationType.SKILL_ONLY if classification.intent == IntentType.SKILL_GAP_ADVICE else EvaluationType.FULL
+
+        # Load default CV from DB
+        try:
+            payload = await retrieve_jobs_for_resume(
+                client,
+                actor_id,
+                query="",
+                store=store,
+                api_key=settings.qwen_api_key,
+                base_url=settings.qwen_base_url,
+            )
+        except Exception:
+            payload = None
+
+        if payload is None or not payload.get("cv_text"):
+            return ChatResponse(response="Bạn chưa có CV mặc định để phân tích. Vui lòng tải lên CV trước.")
+
+        cv_text = payload.get("cv_text") or ""
+
+        try:
+            evaluation_brain = get_brain("evaluation")
+        except Exception:
+            evaluation_brain = None
+
+        agent = EvaluationAgent(brain=evaluation_brain)
+        result = await agent.evaluate(
+            cv_text=cv_text,
+            jd_text=None,
+            evaluation_type=eval_type,
+            needs_vector_search=False,
+        )
+
+        api_response = result.to_api_response()
+        summary = api_response.get("summary")
+        if not summary:
+            skill_analysis = result.skill_analysis
+            matched = skill_analysis.matched_skills[:5] if skill_analysis.matched_skills else []
+            missing = skill_analysis.missing_critical[:5] if skill_analysis.missing_critical else []
+            lines = []
+            if matched:
+                lines.append(f"**Kỹ năng đáp ứng ({len(matched)}):** {', '.join(matched)}")
+            if missing:
+                lines.append(f"**Kỹ năng cần bổ sung ({len(missing)}):** {', '.join(missing)}")
+            lines.append(f"\n**Điểm tổng quan:** {result.overall_score:.0f}/100")
+            if result.recommendations:
+                lines.append(f"\n**Khuyến nghị:** {result.recommendations[0]}")
+            summary = "\n".join(lines) if lines else f"Điểm tổng quan CV của bạn: {result.overall_score:.0f}/100."
+
+        return ChatResponse(response=summary)
+
+    return ChatService(
+        fetch_jobs, fetch_candidates, assert_access, match_candidates,
+        recommend_jobs, dispatch_evaluation=dispatch_evaluation, client=client,
+    )
 
 
 def get_admin_service(

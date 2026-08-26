@@ -224,7 +224,7 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
 
     return ChatService(
         fetch_jobs, fetch_candidates, assert_access, match_candidates,
-        recommend_jobs, dispatch_evaluation=dispatch_evaluation, client=client,
+        recommend_jobs, dispatch_evaluation=dispatch_evaluation, supabase_client=client,
     )
 
 

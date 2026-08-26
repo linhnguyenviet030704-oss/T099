@@ -38,7 +38,7 @@ def _get_routing_agent() -> RoutingAgent:
 @router.post("/route", response_model=RoutingResponse)
 async def route_message(
     request: RoutingRequest,
-    _user: AuthenticatedUser,
+    _user: AuthenticatedUser = Depends(),
 ) -> RoutingResponse:
     """
     Route user message to appropriate agent.
@@ -76,7 +76,7 @@ async def route_message(
 @router.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(
     request: EvaluationRequest,
-    _user: AuthenticatedUser,
+    _user: AuthenticatedUser = Depends(),
     profile_service: ProfileService = Depends(get_profile_service),
 ) -> EvaluationResponse:
     """
@@ -151,7 +151,7 @@ async def evaluate_with_file(
     job_id: UUID | None = None,
     jd_text: str | None = None,
     evaluation_type: str = "full",
-    _user: AuthenticatedUser = Depends(AuthenticatedUser),
+    _user: AuthenticatedUser = Depends(),
     profile_service: ProfileService = Depends(get_profile_service),
 ) -> EvaluationResponse:
     """

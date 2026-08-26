@@ -117,6 +117,7 @@ class ChatService:
         recommend_jobs: RecommendJobs | None = None,
         dispatch_evaluation: DispatchEvaluation | None = None,
         supabase_client=None,
+        client=None,
     ) -> None:
         self._fetch_jobs = fetch_jobs
         self._fetch_candidates = fetch_candidates
@@ -124,7 +125,7 @@ class ChatService:
         self._match_candidates = match_candidates
         self._recommend_jobs_fn = recommend_jobs
         self._dispatch_evaluation = dispatch_evaluation
-        self._client = supabase_client
+        self._client = supabase_client if supabase_client is not None else client
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
         classification = classify_intent(request.message)

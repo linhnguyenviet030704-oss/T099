@@ -38,6 +38,11 @@ def build_matching_graph(
             "candidates": payload.get("candidates") or [],
             "skill_constraints": payload.get("skill_constraints") or {},
             "constraints_confirmed": bool(payload.get("constraints_confirmed")),
+            "pool_size": int(payload.get("pool_size") or 0),
+            "pool_truncated": bool(payload.get("pool_truncated") or False),
+            "dropped_count": int(payload.get("dropped_count") or 0),
+            "pool_latency_warn": bool(payload.get("pool_latency_warn") or False),
+            "embedding_mismatch_count": int(payload.get("embedding_mismatch_count") or 0),
         }
 
     graph = StateGraph(AgentState)

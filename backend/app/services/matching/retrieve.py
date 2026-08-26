@@ -143,6 +143,11 @@ async def persist_match_resume_rows(
     recruiter_message: str,
     rerank_mode: str,
     rerank_status: str,
+    pool_size: int = 0,
+    pool_truncated: bool = False,
+    dropped_count: int = 0,
+    pool_latency_warn: bool = False,
+    embedding_mismatch_count: int = 0,
 ) -> None:
     await assert_recruiter_job_access(client, actor_id, job_id)
     resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
@@ -194,6 +199,11 @@ async def persist_match_resume_rows(
                 "p_embedding_model": DEFAULT_EMBED_MODEL,
                 "p_matched_resume_ids": resume_ids,
                 "p_evidence": evidence,
+                "p_pool_size": pool_size,
+                "p_pool_truncated": pool_truncated,
+                "p_dropped_count": dropped_count,
+                "p_pool_latency_warn": pool_latency_warn,
+                "p_embedding_mismatch_count": embedding_mismatch_count,
             },
         ).execute()
 

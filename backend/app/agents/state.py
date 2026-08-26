@@ -20,6 +20,11 @@ class AgentState(TypedDict, total=False):
     embedding: list[float]
     skill_constraints: dict[str, Any]
     constraints_confirmed: bool
+    pool_size: int
+    pool_truncated: bool
+    dropped_count: int
+    pool_latency_warn: bool
+    embedding_mismatch_count: int
     dense_query: str
     bm25_query: str
     match_reasons: dict[str, str]

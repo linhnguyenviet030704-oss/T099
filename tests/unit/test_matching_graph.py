@@ -385,6 +385,40 @@ async def test_ingest_graph_runs_extract_node_before_summarize(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_matching_graph_retrieve_node_forwards_pool_trace():
+    async def retrieve(_job_id):
+        return {
+            "jd_skills": [],
+            "candidates": [],
+            "pool_size": 42,
+            "pool_truncated": False,
+            "dropped_count": 0,
+            "pool_latency_warn": True,
+            "embedding_mismatch_count": 3,
+        }
+
+    graph = build_matching_graph(retrieve=retrieve)
+    result = await graph.ainvoke({"job_id": str(uuid4())})
+    assert result["pool_size"] == 42
+    assert result["pool_latency_warn"] is True
+    assert result["embedding_mismatch_count"] == 3
+
+
+@pytest.mark.asyncio
+async def test_matching_graph_retrieve_node_pool_trace_defaults_when_absent():
+    async def retrieve(_job_id):
+        return {"jd_skills": [], "candidates": []}
+
+    graph = build_matching_graph(retrieve=retrieve)
+    result = await graph.ainvoke({"job_id": str(uuid4())})
+    assert result["pool_size"] == 0
+    assert result["pool_truncated"] is False
+    assert result["dropped_count"] == 0
+    assert result["pool_latency_warn"] is False
+    assert result["embedding_mismatch_count"] == 0
+
+
+@pytest.mark.asyncio
 async def test_matching_graph_has_no_router_or_kg_retrieval_nodes():
     """router/kg_retrieval write intent+kg_context into AgentState but no
     node in this graph reads either — they were wired for the recommend

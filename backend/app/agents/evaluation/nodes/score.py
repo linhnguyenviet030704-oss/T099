@@ -1,0 +1,309 @@
+"""Scoring node - calculates evaluation metrics."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from backend.app.agents.evaluation.state import EvaluationState
+from backend.app.agents.evaluation.types import (
+    BenchmarkComparison,
+    MetricScore,
+    RadarData,
+    SkillAnalysis,
+)
+from backend.app.services.matching.skills import coverage_score, load_taxonomy_index
+from backend.app.tools.kg_tools import expand_skill_with_prerequisites, get_skill_gap
+from backend.app.shared_brain import AgentBrain
+
+
+# Default weights for scoring components
+DEFAULT_WEIGHTS = {
+    "technical": 0.35,
+    "experience": 0.30,
+    "culture_fit": 0.20,
+    "market": 0.15,
+}
+
+
+async def score_node(
+    state: EvaluationState,
+    brain: AgentBrain | None = None,
+    weights: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """
+    Calculate evaluation scores for CV vs JD comparison.
+
+    Computes:
+    - Technical score (skill match)
+    - Experience score (years, progression)
+    - Culture fit score
+    - Market score (seniority, salary)
+    """
+    parsed_cv = state.get("parsed_cv")
+    parsed_jd = state.get("parsed_jd")
+    evaluation_type = state.get("evaluation_type", "full")
+    reference_profiles = state.get("reference_profiles", [])
+    kg_context = state.get("kg_context", {})
+
+    weights = weights or DEFAULT_WEIGHTS
+    breakdown: dict[str, MetricScore] = {}
+    skill_analysis = SkillAnalysis()
+    overall_score = 0.0
+
+    # Skill analysis
+    if parsed_cv and parsed_jd:
+        cv_skills_lower = {s.lower() for s in parsed_cv.skills}
+        jd_skills_lower = {s.lower() for s in parsed_jd.skills}
+
+        matched = [s for s in parsed_jd.skills if s.lower() in cv_skills_lower]
+        missing = [s for s in parsed_jd.skills if s.lower() not in cv_skills_lower]
+
+        # Use taxonomy for smarter matching
+        taxonomy_index = load_taxonomy_index()
+
+        matched_lower = {s.lower() for s in matched}
+        expanded_cv = expand_skill_with_prerequisites(parsed_cv.skills)
+        related_matched = []
+        for skill, prereqs in expanded_cv.items():
+            related_matched.extend([p for p in prereqs if p.lower() not in matched_lower])
+
+        all_matched = list(set(matched + related_matched))
+        skill_match_rate = (len(all_matched) / max(len(parsed_jd.skills), 1)) * 100
+
+        skill_analysis = SkillAnalysis(
+            matched_skills=all_matched,
+            missing_critical=missing,
+            unexpected_skills=[s for s in parsed_cv.skills if s.lower() not in jd_skills_lower],
+            skill_match_rate=skill_match_rate,
+            skill_details={
+                "total_required": len(parsed_jd.skills),
+                "total_candidate": len(parsed_cv.skills),
+                "direct_match": len(matched),
+                "related_match": len(related_matched),
+                "prerequisites_met": len(related_matched),
+            },
+        )
+
+        # Technical score
+        tech_score = MetricScore(
+            name="technical",
+            score=skill_match_rate,
+            weight=weights.get("technical", 0.35),
+            details={
+                "skill_match_rate": skill_match_rate,
+                "matched_count": len(all_matched),
+                "required_count": len(parsed_jd.skills),
+                "missing_skills": missing,
+            },
+            confidence=0.9 if len(parsed_jd.skills) > 3 else 0.7,
+        )
+        breakdown["technical"] = tech_score
+
+    # Experience score
+    cv_years = parsed_cv.experience_years if parsed_cv else 0
+    jd_years = parsed_jd.experience_years if parsed_jd else 0
+
+    if jd_years and jd_years > 0:
+        exp_ratio = min(cv_years / jd_years, 1.5)  # Cap at 150%
+        exp_score = min(exp_ratio * 70, 100)  # Scale to 100
+    elif cv_years:
+        exp_score = min(cv_years * 10, 100)  # 1 year = 10 points, max 100
+    else:
+        exp_score = 50  # Default neutral
+
+    # Bonus for career progression
+    progression_bonus = 0
+    if parsed_cv and len(parsed_cv.job_titles) > 1:
+        # Check for seniority progression
+        seniority_keywords = {"junior": 1, "middle": 2, "senior": 3, "lead": 4, "principal": 5, "manager": 4}
+        levels = []
+        for title in parsed_cv.job_titles:
+            for kw, level in seniority_keywords.items():
+                if kw in title.lower():
+                    levels.append(level)
+        if len(levels) >= 2 and levels[-1] > levels[0]:
+            progression_bonus = 10
+
+    exp_score = min(exp_score + progression_bonus, 100)
+
+    exp_score_obj = MetricScore(
+        name="experience",
+        score=exp_score,
+        weight=weights.get("experience", 0.30),
+        details={
+            "candidate_years": cv_years,
+            "required_years": jd_years,
+            "progression_bonus": progression_bonus,
+            "titles": parsed_cv.job_titles if parsed_cv else [],
+        },
+        confidence=0.85 if cv_years else 0.6,
+    )
+    breakdown["experience"] = exp_score_obj
+
+    # Culture fit score (based on reference profiles similarity)
+    culture_score = 70  # Default neutral
+    if reference_profiles:
+        similarities = [p.get("similarity", 0) for p in reference_profiles]
+        avg_sim = sum(similarities) / len(similarities) if similarities else 0.5
+        culture_score = avg_sim * 100
+
+    culture_score_obj = MetricScore(
+        name="culture_fit",
+        score=culture_score,
+        weight=weights.get("culture_fit", 0.20),
+        details={
+            "reference_count": len(reference_profiles),
+            "avg_similarity": culture_score / 100 if reference_profiles else 0,
+        },
+        confidence=0.7 if reference_profiles else 0.5,
+    )
+    breakdown["culture_fit"] = culture_score_obj
+
+    # Market score
+    market_score = 70  # Default
+    if parsed_cv and parsed_jd:
+        # Calculate based on seniority match
+        cv_titles = [t.lower() for t in (parsed_cv.job_titles or [])]
+        jd_titles = [t.lower() for t in (parsed_jd.job_titles or [])]
+
+        seniority_levels = {"intern": 1, "junior": 2, "middle": 3, "senior": 4, "lead": 5, "principal": 6, "manager": 5, "director": 6, "vp": 7}
+
+        cv_level = max((seniority_levels.get(t, 3) for t in cv_titles), default=3)
+        jd_level = max((seniority_levels.get(t, 3) for t in jd_titles), default=3)
+
+        level_diff = cv_level - jd_level
+        if level_diff == 0:
+            market_score = 90
+        elif level_diff == 1:
+            market_score = 75  # Overqualified
+        elif level_diff == -1:
+            market_score = 65  # Underqualified but trainable
+        else:
+            market_score = 50  # Significant gap
+
+    market_score_obj = MetricScore(
+        name="market",
+        score=market_score,
+        weight=weights.get("market", 0.15),
+        details={
+            "seniority_match": "exact" if cv_level == jd_level else "adjacent" if abs(cv_level - jd_level) <= 1 else "gap",
+        },
+        confidence=0.75,
+    )
+    breakdown["market"] = market_score_obj
+
+    # Calculate overall score
+    for metric_name, metric in breakdown.items():
+        weight = metric.weight
+        overall_score += metric.score * weight
+
+    # Generate recommendations based on analysis
+    recommendations = _generate_recommendations(skill_analysis, breakdown, kg_context)
+
+    # Build radar data
+    radar_data = RadarData(
+        labels=["Technical", "Experience", "Culture Fit", "Market"],
+        values=[
+            breakdown.get("technical", MetricScore("technical", 0, 0)).score,
+            breakdown.get("experience", MetricScore("experience", 0, 0)).score,
+            breakdown.get("culture_fit", MetricScore("culture_fit", 0, 0)).score,
+            breakdown.get("market", MetricScore("market", 0, 0)).score,
+        ],
+        max_values=[100, 100, 100, 100],
+    )
+
+    # Benchmark comparison
+    benchmark = BenchmarkComparison(
+        percentile=_estimate_percentile(overall_score),
+        compared_to_average=overall_score - 65,  # Assume 65 is average
+        industry_std="tech_vietnam",
+        sample_size=len(reference_profiles),
+    )
+
+    return {
+        "breakdown": {k: v.__dict__ for k, v in breakdown.items()},
+        "skill_analysis": skill_analysis.__dict__,
+        "overall_score": round(overall_score, 1),
+        "confidence": _calculate_confidence(breakdown, parsed_cv, parsed_jd),
+        "recommendations": recommendations,
+        "radar_chart": radar_data.__dict__,
+        "comparison_with_benchmark": benchmark.__dict__,
+    }
+
+
+def _generate_recommendations(
+    skill_analysis: SkillAnalysis,
+    breakdown: dict[str, MetricScore],
+    kg_context: dict[str, Any],
+) -> list[str]:
+    """Generate actionable recommendations based on analysis."""
+    recommendations = []
+
+    # Skill gap recommendations
+    if skill_analysis.missing_critical:
+        top_missing = skill_analysis.missing_critical[:3]
+        recommendations.append(
+            f"Focus on these critical skills: {', '.join(top_missing)}"
+        )
+
+        # Add prerequisite suggestions from KG
+        prereqs = kg_context.get("skill_prerequisites", {})
+        for skill in top_missing:
+            if skill_prereqs := prereqs.get(skill):
+                recommendations.append(
+                    f"Before learning {skill}, consider: {', '.join(skill_prereqs[:2])}"
+                )
+
+    # Experience recommendations
+    exp_score = breakdown.get("experience")
+    if exp_score and exp_score.score < 60:
+        recommendations.append(
+            "Consider taking on more responsibilities or projects to demonstrate growth"
+        )
+
+    # Market recommendations
+    market_score = breakdown.get("market")
+    if market_score and market_score.score < 70:
+        recommendations.append(
+            "Your seniority level may not fully match this position. Consider roles at a slightly different level."
+        )
+
+    # General improvement
+    if not recommendations:
+        recommendations.append("Strong match! Focus on preparing for role-specific interviews.")
+
+    return recommendations
+
+
+def _estimate_percentile(score: float) -> float | None:
+    """Estimate percentile based on score."""
+    if score >= 90:
+        return 95
+    elif score >= 80:
+        return 85
+    elif score >= 70:
+        return 70
+    elif score >= 60:
+        return 50
+    elif score >= 50:
+        return 30
+    else:
+        return 15
+
+
+def _calculate_confidence(
+    breakdown: dict[str, MetricScore],
+    parsed_cv,
+    parsed_jd,
+) -> float:
+    """Calculate overall confidence in the evaluation."""
+    confidences = [m.confidence for m in breakdown.values()]
+
+    # Reduce confidence if data is sparse
+    if not parsed_cv:
+        confidences.append(0.3)
+    if not parsed_jd:
+        confidences.append(0.3)
+
+    return round(sum(confidences) / len(confidences), 2) if confidences else 0.5

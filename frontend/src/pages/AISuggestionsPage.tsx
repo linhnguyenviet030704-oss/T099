@@ -116,7 +116,7 @@ function JobRecommendationCard({
       : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-full flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
       <div>
         <div className="flex items-center justify-between mb-2 gap-2">
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
@@ -126,8 +126,8 @@ function JobRecommendationCard({
             </Badge>
           )}
         </div>
-        <p className="font-semibold text-sm truncate">{job.title}</p>
-        <p className="text-xs text-slate-500 truncate">{job.company_name || "Công ty đối tác"}</p>
+        <p className="font-semibold text-sm truncate" title={job.title}>{job.title}</p>
+        <p className="text-xs text-slate-500 truncate" title={job.company_name || "Công ty đối tác"}>{job.company_name || "Công ty đối tác"}</p>
         <div className="flex items-center justify-between gap-2 mt-2.5 text-xs text-slate-500">
           <span className="flex items-center gap-1 truncate"><MapPin size={11} className="shrink-0" />{job.location || "Toàn quốc"}</span>
           <span className="flex items-center gap-1 text-emerald-600 font-medium shrink-0"><DollarSign size={11} />{formatCurrency(job.salary_min, job.currency)}</span>
@@ -139,7 +139,7 @@ function JobRecommendationCard({
             <Sparkles size={12} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
             <span>Giải thích điểm phù hợp ({pct}%):</span>
           </div>
-          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal line-clamp-3" title={job.match_reason || undefined}>
             {job.match_reason || `Được AI đánh giá ${pct}% phù hợp với CV của bạn dựa trên phân tích kỹ năng và kinh nghiệm.`}
           </p>
         </div>
@@ -160,7 +160,7 @@ function JobRecommendationCard({
               e.stopPropagation();
               onToggleCompare(job);
             }}
-            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1 transition-all ${
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1 transition-all shrink-0 ${
               selectedForCompare
                 ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                 : "text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
@@ -664,7 +664,7 @@ export default function AISuggestionsPage() {
 
       {/* Main Center Area */}
       <div className="flex-1 min-w-0 flex flex-col py-4 gap-3">
-        <div className="w-full lg:w-[90%] lg:mx-auto px-3 sm:px-4 flex flex-col flex-1 min-h-0 gap-3">
+        <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 flex flex-col flex-1 min-h-0 gap-3">
           {/* Header Bar */}
           <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
             <div className="flex items-center gap-3 min-w-0">
@@ -722,7 +722,7 @@ export default function AISuggestionsPage() {
                                   {list.length}
                                 </span>
                               </h2>
-                              <div className="flex flex-row flex-wrap gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {list.map((job) => {
                                   const compareIdx = selectedCompareJobs.findIndex((j) => j.id === job.id);
                                   const isSelected = compareIdx !== -1;

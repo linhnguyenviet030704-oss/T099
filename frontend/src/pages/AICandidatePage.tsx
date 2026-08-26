@@ -181,7 +181,7 @@ export default function AICandidatePage() {
   const [selectedCompareCandidates, setSelectedCompareCandidates] = useState<SelectedCandidateItem[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm "Gợi ý ứng viên phù hợp"." },
+    { id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." },
   ]);
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id_candidate"));
   const [chatHistory, setChatHistory] = useState<SavedSession[]>([]);
@@ -313,7 +313,7 @@ export default function AICandidatePage() {
     const newId = crypto.randomUUID();
     setSessionId(newId);
     localStorage.setItem("chat_session_id_candidate", newId);
-    setMessages([{ id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm "Gợi ý ứng viên phù hợp"." }]);
+    setMessages([{ id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." }]);
   };
 
   const handleSelectJob = async (nextId: string) => {

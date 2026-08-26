@@ -68,3 +68,19 @@ class ChatHistoryResponse(BaseModel):
     """Response for chat history endpoint."""
     session_id: UUID
     messages: list[ChatMessageRecord]
+
+
+class ChatSessionSummary(BaseModel):
+    """Summary of a chat session for sidebar listing."""
+    id: UUID
+    first_message: str
+    last_message: str | None = None
+    created_at: str
+    updated_at: str
+    message_count: int = 0
+
+
+class ChatSessionsResponse(BaseModel):
+    """Response for user chat sessions list."""
+    sessions: list[ChatSessionSummary]
+

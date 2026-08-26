@@ -43,10 +43,11 @@ async def _save_message(
             "user_id": str(user_id),
             "role": role,
             "content": content,
-            "recommendations": json.dumps(recommendations),
+            "recommendations": recommendations,
         }).execute()
     except Exception:
         logger.exception("Failed to save chat message")
+
 
 FetchJobs = Callable[[], Awaitable[list[dict[str, Any]]]]
 FetchCandidates = Callable[[UUID, UUID], Awaitable[list[dict[str, Any]]]]

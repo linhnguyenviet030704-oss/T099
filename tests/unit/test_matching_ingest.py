@@ -9,12 +9,15 @@ from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_VERSION
 
 
 class _FakeStore:
-    def __init__(self, *, resume, blob: bytes, existing=None) -> None:
+    def __init__(self, *, resume, blob: bytes, existing=None, storage_updated_at="2026-08-26T00:00:00Z") -> None:
         self.resume = resume
         self.blob = blob
         self.existing = existing
+        self.storage_updated_at = storage_updated_at
         self.saved = None
+        self.touched = None
         self.downloads = 0
+        self.storage_meta_calls = 0
 
     async def get_parsed(self, resume_id):
         return self.existing
@@ -22,16 +25,24 @@ class _FakeStore:
     async def get_resume(self, resume_id):
         return self.resume
 
+    async def get_storage_updated_at(self, bucket_id, storage_path):
+        self.storage_meta_calls += 1
+        return self.storage_updated_at
+
+    async def touch_storage_updated_at(self, resume_id, storage_updated_at):
+        self.touched = {"resume_id": resume_id, "storage_updated_at": storage_updated_at}
+
     async def download(self, bucket_id, storage_path):
         self.downloads += 1
         return self.blob
 
-    async def save(self, resume_id, parsed, content_hash, embedding):
+    async def save(self, resume_id, parsed, content_hash, embedding, storage_updated_at):
         self.saved = {
             "resume_id": resume_id,
             "parsed": parsed,
             "content_hash": content_hash,
             "embedding": embedding,
+            "storage_updated_at": storage_updated_at,
         }
 
 
@@ -60,6 +71,7 @@ async def test_ingest_parses_and_saves_first_time():
     assert status == "indexed"
     assert store.saved is not None
     assert store.saved["content_hash"] == sha256(blob).hexdigest()
+    assert store.saved["storage_updated_at"] == "2026-08-26T00:00:00Z"
     assert set(store.saved["parsed"]["metadata"]["skills"]) == {"python", "fastapi"}
     assert store.saved["parsed"]["metadata"]["summary"] == "Python API engineer."
     assert "summary:" not in store.saved["parsed"]["markdown"]
@@ -111,6 +123,7 @@ async def test_ingest_reindexes_when_file_changed():
     status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
     assert status == "indexed"
     assert store.saved["content_hash"] == sha256(blob).hexdigest()
+    assert store.saved["storage_updated_at"] == "2026-08-26T00:00:00Z"
 
 
 @pytest.mark.asyncio
@@ -132,3 +145,95 @@ async def test_try_ingest_skips_missing_storage_object():
     )
     assert await try_ingest_resume(store, resume_id, encode=_encode, complete=_complete) is None
     assert store.saved is None
+
+
+@pytest.mark.asyncio
+async def test_ingest_skips_download_when_storage_timestamp_unchanged():
+    resume_id = uuid4()
+    blob = b"same cv"
+    digest = sha256(blob).hexdigest()
+    store = _FakeStore(
+        resume={
+            "id": str(resume_id),
+            "bucket_id": "resumes",
+            "storage_path": "u/cv.txt",
+            "mime_type": "text/plain",
+        },
+        blob=blob,
+        existing={
+            "content_hash": digest,
+            "storage_updated_at": "2026-08-26T00:00:00Z",
+            "metadata": {
+                "taxonomy_version": taxonomy_version(),
+                "summary_prompt_version": SUMMARIZE_PROMPT_VERSION,
+            },
+        },
+        storage_updated_at="2026-08-26T00:00:00Z",
+    )
+    status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
+    assert status == "exists"
+    assert store.saved is None
+    assert store.downloads == 0
+    assert store.storage_meta_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_ingest_falls_back_to_download_when_storage_timestamp_changed():
+    resume_id = uuid4()
+    blob = b"same cv"
+    digest = sha256(blob).hexdigest()
+    store = _FakeStore(
+        resume={
+            "id": str(resume_id),
+            "bucket_id": "resumes",
+            "storage_path": "u/cv.txt",
+            "mime_type": "text/plain",
+        },
+        blob=blob,
+        existing={
+            "content_hash": digest,
+            "storage_updated_at": "2026-08-01T00:00:00Z",
+            "metadata": {
+                "taxonomy_version": taxonomy_version(),
+                "summary_prompt_version": SUMMARIZE_PROMPT_VERSION,
+            },
+        },
+        storage_updated_at="2026-08-26T00:00:00Z",
+    )
+    status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
+    assert status == "exists"  # bytes are still the same, just detected the slow way
+    assert store.downloads == 1
+    assert store.touched == {"resume_id": resume_id, "storage_updated_at": "2026-08-26T00:00:00Z"}
+
+
+@pytest.mark.asyncio
+async def test_ingest_falls_back_to_download_when_storage_metadata_unavailable():
+    resume_id = uuid4()
+    blob = b"same cv"
+    digest = sha256(blob).hexdigest()
+
+    class _NoMeta(_FakeStore):
+        async def get_storage_updated_at(self, bucket_id, storage_path):
+            self.storage_meta_calls += 1
+            return None
+
+    store = _NoMeta(
+        resume={
+            "id": str(resume_id),
+            "bucket_id": "resumes",
+            "storage_path": "u/cv.txt",
+            "mime_type": "text/plain",
+        },
+        blob=blob,
+        existing={
+            "content_hash": digest,
+            "storage_updated_at": "2026-08-26T00:00:00Z",
+            "metadata": {
+                "taxonomy_version": taxonomy_version(),
+                "summary_prompt_version": SUMMARIZE_PROMPT_VERSION,
+            },
+        },
+    )
+    status = await ingest_resume(store, resume_id, encode=_encode, complete=_complete)
+    assert status == "exists"
+    assert store.downloads == 1  # missing metadata must never skip the correctness-critical hash check

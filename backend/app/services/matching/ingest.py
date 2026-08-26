@@ -19,6 +19,10 @@ class ResumeStore(Protocol):
 
     async def get_resume(self, resume_id: UUID) -> dict[str, Any] | None: ...
 
+    async def get_storage_updated_at(self, bucket_id: str, storage_path: str) -> str | None: ...
+
+    async def touch_storage_updated_at(self, resume_id: UUID, storage_updated_at: str) -> None: ...
+
     async def download(self, bucket_id: str, storage_path: str) -> bytes: ...
 
     async def save(
@@ -27,6 +31,7 @@ class ResumeStore(Protocol):
         parsed: dict[str, Any],
         content_hash: str,
         embedding: list[float],
+        storage_updated_at: str | None,
     ) -> None: ...
 
 
@@ -42,17 +47,33 @@ async def ingest_resume(
     resume = await store.get_resume(resume_id)
     if not resume:
         raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
-    blob = await store.download(resume.get("bucket_id") or "resumes", resume["storage_path"])
-    digest = hashlib.sha256(blob).hexdigest()
+    bucket_id = resume.get("bucket_id") or "resumes"
+    storage_path = resume["storage_path"]
+
     existing = await store.get_parsed(resume_id)
     meta = (existing or {}).get("metadata") or {}
-    if (
-        existing
-        and existing.get("content_hash") == digest
-        and meta.get("taxonomy_version") == taxonomy_version()
+    versions_current = (
+        meta.get("taxonomy_version") == taxonomy_version()
         and meta.get("summary_prompt_version") == SUMMARIZE_PROMPT_VERSION
-    ):
+    )
+
+    # Fast path: the storage object's own updated_at proves it hasn't
+    # changed since we last hashed it, so skip the download+hash entirely.
+    # Never trust a missing/failed metadata lookup as "unchanged" — only a
+    # positive, matching timestamp short-circuits here.
+    if existing and versions_current and existing.get("storage_updated_at"):
+        current_updated_at = await store.get_storage_updated_at(bucket_id, storage_path)
+        if current_updated_at is not None and current_updated_at == existing["storage_updated_at"]:
+            return "exists"
+
+    blob = await store.download(bucket_id, storage_path)
+    digest = hashlib.sha256(blob).hexdigest()
+    storage_updated_at = await store.get_storage_updated_at(bucket_id, storage_path)
+    if existing and existing.get("content_hash") == digest and versions_current:
+        if storage_updated_at is not None and storage_updated_at != existing.get("storage_updated_at"):
+            await store.touch_storage_updated_at(resume_id, storage_updated_at)
         return "exists"
+
     graph = build_ingest_graph(encode=encode, complete=complete, api_key=api_key, base_url=base_url)
     rid = request_id_ctx.get() or "-"
     result = await graph.ainvoke(
@@ -74,7 +95,7 @@ async def ingest_resume(
         "clean_markdown": result.get("clean_markdown") or "",
         "metadata": result.get("metadata") or {},
     }
-    await store.save(resume_id, parsed, digest, list(result.get("embedding") or []))
+    await store.save(resume_id, parsed, digest, list(result.get("embedding") or []), storage_updated_at)
     return "indexed"
 
 

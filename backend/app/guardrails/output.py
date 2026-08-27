@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -11,6 +12,17 @@ from backend.app.guardrails.gates import contains_secret, sanitize_sensitive_tex
 
 OutputAction = Literal["allow", "sanitize", "fallback", "block"]
 _CONSTRAINT_ORDER = {"pass": 0, "ungated": 1, "unknown": 2, "fail": 3}
+_PROTECTED_DISCLOSURE_RE = re.compile(
+    r"(?i)\b(?:system prompt|developer (?:message|instruction)|prompt template|"
+    r"internal prompt|your prompt|agent prompt|system (?:instruction|message|policy)|"
+    r"tool (?:schema|configuration)|prompt hệ thống|prompt của bạn|chỉ dẫn hệ thống|"
+    r"thông điệp developer|cấu hình công cụ|prompt he thong|prompt cua ban|"
+    r"chi dan he thong|thong diep developer|cau hinh cong cu)\b"
+)
+_STACK_TRACE_RE = re.compile(
+    r"(?i)(?:traceback \(most recent call last\)|(?:file|module) [\"'][^\"']+\.py[\"'].*line \d+|"
+    r"(?:exception|error):\s+.*(?:backend/app|backend\\app))"
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +30,27 @@ class GuardedOutput:
     value: Any
     action: OutputAction
     codes: tuple[str, ...] = ()
+
+
+def contains_protected_disclosure(text: str) -> bool:
+    return bool(_PROTECTED_DISCLOSURE_RE.search(str(text or "")))
+
+
+def contains_configured_secret(text: str) -> bool:
+    """Match exact runtime credentials without copying them into prompts/logs."""
+    from backend.app.config.env import settings
+
+    values = (
+        settings.qwen_api_key,
+        settings.openai_api_key,
+        settings.gemini_api_key,
+        settings.supabase_service_role_key,
+        settings.supabase_jwt_secret,
+        settings.supabase_anon_key,
+        settings.langsmith_api_key,
+    )
+    output = str(text or "")
+    return any(value and len(value) >= 12 and value in output for value in values)
 
 
 def validate_generated_text(
@@ -28,6 +61,12 @@ def validate_generated_text(
     fallback: str,
 ) -> GuardedOutput:
     value = str(text or "").strip()
+    if contains_configured_secret(value):
+        return GuardedOutput(fallback, "fallback", ("OUTPUT_SECRET_DETECTED",))
+    if _STACK_TRACE_RE.search(value):
+        return GuardedOutput(fallback, "fallback", ("OUTPUT_INTERNAL_ERROR_LEAK",))
+    if contains_protected_disclosure(value):
+        return GuardedOutput(fallback, "fallback", ("OUTPUT_PROMPT_LEAKAGE",))
     if not value or len(value) > max_chars or contains_secret(value):
         code = "OUTPUT_PII_DETECTED" if contains_secret(value) else "OUTPUT_INVALID_SCHEMA"
         return GuardedOutput(fallback, "fallback", (code,))

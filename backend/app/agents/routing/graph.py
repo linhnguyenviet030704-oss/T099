@@ -74,6 +74,33 @@ async def routing_node(state: RoutingState, brain: AgentBrain | None = None) -> 
 
     # === Step 3: Classify intent with CV/DB usage ===
     classification = classify_intent(raw_input)
+    if classification.intent == IntentType.OUT_OF_SCOPE:
+        return {
+            "intent": IntentType.OUT_OF_SCOPE,
+            "is_valid": False,
+            "rejection_reason": RejectionReason.OFF_TOPIC,
+            "dispatch_target": None,
+            "context": {},
+            "validation_errors": ["Input is outside the recruitment domain"],
+        }
+    if classification.intent == IntentType.UNSUPPORTED_LANGUAGE:
+        return {
+            "intent": IntentType.UNSUPPORTED_LANGUAGE,
+            "is_valid": False,
+            "rejection_reason": RejectionReason.UNSUPPORTED_LANGUAGE,
+            "dispatch_target": None,
+            "context": {},
+            "validation_errors": ["Input language is not supported"],
+        }
+    if classification.intent == IntentType.UNKNOWN:
+        return {
+            "intent": IntentType.UNKNOWN,
+            "is_valid": False,
+            "rejection_reason": RejectionReason.AMBIGUOUS_REQUEST,
+            "dispatch_target": None,
+            "context": {},
+            "validation_errors": ["Recruitment intent is ambiguous"],
+        }
 
     # === Step 4: Sensitive content flag (process but mark) ===
     has_sensitive = check_sensitive_content(raw_input)
@@ -129,6 +156,14 @@ def _get_rejection_message(
         RejectionReason.OFF_TOPIC: (
             "Nội dung không liên quan đến tuyển dụng. "
             "Hệ thống chỉ hỗ trợ câu hỏi về CV, việc làm, và đánh giá ứng viên."
+        ),
+        RejectionReason.UNSUPPORTED_LANGUAGE: (
+            "Hiện tại hệ thống hỗ trợ tiếng Việt và tiếng Anh. "
+            "Vui lòng gửi lại yêu cầu bằng một trong hai ngôn ngữ này."
+        ),
+        RejectionReason.AMBIGUOUS_REQUEST: (
+            "Chưa xác định được yêu cầu tuyển dụng. "
+            "Vui lòng nói rõ bạn muốn tìm việc, đánh giá CV, xem thiếu kỹ năng hay tìm ứng viên."
         ),
         RejectionReason.SENSITIVE_DATA_DETECTED: (
             "Phát hiện thông tin nhạy cảm. "

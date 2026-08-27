@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -23,6 +24,8 @@ _SECRET_PATTERNS = (
     re.compile(r"(?i)\b(?:api[_-]?key|secret|password|token)\s*[:=]\s*[^\s,;]+"),
     re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{12,}"),
     re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
+    re.compile(r"\bAIza[0-9A-Za-z_-]{20,}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
     re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"),
 )
 _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -31,6 +34,69 @@ _INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("role_override", re.compile(r"(?i)\b(?:you are now|act as|đóng vai|từ giờ bạn là)\b")),
     ("external_action", re.compile(r"(?i)\b(?:send|upload|exfiltrate|gửi|tải)\b.{0,50}\b(?:elsewhere|server|url|email|ra ngoài|máy chủ)\b")),
     ("tool_override", re.compile(r"(?i)\b(?:call|invoke|run|execute|gọi|chạy)\b.{0,30}\b(?:tool|command|shell|sql|công cụ|lệnh)\b")),
+)
+_PROTECTED_REQUEST_PATTERNS = (
+    re.compile(
+        r"\b(?:show|give|send|tell|print|display|reveal|expose|dump|repeat|quote|translate|"
+        r"summari[sz]e|share|provide|can i see|may i see)\b.{0,60}"
+        r"\b(?:system prompt|developer (?:message|instruction)|prompt template|internal prompt|"
+        r"system (?:instruction|message|policy)|tool (?:schema|configuration|config)|"
+        r"your prompt|agent prompt)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:what is|what are|describe|explain)\b.{0,30}"
+        r"\b(?:your|the internal|the configured|current)\b.{0,20}"
+        r"\b(?:system prompt|developer (?:message|instruction)|prompt|tool (?:schema|config))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:show|give|send|tell|print|display|reveal|expose|dump|share|provide)\b.{0,40}"
+        r"\b(?:your|the|internal|configured|actual|real|current)\b.{0,12}"
+        r"\b(?:api key|secret|password|token)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:give|send|provide|share)\b.{0,15}\b(?:me|us|to me|to us)\b.{0,15}"
+        r"\b(?:an?\s+|the\s+|your\s+)?(?:api key|secret|password|token)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:what is|what are|where is|where are)\b.{0,30}"
+        r"\b(?:your|the internal|the configured|current)\b.{0,12}"
+        r"\b(?:api key|secret|password|token)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:cho|dua|gui|noi|in|hien thi|tiet lo|lap lai|trich dan|dich|tom tat|"
+        r"chia se|cung cap|cho biet)\b.{0,60}"
+        r"\b(?:system prompt|developer message|developer instruction|prompt template|internal prompt|"
+        r"prompt he thong|prompt cua ban|chi dan he thong|thong diep developer|cau hinh cong cu|"
+        r"api key|secret|mat khau|token)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:mo ta|giai thich|cho biet)\b.{0,40}"
+        r"\b(?:system prompt|prompt he thong|chi dan he thong)\b.{0,20}\b(?:cua ban|noi bo)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:api key|secret|mat khau|token)\b.{0,20}\b(?:cua ban|he thong|noi bo)\b"
+        r".{0,15}\b(?:la gi|o dau|cho toi|gui toi)\b",
+        re.IGNORECASE,
+    ),
+)
+_FOLDED_INJECTION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("ignore_instructions", re.compile(r"\b(?:bo qua|quen)\b.{0,40}\b(?:instruction|prompt|chi dan|yeu cau)\b")),
+    ("reveal_prompt", re.compile(r"\b(?:tiet lo|hien thi|in|cho biet)\b.{0,40}\b(?:system prompt|prompt he thong)\b")),
+    ("role_override", re.compile(r"\b(?:dong vai|tu gio ban la)\b")),
+    ("tool_override", re.compile(r"\b(?:goi|chay)\b.{0,30}\b(?:tool|command|shell|sql|cong cu|lenh)\b")),
+)
+_DEFERRED_INJECTION_RE = re.compile(
+    r"\b(?:remember|store|save|memorize|ghi nho|luu lai)\b.{0,80}"
+    r"\b(?:instruction|prompt|command|chi dan|yeu cau|lenh)\b.{0,80}"
+    r"\b(?:later|next|after|sau|lat nua|tiep theo)\b",
+    re.IGNORECASE,
 )
 
 
@@ -46,9 +112,37 @@ class GateDecision:
         return self.action != "block"
 
 
+def _fold_for_detection(text: str) -> str:
+    folded = unicodedata.normalize("NFKD", normalize_text(text)).casefold()
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    folded = folded.replace("đ", "d")
+    # Common adversarial/mistyped variants. This is only a detection view;
+    # the original normalized value is preserved for legitimate processing.
+    replacements = {
+        r"\bprom+t\b": "prompt",
+        r"\bpr0mpt\b": "prompt",
+        r"\bsytem\b": "system",
+        r"\bsyst3m\b": "system",
+        r"\bk3y\b": "key",
+        r"\bapi[_-]?k[e3]y\b": "api key",
+        r"\binstrution\b": "instruction",
+        r"\binstructon\b": "instruction",
+    }
+    for pattern, replacement in replacements.items():
+        folded = re.sub(pattern, replacement, folded)
+    return re.sub(r"\s+", " ", folded).strip()
+
+
 def find_injection_signals(text: str) -> tuple[str, ...]:
     normalized = normalize_text(text)
-    return tuple(name for name, pattern in _INJECTION_PATTERNS if pattern.search(normalized))
+    folded = _fold_for_detection(normalized)
+    signals = [name for name, pattern in _INJECTION_PATTERNS if pattern.search(normalized)]
+    signals.extend(name for name, pattern in _FOLDED_INJECTION_PATTERNS if pattern.search(folded))
+    if any(pattern.search(folded) for pattern in _PROTECTED_REQUEST_PATTERNS):
+        signals.append("protected_information_request")
+    if _DEFERRED_INJECTION_RE.search(folded):
+        signals.append("deferred_instruction")
+    return tuple(dict.fromkeys(signals))
 
 
 def contains_secret(text: str) -> bool:
@@ -98,7 +192,13 @@ def gate_context(
 
     signals = find_injection_signals(normalized)
     if signals and source == "chat":
-        return GateDecision("block", "", ("DATA_INJECTION_SIGNAL",), signals)
+        override_signals = set(signals) - {"reveal_prompt", "protected_information_request"}
+        code = (
+            "DATA_PROTECTED_INFO_REQUEST"
+            if "protected_information_request" in signals and not override_signals
+            else "DATA_INJECTION_SIGNAL"
+        )
+        return GateDecision("block", "", (code,), signals)
 
     value = normalized
     codes = list(budget_codes)

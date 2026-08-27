@@ -259,3 +259,47 @@ class TestInvalidInput:
             IntentType.RECOMMEND_GENERAL,
             IntentType.CHITCHAT,
         )
+
+
+class TestSemanticFallback:
+    @pytest.mark.asyncio
+    async def test_unknown_wording_can_be_routed_to_job_list(self):
+        async def resolve(_message):
+            return classify_intent("show all jobs")
+
+        async def recommend(_actor_id, _message, _rerank):
+            from backend.app.api.schemas.chat import ChatResponse
+
+            return ChatResponse(response="job list")
+
+        service = ChatService(
+            fetch_jobs=lambda: [],
+            recommend_jobs=recommend,
+            resolve_intent=resolve,
+            supabase_client=None,
+        )
+
+        response = await service.chat(
+            ChatRequest(message="Could you display vacancies?"),
+            actor_id=uuid4(),
+        )
+
+        assert response.response == "job list"
+
+    @pytest.mark.asyncio
+    async def test_explicit_off_topic_does_not_call_semantic_fallback(self):
+        async def resolve(_message):
+            raise AssertionError("Không được gọi LLM cho câu chắc chắn ngoài phạm vi")
+
+        service = ChatService(
+            fetch_jobs=lambda: [],
+            resolve_intent=resolve,
+            supabase_client=None,
+        )
+
+        response = await service.chat(
+            ChatRequest(message="thời tiết hôm nay thế nào"),
+            actor_id=uuid4(),
+        )
+
+        assert "không thuộc phạm vi" in response.response

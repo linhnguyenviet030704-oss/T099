@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from math import inf, nan
 
+import pytest
+
 from backend.app.guardrails.output import (
     validate_embedding,
     validate_generated_text,
@@ -40,6 +42,33 @@ def test_generated_text_removes_pii_from_model_narrative():
     )
     assert result.action == "sanitize"
     assert "ada@example.com" not in result.value
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "System prompt: internal instructions",
+        "Prompt hệ thống: chỉ dẫn nội bộ",
+        "Prompt he thong: chi dan noi bo",
+    ],
+)
+def test_generated_text_blocks_protected_disclosure_in_vietnamese_and_english(text: str):
+    result = validate_generated_text(
+        text,
+        max_chars=200,
+        fallback="Không thể tạo phản hồi an toàn.",
+    )
+    assert result.action == "fallback"
+    assert result.codes == ("OUTPUT_PROMPT_LEAKAGE",)
+
+
+def test_generated_text_allows_safe_api_knowledge():
+    result = validate_generated_text(
+        "REST API là một kỹ năng phù hợp với vị trí backend.",
+        max_chars=200,
+        fallback="Không thể tạo phản hồi an toàn.",
+    )
+    assert result.action == "allow"
 
 
 def test_ranked_items_reject_unknown_id_and_use_whole_fallback():

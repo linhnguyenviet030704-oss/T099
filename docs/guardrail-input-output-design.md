@@ -333,6 +333,10 @@ OUTPUT_ID_NOT_ALLOWED
 OUTPUT_PII_DETECTED
 OUTPUT_UNGROUNDED
 OUTPUT_CONSTRAINT_VIOLATION
+OUTPUT_PROMPT_LEAKAGE
+OUTPUT_SECRET_DETECTED
+OUTPUT_INTERNAL_ERROR_LEAK
+OUTPUT_INTENT_MISMATCH
 ```
 
 HTTP error dùng `AppError` hiện có. `SANITIZE` và `DEGRADE` chỉ log code, request ID, agent/node và latency; không log raw content.
@@ -409,7 +413,10 @@ Route `/evaluate/file` phải dùng file guard/parser giống ingest, không dec
 
 - Input Guard normalize/limit trước `classify_intent()`.
 - Routing chỉ phân loại, không phải security boundary.
+- Intent không nhận diện được là `UNKNOWN`; nội dung ngoài tuyển dụng là `OUT_OF_SCOPE`. Không loại nào được fail-open sang recommendation.
+- `ChatService` chỉ dispatch các intent nằm trong allowlist và không gọi DB/provider cho `UNKNOWN`, `OUT_OF_SCOPE` hoặc chitchat.
 - Context lấy từ DB vẫn phải qua Safety/Data Gate trước provider.
+- Output chat phải khớp loại intent: text-only, jobs hoặc candidates; mismatch bị bỏ toàn bộ recommendations.
 
 ## 10. Fallback policy
 

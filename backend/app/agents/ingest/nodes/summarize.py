@@ -2,6 +2,8 @@ from collections.abc import Callable
 
 from backend.app.agents.state import AgentState
 from backend.app.config.models import DEFAULT_EMBED_DIM, DEFAULT_LLM_MODEL
+from backend.app.guardrails.gates import gate_context, gate_parsed_quality
+from backend.app.guardrails.output import validate_generated_text
 from backend.app.services.matching.parse import redact_pii
 from backend.app.services.matching.skills import (
     categories_for,
@@ -33,11 +35,30 @@ def make_summarize_node(
             return active_brain.chat(prompt, api_key=api_key, base_url=base_url, json_object=True)
 
         source = state.get("markdown") or ""
-        meta = summarize_resume(source, complete=_complete)
-        body = redact_pii(meta.get("body") or "")
+        quality = gate_parsed_quality(state.get("metadata") or {}, source)
+        context = gate_context(source, source="cv", max_chars=50_000)
+        gate_codes = list(dict.fromkeys([*quality.codes, *context.codes]))
+        if context.action == "block" or not context.value:
+            meta = {"summary": "", "titles": [], "body": "", "skills": []}
+        else:
+            meta = summarize_resume(str(context.value), complete=_complete)
+
+        guarded_body = validate_generated_text(
+            str(meta.get("body") or ""),
+            max_chars=50_000,
+            # If the model omits/invalidates `body`, retain the already
+            # normalized and sanitized parser output deterministically.
+            fallback=str(context.value or ""),
+        )
+        guarded_summary = validate_generated_text(
+            str(meta.get("summary") or ""),
+            max_chars=1_000,
+            fallback="",
+        )
+        body = redact_pii(str(guarded_body.value or ""))
 
         metadata = dict(state.get("metadata") or {})
-        metadata["summary"] = meta.get("summary") or ""
+        metadata["summary"] = guarded_summary.value or ""
         metadata["titles"] = grounded_titles(list(meta.get("titles") or []), source)
 
         # Extract-first: skills come from the full CV (not the LLM rewrite),
@@ -59,6 +80,9 @@ def make_summarize_node(
                     sub_field.append(cat)
         metadata["sub_field"] = sub_field
         metadata["major_field"] = major_for_skills(extract_skills_)
+        metadata["guardrail_codes"] = list(
+            dict.fromkeys([*metadata.get("guardrail_codes", []), *gate_codes, *guarded_body.codes, *guarded_summary.codes])
+        )
 
         # Ingestion Quality Guardrails: Assess whether CV has valid professional indicators
         has_skills = bool(extract_skills_)

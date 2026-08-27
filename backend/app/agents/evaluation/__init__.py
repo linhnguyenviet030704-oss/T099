@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from backend.app.agents.evaluation.graph import build_evaluation_graph
 from backend.app.agents.evaluation.state import EvaluationState
 from backend.app.agents.evaluation.types import EvaluationResult, EvaluationType
+from backend.app.core.exceptions import BadRequestError
+from backend.app.guardrails.gates import gate_context
+from backend.app.guardrails.input import validate_text
 from backend.app.shared_brain import AgentBrain
 
 
@@ -68,10 +73,12 @@ class EvaluationAgent:
             EvaluationResult with scores and recommendations
         """
         use_vs = needs_vector_search if needs_vector_search is not None else self.default_needs_vector_search
+        guarded_cv = self._guard_optional_text(cv_text, source="cv", input_source="cv_text")
+        guarded_jd = self._guard_optional_text(jd_text, source="jd", input_source="jd_text")
 
         initial_state: EvaluationState = {
-            "cv_text": cv_text,
-            "jd_text": jd_text,
+            "cv_text": guarded_cv,
+            "jd_text": guarded_jd,
             "resume_id": resume_id,
             "job_id": job_id,
             "evaluation_type": evaluation_type,
@@ -100,6 +107,22 @@ class EvaluationAgent:
 
         return result
 
+    @staticmethod
+    def _guard_optional_text(
+        text: str | None,
+        *,
+        source: Literal["cv", "jd"],
+        input_source: Literal["cv_text", "jd_text"],
+    ) -> str | None:
+        if text is None:
+            return None
+        validated = validate_text(text, source=input_source, max_chars=50_000)
+        guarded = gate_context(validated.text, source=source, max_chars=50_000)
+        if guarded.action == "block":
+            code = guarded.codes[0] if guarded.codes else "DATA_SECRET_DETECTED"
+            raise BadRequestError("Dữ liệu đánh giá không an toàn", code=code)
+        return str(guarded.value)
+
     async def evaluate_stream(
         self,
         *,
@@ -112,10 +135,12 @@ class EvaluationAgent:
     ):
         """Stream evaluation results node by node."""
         use_vs = needs_vector_search if needs_vector_search is not None else self.default_needs_vector_search
+        guarded_cv = self._guard_optional_text(cv_text, source="cv", input_source="cv_text")
+        guarded_jd = self._guard_optional_text(jd_text, source="jd", input_source="jd_text")
 
         initial_state: EvaluationState = {
-            "cv_text": cv_text,
-            "jd_text": jd_text,
+            "cv_text": guarded_cv,
+            "jd_text": guarded_jd,
             "resume_id": resume_id,
             "job_id": job_id,
             "evaluation_type": evaluation_type,

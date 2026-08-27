@@ -12,6 +12,7 @@ from backend.app.agents.evaluation.types import (
     RadarData,
     SkillAnalysis,
 )
+from backend.app.guardrails.output import validate_generated_text
 from backend.app.shared_brain import AgentBrain
 
 
@@ -58,7 +59,14 @@ async def generate_report_node(
                 parsed_jd,
                 recommendations,
             )
-            response = brain.chat(prompt, temperature=0.7)
+            raw_response = brain.chat(prompt, temperature=0.7)
+            evidence = [*skill_analysis.matched_skills, *skill_analysis.missing_critical]
+            response = validate_generated_text(
+                raw_response,
+                evidence=evidence,
+                max_chars=4_000,
+                fallback="",
+            ).value
         except Exception:
             pass
 
@@ -74,6 +82,7 @@ async def generate_report_node(
         parsed_cv=parsed_cv,
         parsed_jd=parsed_jd,
         reference_profiles=reference_profiles,
+        natural_language_summary=str(response) if response else None,
     )
 
     # Add warnings

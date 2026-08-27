@@ -1,15 +1,21 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID, uuid4
 
 from backend.app.agents.evaluation.types import IntentType
 from backend.app.agents.routing.intents import classify_intent
-from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendationItem, RecommendedCandidate, RecommendedJob
+from backend.app.api.schemas.chat import (
+    ChatRequest,
+    ChatResponse,
+    RecommendedCandidate,
+    RecommendedJob,
+)
 from backend.app.config.models import FINAL_CANDIDATE_K
-from backend.app.core.exceptions import AppError
+from backend.app.core.exceptions import AppError, BadRequestError
+from backend.app.guardrails.gates import gate_context
+from backend.app.guardrails.input import validate_text
 from backend.app.observability.logger import get_logger
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
 
@@ -129,6 +135,12 @@ class ChatService:
         self._client = supabase_client if supabase_client is not None else client
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
+        validated = validate_text(request.message, source="chat", max_chars=5000)
+        guarded = gate_context(validated.text, source="chat", max_chars=5000)
+        if guarded.action == "block":
+            code = guarded.codes[0] if guarded.codes else "DATA_INJECTION_SIGNAL"
+            raise BadRequestError("Yêu cầu không an toàn để xử lý", code=code)
+        request = request.model_copy(update={"message": str(guarded.value)})
         classification = classify_intent(request.message)
 
         # Determine session_id

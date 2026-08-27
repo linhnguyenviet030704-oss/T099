@@ -6,7 +6,10 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from backend.app.agents.ingest.graph import build_ingest_graph
-from backend.app.core.exceptions import NotFoundError
+from backend.app.config.models import DEFAULT_EMBED_DIM
+from backend.app.core.exceptions import AppError, BadRequestError, NotFoundError
+from backend.app.guardrails.input import MAX_CV_BYTES, validate_file
+from backend.app.guardrails.output import validate_embedding
 from backend.app.observability.logger import get_logger, request_id_ctx
 from backend.app.services.matching.skills import taxonomy_version
 from backend.app.services.matching.summarize import SUMMARIZE_PROMPT_VERSION
@@ -43,6 +46,12 @@ async def ingest_resume(
     if not resume:
         raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
     blob = await store.download(resume.get("bucket_id") or "resumes", resume["storage_path"])
+    validated_file = validate_file(
+        blob,
+        declared_mime=resume.get("mime_type") or "",
+        max_bytes=MAX_CV_BYTES,
+    )
+    blob = validated_file.data
     digest = hashlib.sha256(blob).hexdigest()
     existing = await store.get_parsed(resume_id)
     meta = (existing or {}).get("metadata") or {}
@@ -58,7 +67,7 @@ async def ingest_resume(
     result = await graph.ainvoke(
         {
             "raw_bytes": blob,
-            "mime_type": resume.get("mime_type") or "",
+            "mime_type": validated_file.detected_mime,
         },
         config={
             "run_name": "ingest_resume_pipeline",
@@ -74,7 +83,13 @@ async def ingest_resume(
         "clean_markdown": result.get("clean_markdown") or "",
         "metadata": result.get("metadata") or {},
     }
-    await store.save(resume_id, parsed, digest, list(result.get("embedding") or []))
+    guarded_embedding = validate_embedding(
+        list(result.get("embedding") or []),
+        expected_dimension=DEFAULT_EMBED_DIM,
+    )
+    if guarded_embedding.action == "block":
+        raise BadRequestError("Embedding không hợp lệ", code="OUTPUT_INVALID_SCHEMA")
+    await store.save(resume_id, parsed, digest, guarded_embedding.value)
     return "indexed"
 
 
@@ -106,6 +121,9 @@ async def try_ingest_resume(
             )
         except NotFoundError:
             logger.warning("ingest skipped resume_id=%s reason=not_found", resume_id)
+            return None
+        except AppError as exc:
+            logger.warning("ingest blocked resume_id=%s code=%s", resume_id, exc.code)
             return None
         except Exception as exc:  # noqa: BLE001 - retry loop decides fate
             last_exc = exc

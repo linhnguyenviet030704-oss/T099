@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -15,10 +16,14 @@ from backend.app.api.schemas.evaluation import (
     RoutingRequest,
     RoutingResponse,
 )
+from backend.app.clients.supabase import get_supabase_client
+from backend.app.core.exceptions import AppError, BadRequestError, ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
-from backend.app.dependencies.services import get_profile_service
+from backend.app.guardrails.input import MAX_CV_BYTES, validate_file
 from backend.app.observability.logger import get_logger
-from backend.app.services.profile_service import ProfileService
+from backend.app.services.matching.parse import parse_resume_bytes
+from backend.app.services.matching.store import SupabaseResumeStore
+from supabase import Client
 
 logger = get_logger(__name__)
 
@@ -33,6 +38,64 @@ def _get_evaluation_agent() -> EvaluationAgent:
 def _get_routing_agent() -> RoutingAgent:
     """Get routing agent instance."""
     return RoutingAgent(brain=None)
+
+
+async def _resolve_authorized_inputs(
+    request: EvaluationRequest,
+    *,
+    actor_id: UUID,
+    client: Client,
+) -> EvaluationRequest:
+    cv_text = request.cv_text
+    jd_text = request.jd_text
+
+    if cv_text is None and request.resume_id is not None:
+        store = SupabaseResumeStore(client)
+        resume = await store.get_resume(request.resume_id)
+        if not resume:
+            raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
+        if str(resume.get("user_id")) != str(actor_id):
+            raise ForbiddenError("Not your resume")
+
+        parsed = await store.get_parsed(request.resume_id)
+        cv_text = str((parsed or {}).get("clean_markdown") or (parsed or {}).get("markdown") or "")
+        if not cv_text:
+            blob = await store.download(resume.get("bucket_id") or "resumes", resume["storage_path"])
+            validated = validate_file(
+                blob,
+                declared_mime=resume.get("mime_type") or "",
+                max_bytes=MAX_CV_BYTES,
+            )
+            parsed_local = parse_resume_bytes(validated.data, mime_type=validated.detected_mime)
+            cv_text = str(parsed_local.get("markdown") or "")
+
+    if jd_text is None and request.job_id is not None:
+        def _fetch_job() -> dict | None:
+            return (
+                client.table("job_posts")
+                .select("id, title, description, requirements, status, created_by_user_id")
+                .eq("id", str(request.job_id))
+                .maybe_single()
+                .execute()
+                .data
+            )
+
+        job = await asyncio.to_thread(_fetch_job)
+        if not job:
+            raise NotFoundError("Job not found", code="JOB_NOT_FOUND")
+        if job.get("status") != "published" and str(job.get("created_by_user_id")) != str(actor_id):
+            raise ForbiddenError("Job is not available")
+        jd_text = "\n\n".join(
+            part
+            for part in (
+                str(job.get("title") or "").strip(),
+                str(job.get("description") or "").strip(),
+                str(job.get("requirements") or "").strip(),
+            )
+            if part
+        )
+
+    return request.model_copy(update={"cv_text": cv_text, "jd_text": jd_text})
 
 
 @router.post("/route", response_model=RoutingResponse)
@@ -68,16 +131,18 @@ async def route_message(
             rejection_reason=None,
             rejection_message=None,
         )
-    except Exception as e:
+    except AppError:
+        raise
+    except Exception:
         logger.exception("Routing failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal routing error")
 
 
 @router.post("/evaluate", response_model=EvaluationResponse)
 async def evaluate(
     request: EvaluationRequest,
     _user: AuthenticatedUser = Depends(),
-    profile_service: ProfileService = Depends(get_profile_service),
+    client: Client = Depends(get_supabase_client),
 ) -> EvaluationResponse:
     """
     Evaluate CV against JD or perform standalone assessment.
@@ -95,6 +160,8 @@ async def evaluate(
             status_code=400,
             detail="At least one of cv_text, jd_text, resume_id, or job_id is required",
         )
+
+    request = await _resolve_authorized_inputs(request, actor_id=_user.id, client=client)
 
     # Determine evaluation type
     eval_type = EvaluationType(request.evaluation_type)
@@ -138,11 +205,13 @@ async def evaluate(
             }
             if result.comparison_with_benchmark
             else None,
-            natural_language_summary=result.to_api_response().get("summary"),
+            natural_language_summary=result.natural_language_summary,
         )
-    except Exception as e:
+    except AppError:
+        raise
+    except Exception:
         logger.exception("Evaluation failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal evaluation error")
 
 
 @router.post("/evaluate/file", response_model=EvaluationResponse)
@@ -152,7 +221,7 @@ async def evaluate_with_file(
     jd_text: str | None = None,
     evaluation_type: str = "full",
     _user: AuthenticatedUser = Depends(),
-    profile_service: ProfileService = Depends(get_profile_service),
+    client: Client = Depends(get_supabase_client),
 ) -> EvaluationResponse:
     """
     Evaluate uploaded CV file against job.
@@ -160,11 +229,16 @@ async def evaluate_with_file(
     Accepts PDF, DOCX, or TXT files.
     """
 
-    # Read file content
     content = await cv_file.read()
-
-    # Convert to text (basic handling - for production use proper PDF/DOCX parser)
-    cv_text = content.decode("utf-8", errors="ignore")
+    validated = validate_file(
+        content,
+        declared_mime=cv_file.content_type or "",
+        max_bytes=MAX_CV_BYTES,
+    )
+    parsed = parse_resume_bytes(validated.data, mime_type=validated.detected_mime)
+    cv_text = str(parsed.get("markdown") or "")
+    if not cv_text:
+        raise BadRequestError("Không trích xuất được nội dung CV", code="DATA_LOW_CONTENT")
 
     # Create request
     request = EvaluationRequest(
@@ -174,4 +248,4 @@ async def evaluate_with_file(
         evaluation_type=evaluation_type,
     )
 
-    return await evaluate(request, _user, profile_service)
+    return await evaluate(request, _user, client)

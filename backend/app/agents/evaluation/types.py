@@ -156,6 +156,7 @@ class EvaluationResult:
 
     recommendations: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    natural_language_summary: str | None = None
 
     confidence: float = 0.8  # Overall confidence 0-1
 
@@ -189,6 +190,7 @@ class EvaluationResult:
             },
             "recommendations": self.recommendations,
             "warnings": self.warnings,
+            "summary": self.natural_language_summary,
             "confidence": round(self.confidence, 2),
             "radar_chart": self.radar_chart.to_chart_format() if self.radar_chart else None,
             "benchmark": {

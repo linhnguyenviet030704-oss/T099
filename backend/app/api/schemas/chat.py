@@ -9,6 +9,12 @@ class ChatRequest(BaseModel):
     job_id: UUID | None = None
     rerank: Literal["qwen", "agent"] = "qwen"
     session_id: UUID | None = None
+    resume_id: UUID | None = None
+    max_results: int | None = None
+    skill_weight: float | None = None
+    experience_weight: float | None = None
+    include_public: bool | None = None
+    verified_only: bool | None = None
 
 
 class RecommendedJob(BaseModel):
@@ -39,6 +45,7 @@ class RecommendedCandidate(BaseModel):
     rerank_status: Literal["success", "fallback", "not_requested"] = "not_requested"
     match_reason: str | None = None
     is_public_candidate: bool = False
+    has_verified_skills: bool = False
 
 
 

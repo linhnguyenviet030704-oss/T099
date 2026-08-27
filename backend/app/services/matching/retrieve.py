@@ -203,6 +203,8 @@ async def retrieve_for_job(
     actor_id: UUID,
     job_id: UUID,
     *,
+    include_public: bool = True,
+    verified_only: bool = False,
     encode=None,
     complete=None,
     store: SupabaseResumeStore | None = None,
@@ -244,6 +246,8 @@ async def retrieve_for_job(
         return result.data or []
 
     def _public_resumes() -> list[dict[str, Any]]:
+        if not include_public:
+            return []
         result = (
             client.table("resumes")
             .select(
@@ -265,23 +269,24 @@ async def retrieve_for_job(
     seen_resume_ids = {str(row["resume_id"]) for row in submits if row.get("resume_id")}
 
     all_candidate_rows = list(submits)
-    for pub in public_resumes:
-        user_id = str(pub.get("user_id") or "")
-        resume_id = str(pub.get("id") or "")
-        if not resume_id or user_id in seen_applicant_ids or resume_id in seen_resume_ids:
-            continue
-        all_candidate_rows.append(
-            {
-                "id": resume_id,
-                "applicant_user_id": user_id,
-                "resume_id": resume_id,
-                "current_status": "job_seeking",
-                "resume_title_snapshot": pub.get("title") or pub.get("original_filename") or "CV",
-                "resume_storage_path_snapshot": pub.get("storage_path"),
-                "profiles": pub.get("profiles"),
-                "is_public_candidate": True,
-            }
-        )
+    if include_public:
+        for pub in public_resumes:
+            user_id = str(pub.get("user_id") or "")
+            resume_id = str(pub.get("id") or "")
+            if not resume_id or user_id in seen_applicant_ids or resume_id in seen_resume_ids:
+                continue
+            all_candidate_rows.append(
+                {
+                    "id": resume_id,
+                    "applicant_user_id": user_id,
+                    "resume_id": resume_id,
+                    "current_status": "job_seeking",
+                    "resume_title_snapshot": pub.get("title") or pub.get("original_filename") or "CV",
+                    "resume_storage_path_snapshot": pub.get("storage_path"),
+                    "profiles": pub.get("profiles"),
+                    "is_public_candidate": True,
+                }
+            )
 
     resume_uuids = [UUID(str(row["resume_id"])) for row in all_candidate_rows if row.get("resume_id")]
 
@@ -335,6 +340,10 @@ async def retrieve_for_job(
                 mismatch += 1
             else:
                 distance = 1.0 - cosine
+        has_verified = bool(verified)
+        if verified_only and not has_verified:
+            continue
+
         docs.append(bm25_document(clean or markdown, [*verified, *inferred]))
         profile = _profile(row)
         candidates.append(
@@ -348,6 +357,7 @@ async def retrieve_for_job(
                 "resume_storage_path": row.get("resume_storage_path_snapshot"),
                 "current_status": row.get("current_status") or "pending",
                 "is_public_candidate": bool(row.get("is_public_candidate", False) or row.get("current_status") == "job_seeking"),
+                "has_verified_skills": has_verified,
                 "skills": skills,
                 "verified_skills": verified,
                 "inferred_skills": inferred,

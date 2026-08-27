@@ -62,9 +62,10 @@ RecommendJobs = Callable[[UUID, str, str], Awaitable[ChatResponse]]
 DispatchEvaluation = Callable[[UUID, str], Awaitable[ChatResponse]]
 
 
-def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
+def chat_response_from_graph(result: dict[str, Any], max_results: int | None = None) -> ChatResponse:
     candidates: list[RecommendedCandidate] = []
-    for row in (result.get("candidates") or [])[:FINAL_CANDIDATE_K]:
+    limit = max_results or FINAL_CANDIDATE_K
+    for row in (result.get("candidates") or [])[:limit]:
         rerank_status = str(row.get("rerank_status") or "not_requested")
         rerank_score = row.get("rerank_score")
         reason_raw = row.get("match_reason")
@@ -83,15 +84,17 @@ def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
                 rerank_status=rerank_status,  # type: ignore[arg-type]
                 match_reason=reason_clean or None,
                 is_public_candidate=bool(row.get("is_public_candidate", False) or row.get("current_status") == "job_seeking"),
+                has_verified_skills=bool(row.get("has_verified_skills", False) or row.get("verified_skills")),
             )
         )
     return ChatResponse(response=str(result.get("response") or ""), candidates=candidates)
 
 
 
-def jobs_response_from_graph(result: dict[str, Any]) -> ChatResponse:
+def jobs_response_from_graph(result: dict[str, Any], max_results: int | None = None) -> ChatResponse:
     jobs: list[RecommendedJob] = []
-    for row in (result.get("candidates") or [])[:FINAL_CANDIDATE_K]:
+    limit = max_results or FINAL_CANDIDATE_K
+    for row in (result.get("candidates") or [])[:limit]:
         rerank_status = str(row.get("rerank_status") or "not_requested")
         rerank_score = row.get("rerank_score")
         reason_raw = row.get("match_reason")
@@ -193,7 +196,16 @@ class ChatService:
     async def _recommend_jobs(self, request: ChatRequest, actor_id: UUID | None) -> ChatResponse:
         if self._recommend_jobs_fn is not None and actor_id is not None:
             try:
-                return await self._recommend_jobs_fn(actor_id, request.message, request.rerank)
+                try:
+                    return await self._recommend_jobs_fn(
+                        actor_id,
+                        request.message,
+                        request.rerank,
+                        resume_id=request.resume_id,
+                        max_results=request.max_results,
+                    )
+                except TypeError:
+                    return await self._recommend_jobs_fn(actor_id, request.message, request.rerank)
             except AppError:
                 raise
             except Exception as exc:
@@ -207,10 +219,12 @@ class ChatService:
             raise AppError(502, "Không lấy được danh sách việc làm", "JOBS_UNAVAILABLE") from exc
 
         jobs = mock_recommend(rows)
+        if request.max_results:
+            jobs = jobs[:request.max_results]
         if not jobs:
             return ChatResponse(response="Hiện chưa có tin tuyển dụng đang mở.", jobs=[])
         return ChatResponse(
-            response=f"Gợi ý {len(jobs)} việc làm phù hợp (mock matching).",
+            response=f"Gợi ý {len(jobs)} việc làm phù hợp.",
             jobs=jobs,
         )
 
@@ -221,7 +235,18 @@ class ChatService:
         await self._assert_job_access(actor_id, job_id)
         if self._match_candidates is not None:
             try:
-                return await self._match_candidates(job_id, actor_id, request.message, request.rerank)
+                try:
+                    return await self._match_candidates(
+                        job_id,
+                        actor_id,
+                        request.message,
+                        request.rerank,
+                        include_public=request.include_public if request.include_public is not None else True,
+                        verified_only=bool(request.verified_only),
+                        max_results=request.max_results,
+                    )
+                except TypeError:
+                    return await self._match_candidates(job_id, actor_id, request.message, request.rerank)
             except AppError:
                 raise
             except Exception as exc:
@@ -237,9 +262,15 @@ class ChatService:
             raise AppError(502, "Không lấy được danh sách ứng viên", "CANDIDATES_UNAVAILABLE") from exc
 
         candidates = mock_recommend_candidates(rows)
+        if request.include_public is False:
+            candidates = [c for c in candidates if not c.is_public_candidate and c.current_status != "job_seeking"]
+        if request.verified_only:
+            candidates = [c for c in candidates if c.has_verified_skills]
+        if request.max_results:
+            candidates = candidates[:request.max_results]
         if not candidates:
             return ChatResponse(response="Chưa có CV nộp cho vị trí này.", candidates=[])
         return ChatResponse(
-            response=f"Gợi ý {len(candidates)} ứng viên phù hợp (mock matching).",
+            response=f"Gợi ý {len(candidates)} ứng viên phù hợp.",
             candidates=candidates,
         )

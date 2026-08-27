@@ -1,8 +1,8 @@
 -- ============================================================
 -- EXTENSIONS
 -- ============================================================
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "vector";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "vector" WITH SCHEMA extensions;
 
 CREATE OR REPLACE FUNCTION update_modified_column()
 RETURNS TRIGGER AS $$
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS candidate_nodes (
     name TEXT NOT NULL,          -- e.g. "owner/repo" for project nodes
     description TEXT,
     properties JSONB DEFAULT '{}',
-    embedding VECTOR(1536),     -- text-embedding-v4, dim=1536
+    embedding extensions.vector(1536),     -- text-embedding-v4, dim=1536
     source TEXT DEFAULT 'cv_parse' CHECK (source IN (
         'cv_parse', 'manual', 'agent_eval', 'agent_gen'
     )),
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS candidate_nodes (
 CREATE INDEX IF NOT EXISTS idx_cn_candidate ON candidate_nodes(candidate_id);
 CREATE INDEX IF NOT EXISTS idx_cn_type ON candidate_nodes(candidate_id, node_type);
 CREATE INDEX IF NOT EXISTS idx_cn_embedding ON candidate_nodes
-    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+    USING hnsw (embedding extensions.vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_cn_active ON candidate_nodes(candidate_id) WHERE is_active = TRUE;
 
 DROP TRIGGER IF EXISTS trg_cn_updated ON candidate_nodes;
@@ -198,7 +198,7 @@ CREATE TABLE IF NOT EXISTS interview_questions (
     follow_ups JSONB DEFAULT '[]'::jsonb,
 
     question_order INT NOT NULL,
-    embedding VECTOR(1536),  -- For similarity/dedup
+    embedding extensions.vector(1536),  -- For similarity/dedup
     is_custom BOOLEAN DEFAULT FALSE,
 
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS interview_questions (
 CREATE INDEX IF NOT EXISTS idx_iq_session ON interview_questions(session_id);
 CREATE INDEX IF NOT EXISTS idx_iq_category ON interview_questions(session_id, category);
 CREATE INDEX IF NOT EXISTS idx_iq_embedding ON interview_questions
-    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+    USING hnsw (embedding extensions.vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- ============================================================
 -- 6. ROW LEVEL SECURITY
@@ -258,6 +258,26 @@ CREATE POLICY "Recruiters see session questions" ON interview_questions
         )
     );
 
+-- Table Grants
+GRANT ALL ON candidate_nodes TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON candidate_nodes TO authenticated;
+
+GRANT ALL ON candidate_edges TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON candidate_edges TO authenticated;
+
+GRANT ALL ON candidate_projects TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON candidate_projects TO authenticated;
+
+GRANT ALL ON repo_cache TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON repo_cache TO authenticated;
+GRANT SELECT, INSERT ON repo_cache TO anon;
+
+GRANT ALL ON interview_sessions TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON interview_sessions TO authenticated;
+
+GRANT ALL ON interview_questions TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON interview_questions TO authenticated;
+
 -- ============================================================
 -- 7. GRAPH TRAVERSAL FUNCTIONS
 -- ============================================================
@@ -265,7 +285,10 @@ CREATE POLICY "Recruiters see session questions" ON interview_questions
 -- Get all project nodes + eval scores for a candidate
 CREATE OR REPLACE FUNCTION get_candidate_projects(p_candidate_id UUID)
 RETURNS TABLE(node_id UUID, repo_full_name TEXT, properties JSONB, scores JSONB, weighted_score FLOAT)
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
 BEGIN
     RETURN QUERY
     SELECT cn.id, cn.name, cn.properties, cp.evaluation_scores, cp.weighted_score
@@ -277,3 +300,5 @@ BEGIN
       AND cp.is_current = TRUE;
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION get_candidate_projects(UUID) TO authenticated, service_role;

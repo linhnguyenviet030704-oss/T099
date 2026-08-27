@@ -7,9 +7,9 @@ pytest_plugins = ["respx"]
 
 @pytest.fixture
 def respx_mock():
-    """Import respx for mocking httpx - available from pytest-respx."""
+    """Import respx for mocking httpx."""
     import respx
-    return respx
+    return respx.mock
 
 
 def pytest_configure(config):

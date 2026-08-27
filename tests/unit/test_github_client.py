@@ -2,6 +2,7 @@
 
 import httpx
 import pytest
+import respx
 
 from backend.app.core.github_client import (
     CircuitBreaker,
@@ -475,11 +476,8 @@ class TestGitHubClientCircuitBreakerIntegration:
         )
 
         with respx_mock:
-            route = respx.get("https://api.github.com/repos/owner/repo/contents/test.txt")
-            route.side_effect = httpx.HTTPStatusError(
-                "Server error",
-                request=httpx.Request("GET", "https://api.github.com/repos/owner/repo/contents/test.txt"),
-                response=httpx.Response(500),
+            respx.get("https://api.github.com/repos/owner/repo/contents/test.txt").mock(
+                return_value=httpx.Response(500)
             )
 
             for _ in range(5):

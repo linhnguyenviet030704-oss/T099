@@ -40,12 +40,13 @@ class IntentType(StrEnum):
     RECOMMEND_GENERAL = "recommend_general"
 
     # Rejection intents
+    UNKNOWN = "unknown"
     CONTENT_TOO_SHORT = "content_too_short"
     INVALID_FORMAT = "invalid_format"
     OUT_OF_SCOPE = "out_of_scope"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
     SENSITIVE_CONTENT = "sensitive_content"
     RATE_LIMITED = "rate_limited"
-    UNSUPPORTED_LANGUAGE = "unsupported_language"
 
 
 class RejectionReason(StrEnum):
@@ -54,10 +55,11 @@ class RejectionReason(StrEnum):
     MINIMUM_CONTENT_NOT_MET = "minimum_content_not_met"
     UNPARSEABLE_FORMAT = "unparseable_format"
     OFF_TOPIC = "off_topic"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
+    AMBIGUOUS_REQUEST = "ambiguous_request"
     SENSITIVE_DATA_DETECTED = "sensitive_data_detected"
     QUOTA_EXCEEDED = "quota_exceeded"
     MALFORMED_REQUEST = "malformed_request"
-    UNSUPPORTED_LANGUAGE = "unsupported_language"
 
 
 @dataclass
@@ -158,6 +160,7 @@ class EvaluationResult:
 
     recommendations: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    natural_language_summary: str | None = None
 
     confidence: float = 0.8  # Overall confidence 0-1
 
@@ -191,6 +194,7 @@ class EvaluationResult:
             },
             "recommendations": self.recommendations,
             "warnings": self.warnings,
+            "summary": self.natural_language_summary,
             "confidence": round(self.confidence, 2),
             "radar_chart": self.radar_chart.to_chart_format() if self.radar_chart else None,
             "benchmark": {

@@ -6,6 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from backend.app.agents.state import AgentState
+from backend.app.guardrails.gates import gate_context
+from backend.app.guardrails.output import validate_generated_text
 from backend.app.shared_brain import AgentBrain, get_brain
 
 CompleteFn = Callable[..., str]
@@ -44,24 +46,52 @@ def make_advice_node(
         else:
             target_job_text = "Không có thông tin chi tiết vị trí công việc cụ thể."
 
+        cv_gate = gate_context(cv_text, source="cv", max_chars=20_000)
+        job_gate = gate_context(target_job_text, source="jd", max_chars=10_000)
+        if cv_gate.action == "block" or job_gate.action == "block":
+            return {
+                "response": "Không đủ dữ liệu an toàn để tạo tư vấn kỹ năng.",
+                "candidates": [],
+                "guardrail_codes": list(dict.fromkeys([*cv_gate.codes, *job_gate.codes])),
+            }
+
         prompt = (
             SKILL_GAP_PROMPT_TEMPLATE.replace("{user_query}", query)
-            .replace("{candidate_cv}", cv_text)
-            .replace("{target_job}", target_job_text)
+            .replace("{candidate_cv}", str(cv_gate.value))
+            .replace("{target_job}", str(job_gate.value))
             .replace("{kg_context}", kg_context)
         )
 
+        fallback = (
+            "Để ứng tuyển vị trí này, bạn nên tập trung bổ sung các kỹ năng cốt lõi còn thiếu "
+            "so với yêu cầu tuyển dụng, đồng thời chuẩn bị thêm portfolio và dự án thực tế liên quan."
+        )
         try:
             advice_response = await asyncio.to_thread(_complete, prompt)
         except Exception:
-            advice_response = (
-                "Để ứng tuyển vị trí này, bạn nên tập trung bổ sung các kỹ năng cốt lõi còn thiếu "
-                "so với yêu cầu tuyển dụng, đồng thời chuẩn bị thêm portfolio và dự án thực tế liên quan."
-            )
+            advice_response = fallback
+
+        evidence = [str(skill) for row in candidates[:1] for skill in row.get("skills") or []]
+        guarded_output = validate_generated_text(
+            advice_response,
+            evidence=evidence,
+            max_chars=4_000,
+            fallback=fallback,
+        )
 
         return {
-            "response": advice_response,
+            "response": guarded_output.value,
             "candidates": [],  # Clear candidates so no job cards are attached for advice intent
+            "guardrail_codes": list(
+                dict.fromkeys(
+                    [
+                        *state.get("guardrail_codes", []),
+                        *cv_gate.codes,
+                        *job_gate.codes,
+                        *guarded_output.codes,
+                    ]
+                )
+            ),
         }
 
     return advice_node

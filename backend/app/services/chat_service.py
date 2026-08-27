@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from backend.app.agents.evaluation.types import IntentType
-from backend.app.agents.routing.intents import classify_intent
+from backend.app.agents.routing.intents import check_off_topic, classify_intent
 from backend.app.api.schemas.chat import (
     ChatRequest,
     ChatResponse,
@@ -13,7 +13,10 @@ from backend.app.api.schemas.chat import (
     RecommendedJob,
 )
 from backend.app.config.models import FINAL_CANDIDATE_K
-from backend.app.core.exceptions import AppError
+from backend.app.core.exceptions import AppError, BadRequestError
+from backend.app.guardrails.gates import gate_context
+from backend.app.guardrails.input import validate_text
+from backend.app.guardrails.output import validate_generated_text
 from backend.app.observability.logger import get_logger
 from backend.app.services.recommend import mock_recommend, mock_recommend_candidates
 
@@ -28,12 +31,78 @@ RECRUITER_CHITCHAT_RESPONSE = (
     "hoặc tìm kiếm ứng viên theo kỹ năng, số năm kinh nghiệm cụ thể."
 )
 INVALID_RESPONSE = "Nội dung không hợp lệ. Vui lòng mô tả yêu cầu rõ hơn."
+OUT_OF_SCOPE_RESPONSE = (
+    "Nội dung này không thuộc phạm vi hỗ trợ. "
+    "Tôi chỉ hỗ trợ CV, việc làm, tuyển dụng, ứng viên và định hướng kỹ năng nghề nghiệp."
+)
 UNSUPPORTED_LANGUAGE_RESPONSE = (
-    "Hệ thống chỉ hỗ trợ tiếng Việt và tiếng Anh. "
-    "Vui lòng gửi lại yêu cầu bằng tiếng Việt hoặc tiếng Anh."
+    "Hiện tại hệ thống hỗ trợ tiếng Việt và tiếng Anh. "
+    "Vui lòng gửi lại yêu cầu bằng một trong hai ngôn ngữ này."
+)
+UNKNOWN_RESPONSE = (
+    "Tôi chưa xác định được yêu cầu tuyển dụng của bạn. "
+    "Vui lòng nói rõ bạn muốn tìm việc, đánh giá CV, xem thiếu kỹ năng hay tìm ứng viên."
+)
+SAFE_OUTPUT_FALLBACK = "Không thể tạo phản hồi an toàn từ kết quả hiện tại. Vui lòng thử lại."
+
+_RECOMMEND_INTENTS = frozenset(
+    {
+        IntentType.RECOMMEND_GENERAL,
+        IntentType.SEARCH_BY_DOMAIN,
+        IntentType.LIST_AVAILABLE_JOBS,
+        IntentType.TARGET_SPECIFIC,
+    }
+)
+_EVALUATION_INTENTS = frozenset({IntentType.SKILL_GAP_ADVICE, IntentType.SELF_EVALUATE})
+_RECRUITER_MATCH_INTENTS = frozenset(
+    {
+        IntentType.RECRUITER_SCREEN,
+        IntentType.RECOMMEND_GENERAL,
+        IntentType.SEARCH_BY_DOMAIN,
+        IntentType.TARGET_SPECIFIC,
+    }
 )
 
 logger = get_logger(__name__)
+
+
+def _guard_chat_response(
+    response: ChatResponse,
+    *,
+    intent: IntentType,
+    expected_output: str,
+) -> ChatResponse:
+    guarded_text = validate_generated_text(
+        response.response,
+        max_chars=2_000,
+        fallback=SAFE_OUTPUT_FALLBACK,
+    )
+    if guarded_text.action == "fallback":
+        logger.warning("chat output fallback intent=%s codes=%s", intent.value, guarded_text.codes)
+        return response.model_copy(
+            update={"response": str(guarded_text.value), "jobs": [], "candidates": []}
+        )
+
+    jobs = list(response.jobs)
+    candidates = list(response.candidates)
+    mismatch = (
+        (expected_output == "text" and bool(jobs or candidates))
+        or (expected_output == "jobs" and bool(candidates))
+        or (expected_output == "candidates" and bool(jobs))
+    )
+    if mismatch:
+        logger.warning("chat output intent mismatch intent=%s expected=%s", intent.value, expected_output)
+        return response.model_copy(
+            update={"response": SAFE_OUTPUT_FALLBACK, "jobs": [], "candidates": []}
+        )
+
+    if expected_output != "jobs":
+        jobs = []
+    if expected_output != "candidates":
+        candidates = []
+    return response.model_copy(
+        update={"response": str(guarded_text.value), "jobs": jobs, "candidates": candidates}
+    )
 
 
 def _serialize_recommendations(response: ChatResponse) -> list[dict]:
@@ -68,6 +137,7 @@ AssertJobAccess = Callable[[UUID, UUID], Awaitable[None]]
 MatchCandidates = Callable[[UUID, UUID, str, str], Awaitable[ChatResponse]]
 RecommendJobs = Callable[[UUID, str, str], Awaitable[ChatResponse]]
 DispatchEvaluation = Callable[[UUID, str], Awaitable[ChatResponse]]
+ResolveIntent = Callable[[str], Awaitable[Any]]
 
 
 def chat_response_from_graph(result: dict[str, Any], max_results: int | None = None) -> ChatResponse:
@@ -135,6 +205,7 @@ class ChatService:
         match_candidates: MatchCandidates | None = None,
         recommend_jobs: RecommendJobs | None = None,
         dispatch_evaluation: DispatchEvaluation | None = None,
+        resolve_intent: ResolveIntent | None = None,
         supabase_client=None,
         client=None,
     ) -> None:
@@ -144,44 +215,70 @@ class ChatService:
         self._match_candidates = match_candidates
         self._recommend_jobs_fn = recommend_jobs
         self._dispatch_evaluation = dispatch_evaluation
+        self._resolve_intent = resolve_intent
         self._client = supabase_client if supabase_client is not None else client
 
     async def chat(self, request: ChatRequest, actor_id: UUID | None = None) -> ChatResponse:
+        validated = validate_text(request.message, source="chat", max_chars=5000)
+        guarded = gate_context(validated.text, source="chat", max_chars=5000)
+        if guarded.action == "block":
+            code = guarded.codes[0] if guarded.codes else "DATA_INJECTION_SIGNAL"
+            raise BadRequestError("Yêu cầu không an toàn để xử lý", code=code)
+        request = request.model_copy(update={"message": str(guarded.value)})
         classification = classify_intent(request.message)
+        if (
+            classification.intent in (IntentType.UNKNOWN, IntentType.OUT_OF_SCOPE)
+            and not check_off_topic(request.message)
+            and self._resolve_intent is not None
+        ):
+            try:
+                classification = await self._resolve_intent(request.message)
+            except Exception:
+                logger.exception("semantic intent fallback failed")
 
         # Determine session_id
         session_id = request.session_id or (uuid4() if actor_id is not None else None)
+        expected_output = "text"
 
-        # Validate job access for recruiter flow if job_id is provided
+        # Kiểm tra quyền truy cập công việc trước khi chạy luồng nhà tuyển dụng.
         if request.job_id is not None and actor_id is not None and self._assert_job_access is not None:
             await self._assert_job_access(actor_id, request.job_id)
 
-        # Short-circuit: unsupported language
+        # Dừng sớm các yêu cầu không cần gọi matching hoặc mô hình ngôn ngữ.
         if classification.intent == IntentType.UNSUPPORTED_LANGUAGE:
             response = ChatResponse(response=UNSUPPORTED_LANGUAGE_RESPONSE, session_id=session_id)
-        # Short-circuit: pure chitchat — no candidate/job matching, no LLM call
         elif classification.intent == IntentType.CHITCHAT:
             greeting = RECRUITER_CHITCHAT_RESPONSE if request.job_id is not None else CHITCHAT_RESPONSE
             response = ChatResponse(response=greeting, session_id=session_id)
-        # Short-circuit: invalid/off-topic/security probe input
-        elif classification.intent in (
-            IntentType.OUT_OF_SCOPE,
-            IntentType.CONTENT_TOO_SHORT,
-            IntentType.INVALID_FORMAT,
-        ):
+        elif classification.intent == IntentType.OUT_OF_SCOPE:
+            message = INVALID_RESPONSE if request.job_id is not None else OUT_OF_SCOPE_RESPONSE
+            response = ChatResponse(response=message, session_id=session_id)
+        elif classification.intent == IntentType.UNKNOWN:
+            response = ChatResponse(response=UNKNOWN_RESPONSE, session_id=session_id)
+        elif classification.intent in (IntentType.CONTENT_TOO_SHORT, IntentType.INVALID_FORMAT):
             response = ChatResponse(response=INVALID_RESPONSE, session_id=session_id)
         # Recruiter flow: match candidates against a job
         elif request.job_id is not None:
-            response = await self._recommend_candidates(request, actor_id)
-            response.session_id = session_id
+            if classification.intent in _RECRUITER_MATCH_INTENTS:
+                response = await self._recommend_candidates(request, actor_id)
+                expected_output = "candidates"
+            else:
+                response = ChatResponse(response=UNKNOWN_RESPONSE)
         # Evaluation flows (skill gap / self-evaluate)
-        elif classification.dispatch_target == "evaluation" and self._dispatch_evaluation is not None:
+        elif classification.intent in _EVALUATION_INTENTS and self._dispatch_evaluation is not None:
             response = await self._dispatch_evaluation(actor_id, request.message)
-            response.session_id = session_id
-        # Default: recommend jobs for candidate
-        else:
+        elif classification.intent in _RECOMMEND_INTENTS and classification.dispatch_target == "recommend":
             response = await self._recommend_jobs(request, actor_id)
-            response.session_id = session_id
+            expected_output = "jobs"
+        else:
+            response = ChatResponse(response=UNKNOWN_RESPONSE)
+
+        response.session_id = session_id
+        response = _guard_chat_response(
+            response,
+            intent=classification.intent,
+            expected_output=expected_output,
+        )
 
         # Save to history
         if actor_id is not None and self._client is not None and session_id is not None:

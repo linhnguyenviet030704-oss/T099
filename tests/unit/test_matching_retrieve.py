@@ -350,4 +350,3 @@ async def test_retrieve_for_job_includes_public_resumes(monkeypatch):
     assert c2["current_status"] == "job_seeking"
     assert c2["is_public_candidate"] is True
     assert c2["full_name"] == "Bob Smith"
-

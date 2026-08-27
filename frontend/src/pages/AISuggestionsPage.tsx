@@ -201,8 +201,6 @@ function JobRecommendationCard({
     </div>
   );
 }
-
-
 export default function AISuggestionsPage() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
@@ -1217,5 +1215,3 @@ export default function AISuggestionsPage() {
     </AnimatedPage>
   );
 }
-
-

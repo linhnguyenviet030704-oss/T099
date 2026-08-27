@@ -2,8 +2,6 @@
 
 import pytest
 
-pytest_plugins = ["respx"]
-
 
 @pytest.fixture
 def respx_mock():

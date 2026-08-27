@@ -111,5 +111,3 @@ class DeleteChatMessageResponse(BaseModel):
     message_id: UUID
     deleted: bool
     message: str
-
-

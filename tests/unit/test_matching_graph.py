@@ -420,9 +420,7 @@ async def test_matching_graph_retrieve_node_pool_trace_defaults_when_absent():
 
 @pytest.mark.asyncio
 async def test_matching_graph_has_no_router_or_kg_retrieval_nodes():
-    """router/kg_retrieval write intent+kg_context into AgentState but no
-    node in this graph reads either — they were wired for the recommend
-    graph and never connected here. This locks in their removal."""
+    """Graph matching bỏ router/KG nhưng vẫn giữ các node bảo vệ kết quả."""
     async def retrieve(_job_id):
         return {"jd_skills": [], "candidates": []}
 
@@ -430,4 +428,13 @@ async def test_matching_graph_has_no_router_or_kg_retrieval_nodes():
     node_names = set(graph.get_graph().nodes) - {"__start__", "__end__"}
     assert "router" not in node_names
     assert "kg_retrieval" not in node_names
-    assert node_names == {"retrieve", "skill", "rrf", "rerank", "explain", "respond"}
+    assert node_names == {
+        "retrieve",
+        "skill",
+        "rrf",
+        "rerank",
+        "snapshot",
+        "explain",
+        "output_guard",
+        "respond",
+    }

@@ -212,7 +212,6 @@ function CandidateCard({
     </div>
   );
 }
-
 export default function AICandidatePage() {
   const { user, session } = useAuth();
   const { error: toastError, success, info } = useToast();
@@ -1131,4 +1130,3 @@ export default function AICandidatePage() {
     </AnimatedPage>
   );
 }
-

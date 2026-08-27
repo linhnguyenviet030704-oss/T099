@@ -864,7 +864,7 @@ export default function RepoEvaluationPage() {
                 Agent Nghiên Cứu & Đánh Giá Git Repository
               </h1>
               <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                Dành cho Nhà tuyển dụng: Chọn vị trí công việc đã đăng, chọn CV ứng viên đã submit để tự động bóc tách dự án, 
+                Dành cho Nhà tuyển dụng: Chọn vị trí công việc đã đăng, chọn CV ứng viên đã submit để tự động bóc tách dự án,
                 truy vết repository GitHub và nghiên cứu đánh giá tuần tự theo 5 tiêu chí chuẩn quốc tế.
               </p>
             </div>

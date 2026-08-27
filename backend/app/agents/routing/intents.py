@@ -13,15 +13,22 @@ import re
 from typing import NamedTuple
 
 from backend.app.agents.evaluation.types import IntentType, RejectionReason
-
-# === Domain / location / title keywords ===
-
-_KNOWN_LOCATIONS = (
-    "hà nội", "hanoi", "tp hcm", "tphcm", "hồ chí minh", "ho chi minh",
-    "đà nẵng", "da nang", "hải phòng", "hai phong", "cần thơ", "can tho",
-    "bình dương", "binh duong", "đồng nai", "dong nai",
-    "remote", "online", "từ xa", "tai nha",
-    "vn", "việt nam", "vietnam",
+from backend.app.agents.routing.intent_patterns import (
+    BROWSE_BY_FILTER_KEYWORDS,
+    CHITCHAT_KEYWORDS,
+    EVALUATE_CV_KEYWORDS,
+    GENERIC_RECOMMEND_KEYWORDS,
+    KNOWN_COMPANIES,
+    KNOWN_DOMAINS,
+    KNOWN_LOCATIONS,
+    LIST_JOBS_KEYWORDS,
+    OFF_TOPIC_KEYWORDS,
+    RECRUITER_SCREEN_KEYWORDS,
+    RECRUITMENT_DOMAIN_KEYWORDS,
+    SKILL_GAP_KEYWORDS,
+    USE_CV_KEYWORDS,
+    contains_unsupported_script,
+    fold_text,
 )
 
 _KNOWN_DOMAINS = (
@@ -281,7 +288,7 @@ def is_supported_language(text: str) -> tuple[bool, str | None]:
         vi_count = sum(1 for w in words if w in _VIETNAMESE_WORDS)
         en_count = sum(
             1 for w in words
-            if w in _ENGLISH_WORDS or w in _KNOWN_DOMAINS or w in _KNOWN_COMPANIES or w in _KNOWN_LOCATIONS
+            if w in _ENGLISH_WORDS or w in _KNOWN_DOMAINS or w in _KNOWN_COMPANIES or w in KNOWN_LOCATIONS
         )
 
         if foreign_matches >= 1 and foreign_matches >= vi_count and foreign_matches >= en_count:
@@ -298,7 +305,7 @@ def is_supported_language(text: str) -> tuple[bool, str | None]:
     vi_count = sum(1 for w in words if w in _VIETNAMESE_WORDS)
     en_count = sum(
         1 for w in words
-        if w in _ENGLISH_WORDS or w in _KNOWN_DOMAINS or w in _KNOWN_COMPANIES or w in _KNOWN_LOCATIONS
+        if w in _ENGLISH_WORDS or w in _KNOWN_DOMAINS or w in _KNOWN_COMPANIES or w in KNOWN_LOCATIONS
     )
 
     if vi_count > en_count:
@@ -308,6 +315,8 @@ def is_supported_language(text: str) -> tuple[bool, str | None]:
 
 # === Content validation ===
 
+# Luồng xác thực đầy đủ yêu cầu đủ nội dung trước khi chuyển sang agent phía sau.
+# ChatService vẫn xử lý riêng các câu hội thoại ngắn như "hi" hoặc "xin chào".
 MIN_CONTENT_LENGTH = 100
 MAX_INPUT_LENGTH = 50000
 
@@ -315,12 +324,6 @@ SENSITIVE_PATTERNS = [
     r"\b\d{3}[-\s]?\d{3}[-\s]?\d{4}\b",
     r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
 ]
-
-OFF_TOPIC_KEYWORDS = [
-    "thời tiết", "tin tức thế giới", "chứng khoán", "crypto", "bitcoin",
-    "nấu ăn", "du lịch không liên quan", "y tế không liên quan",
-]
-
 
 # === Classification result ===
 
@@ -348,40 +351,51 @@ class IntentClassification(NamedTuple):
 # === Helper functions ===
 
 def _match_any(text: str, keywords: tuple[str, ...]) -> bool:
-    for kw in keywords:
-        if len(kw) <= 3:
-            if re.search(rf"(?:\b|^|\s){re.escape(kw)}(?:\b|$|\s)", text):
+    normalized = text.casefold()
+    folded = fold_text(normalized)
+    for keyword in keywords:
+        normalized_keyword = keyword.casefold()
+        folded_keyword = fold_text(keyword)
+        if len(folded_keyword) <= 3 and folded_keyword.isalnum():
+            if re.search(rf"\b{re.escape(normalized_keyword)}\b", normalized) or re.search(
+                rf"\b{re.escape(folded_keyword)}\b", folded
+            ):
                 return True
-        else:
-            if kw in text:
-                return True
+        elif normalized_keyword in normalized or folded_keyword in folded:
+            return True
     return False
 
 
 def _extract_location(text: str) -> str | None:
-    text_lower = text.lower()
-    for loc in _KNOWN_LOCATIONS:
-        if loc in text_lower:
+    text_lower = text.casefold()
+    text_folded = fold_text(text_lower)
+    for loc in KNOWN_LOCATIONS:
+        if loc.casefold() in text_lower or fold_text(loc) in text_folded:
             return loc
     return None
 
 
 def _extract_domain(text: str) -> str | None:
-    text_lower = text.lower()
-    for dom in _KNOWN_DOMAINS:
+    text_lower = text.casefold()
+    text_folded = fold_text(text_lower)
+    for dom in KNOWN_DOMAINS:
+        dom_folded = fold_text(dom)
         if len(dom) <= 3:
-            if re.search(rf"\b{re.escape(dom)}\b", text_lower):
+            if re.search(rf"\b{re.escape(dom.casefold())}\b", text_lower) or re.search(
+                rf"\b{re.escape(dom_folded)}\b", text_folded
+            ):
                 return dom
         else:
-            if dom in text_lower:
+            if dom.casefold() in text_lower or dom_folded in text_folded:
                 return dom
     return None
 
 
 def _extract_company(text: str) -> str | None:
-    text_lower = text.lower()
-    for comp in _KNOWN_COMPANIES:
-        if comp in text_lower:
+    text_lower = text.casefold()
+    text_folded = fold_text(text_lower)
+    for comp in KNOWN_COMPANIES:
+        if comp.casefold() in text_lower or fold_text(comp) in text_folded:
             return comp
     return None
 
@@ -394,7 +408,7 @@ def _extract_job_number(text: str) -> str | None:
 def _is_chitchat_only(text: str) -> bool:
     """Pure chitchat - no recruitment content."""
     text_lower = text.lower().strip()
-    if not _match_any(text_lower, _CHITCHAT_KEYWORDS):
+    if not _match_any(text_lower, CHITCHAT_KEYWORDS):
         return False
     # If has recruitment-related terms, it's not pure chitchat
     recruitment_kw = (
@@ -406,7 +420,7 @@ def _is_chitchat_only(text: str) -> bool:
 
 def _has_cv_mention(text: str) -> bool:
     """Check if user explicitly mentions their CV."""
-    return _match_any(text.lower(), _USE_CV_KEYWORDS)
+    return _match_any(text.lower(), USE_CV_KEYWORDS)
 
 
 def _has_filter_query(text: str) -> bool:
@@ -424,27 +438,33 @@ def classify_intent(message: str) -> IntentClassification:
     """
     Classify user intent with CV/DB usage flags.
 
-    Priority order:
-    0. Language validation (reject non-English / non-Vietnamese)
-    1. Security & Prompt Injection probe / Off-topic
-    2. Chitchat (no recruitment context)
-    3. Skill gap (always CV-based)
-    4. Evaluate CV (deep evaluation)
-    5. List jobs / browse by filter (NO CV)
-    6. Use CV explicitly (CV-based matching)
-    7. Default: browse jobs / recommend general
+    Thứ tự ưu tiên: kiểm tra ngôn ngữ và an toàn, hội thoại, ngoài phạm vi,
+    sau đó mới phân loại các intent tuyển dụng cụ thể.
     """
     raw_text = (message or "").strip()
     if not raw_text:
         return IntentClassification(
-            intent=IntentType.RECOMMEND_GENERAL,
-            needs_db=True,
-            needs_cv=True,
-            dispatch_target="recommend",
-            requires_user_cv=True,
-            needs_vector_search=True,  # Default job search needs VS
+            intent=IntentType.UNKNOWN,
+            needs_db=False,
+            needs_cv=False,
+            dispatch_target=None,
+            requires_user_cv=False,
+            needs_vector_search=False,
             db_query_params={},
-            kg_params={"entity_name": "target_job"},
+            kg_params={},
+        )
+
+    # Chỉ Việt–Anh được phép đi tiếp vào phân loại nghiệp vụ.
+    if contains_unsupported_script(raw_text):
+        return IntentClassification(
+            intent=IntentType.UNSUPPORTED_LANGUAGE,
+            needs_db=False,
+            needs_cv=False,
+            dispatch_target=None,
+            requires_user_cv=False,
+            needs_vector_search=False,
+            db_query_params={},
+            kg_params={},
         )
 
     # === 0. Language Check (Reject non-English and non-Vietnamese) ===
@@ -489,8 +509,34 @@ def classify_intent(message: str) -> IntentClassification:
             kg_params={},
         )
 
-    # === 2. Skill gap (CV-based, no DB needed for jobs) ===
-    if _match_any(text, _SKILL_GAP_KEYWORDS):
+    # === 2. Explicitly out of recruitment scope ===
+    if _match_any(text, OFF_TOPIC_KEYWORDS):
+        return IntentClassification(
+            intent=IntentType.OUT_OF_SCOPE,
+            needs_db=False,
+            needs_cv=False,
+            dispatch_target=None,
+            requires_user_cv=False,
+            needs_vector_search=False,
+            db_query_params={},
+            kg_params={},
+        )
+
+    # === 3. Recruiter candidate screening ===
+    if _match_any(text, RECRUITER_SCREEN_KEYWORDS):
+        return IntentClassification(
+            intent=IntentType.RECRUITER_SCREEN,
+            needs_db=True,
+            needs_cv=True,
+            dispatch_target="matching",
+            requires_user_cv=False,
+            needs_vector_search=True,
+            db_query_params={},
+            kg_params={"entity_name": "candidate_profile"},
+        )
+
+    # === 4. Skill gap (CV-based, no DB needed for jobs) ===
+    if _match_any(text, SKILL_GAP_KEYWORDS):
         return IntentClassification(
             intent=IntentType.SKILL_GAP_ADVICE,
             needs_db=False,
@@ -505,8 +551,8 @@ def classify_intent(message: str) -> IntentClassification:
             },
         )
 
-    # === 3. Deep CV evaluation ===
-    if _match_any(text, _EVALUATE_CV_KEYWORDS):
+    # === 5. Deep CV evaluation ===
+    if _match_any(text, EVALUATE_CV_KEYWORDS):
         return IntentClassification(
             intent=IntentType.SELF_EVALUATE,
             needs_db=False,
@@ -518,8 +564,8 @@ def classify_intent(message: str) -> IntentClassification:
             kg_params={"entity_name": "cv_profile", "relation_type": "STRENGTHS"},
         )
 
-    # === 4. List available jobs (browse only, NO CV) ===
-    if _match_any(text, _LIST_JOBS_KEYWORDS):
+    # === 6. List available jobs (browse only, NO CV) ===
+    if _match_any(text, LIST_JOBS_KEYWORDS):
         return IntentClassification(
             intent=IntentType.LIST_AVAILABLE_JOBS,
             needs_db=True,
@@ -534,10 +580,10 @@ def classify_intent(message: str) -> IntentClassification:
             kg_params={},
         )
 
-    # === 5. Browse by filter (NO CV) ===
+    # === 7. Browse by filter (NO CV) ===
     # Examples: "Tìm việc AI Engineer", "Công việc Python tại Hà Nội"
     has_filter = _has_filter_query(text)
-    has_browse_kw = _match_any(text, _BROWSE_BY_FILTER_KEYWORDS)
+    has_browse_kw = _match_any(text, BROWSE_BY_FILTER_KEYWORDS)
 
     if has_browse_kw and has_filter and not _has_cv_mention(text):
         domain = _extract_domain(text)
@@ -561,7 +607,7 @@ def classify_intent(message: str) -> IntentClassification:
             kg_params={"entity_name": domain or "target_job"},
         )
 
-    # === 6. Use CV explicitly ===
+    # === 8. Use CV explicitly ===
     if _has_cv_mention(text):
         return IntentClassification(
             intent=IntentType.RECOMMEND_GENERAL,
@@ -577,7 +623,7 @@ def classify_intent(message: str) -> IntentClassification:
             kg_params={"entity_name": _extract_domain(text) or "cv_profile"},
         )
 
-    # === 7. Target specific company ===
+    # === 9. Target specific company ===
     company = _extract_company(text)
     if company:
         return IntentClassification(
@@ -591,7 +637,20 @@ def classify_intent(message: str) -> IntentClassification:
             kg_params={"entity_name": company, "relation_type": "CAREER_PATH"},
         )
 
-    # === Default: recommend general ===
+    # === 10. Generic but explicit recruitment request ===
+    if _match_any(text, GENERIC_RECOMMEND_KEYWORDS):
+        return IntentClassification(
+            intent=IntentType.RECOMMEND_GENERAL,
+            needs_db=True,
+            needs_cv=True,
+            dispatch_target="recommend",
+            requires_user_cv=True,
+            needs_vector_search=True,
+            db_query_params={},
+            kg_params={"entity_name": "target_job"},
+        )
+
+    # === 11. Domain-only recruitment query ===
     # If has domain but no browse keyword, still browse by domain (no CV)
     if _extract_domain(text):
         return IntentClassification(
@@ -605,15 +664,30 @@ def classify_intent(message: str) -> IntentClassification:
             kg_params={"entity_name": _extract_domain(text)},
         )
 
+    # Vague recruitment wording is still in-domain, but must not silently
+    # trigger retrieval/provider work without a supported intent.
+    if _match_any(text, RECRUITMENT_DOMAIN_KEYWORDS):
+        return IntentClassification(
+            intent=IntentType.UNKNOWN,
+            needs_db=False,
+            needs_cv=False,
+            dispatch_target=None,
+            requires_user_cv=False,
+            needs_vector_search=False,
+            db_query_params={},
+            kg_params={},
+        )
+
+    # Không nhận diện được thì đóng luồng, không tự động gọi DB/provider.
     return IntentClassification(
-        intent=IntentType.RECOMMEND_GENERAL,
-        needs_db=True,
-        needs_cv=True,
-        dispatch_target="recommend",
-        requires_user_cv=True,
-        needs_vector_search=True,
+        intent=IntentType.OUT_OF_SCOPE,
+        needs_db=False,
+        needs_cv=False,
+        dispatch_target=None,
+        requires_user_cv=False,
+        needs_vector_search=False,
         db_query_params={},
-        kg_params={"entity_name": "target_job"},
+        kg_params={},
     )
 
 
@@ -645,7 +719,7 @@ def check_sensitive_content(text: str) -> bool:
 def check_off_topic(text: str) -> bool:
     """Check if input is clearly off-topic."""
     text_lower = text.lower()
-    off_topic_count = sum(1 for kw in OFF_TOPIC_KEYWORDS if kw in text_lower)
+    off_topic_count = sum(1 for keyword in OFF_TOPIC_KEYWORDS if _match_any(text_lower, (keyword,)))
 
     if off_topic_count >= 2:
         return True
@@ -654,6 +728,6 @@ def check_off_topic(text: str) -> bool:
         "cv", "resume", "job", "việc", "tuyển", "ứng", "hồ sơ",
         "kỹ năng", "skill", "experience", "kinh nghiệm",
     )
-    has_recruitment = any(kw in text_lower for kw in recruitment_keywords)
+    has_recruitment = _match_any(text_lower, recruitment_keywords)
 
     return off_topic_count > 0 and not has_recruitment

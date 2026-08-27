@@ -20,6 +20,7 @@ class CandidateIdentity:
     full_name: str | None = None
     email: str | None = None
     resume_title: str | None = None
+    entity_id_field: str = "application_id"
 
 
 @dataclass
@@ -55,12 +56,14 @@ def anonymize_candidates(candidates: list[dict[str, Any]], prefix: str = "CAND_"
     for idx, row in enumerate(candidates):
         anon_id = f"{prefix}{idx + 1:03d}"
 
+        entity_id_field = "job_id" if row.get("job_id") and not row.get("application_id") else "application_id"
         identity = CandidateIdentity(
-            application_id=str(row.get("application_id") or row.get("job_id") or ""),
+            application_id=str(row.get(entity_id_field) or ""),
             applicant_user_id=str(row.get("applicant_user_id") or ""),
             full_name=row.get("full_name"),
             email=row.get("email"),
             resume_title=row.get("resume_title"),
+            entity_id_field=entity_id_field,
         )
 
         result.id_map[anon_id] = identity
@@ -73,6 +76,12 @@ def anonymize_candidates(candidates: list[dict[str, Any]], prefix: str = "CAND_"
         anon_row.pop("full_name", None)
         anon_row.pop("email", None)
         anon_row.pop("resume_title", None)
+        anon_row.pop("application_id", None)
+        anon_row.pop("applicant_user_id", None)
+        anon_row.pop("job_id", None)
+        anon_row.pop("resume_id", None)
+        anon_row.pop("resume_storage_path", None)
+        anon_row.pop("storage_path", None)
 
         result.candidates.append(anon_row)
 
@@ -110,8 +119,9 @@ def deanonymize_candidates(
         restored.pop("_anon_id", None)
 
         if identity:
-            restored["application_id"] = identity.application_id
-            restored["applicant_user_id"] = identity.applicant_user_id
+            restored[identity.entity_id_field] = identity.application_id
+            if identity.applicant_user_id:
+                restored["applicant_user_id"] = identity.applicant_user_id
             restored["full_name"] = identity.full_name
             restored["email"] = identity.email
             restored["resume_title"] = identity.resume_title

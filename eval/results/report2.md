@@ -6,7 +6,7 @@
 
 ## 1. Câu hỏi
 
-Số liệu ranking quality trong `evaluation/golden/results/report.md` (P@5=0.73, NDCG@5=0.57, MRR=0.32 chiều
+Số liệu ranking quality trong `evaluation/golden/results/report.md` (P@5=0.73, NDCG@5=0.58, MRR=0.32 chiều
 JD→CV) có vẻ thấp so với kỳ vọng cho một hệ thống hybrid BM25 + semantic + skill taxonomy. Tại sao?
 
 ## 2. Điều tra
@@ -58,9 +58,9 @@ BM25+dense mà production thật sự phục vụ người dùng.**
 |---|---|---|---|
 | P@5 | 0.73 | **0.83** | +0.10 |
 | R@5 | 0.35 | **0.41** | +0.06 |
-| NDCG@5 | 0.57 | **0.72** | +0.15 |
+| NDCG@5 | 0.58 | **0.72** | +0.14 |
 | P@10 | 0.68 | **0.73** | +0.05 |
-| R@10 | 0.60 | **0.65** | +0.05 |
+| R@10 | 0.61 | **0.65** | +0.04 |
 | NDCG@10 | 0.66 | **0.78** | +0.12 |
 | MRR | 0.32 | **0.49** | +0.17 |
 
@@ -91,9 +91,10 @@ nhiều JD liên quan vào top-10 (ảnh hưởng recall). Đây là kết quả
 `metadata["titles"]` (chức danh CV, đã "grounded" chống bịa) làm query, fallback `metadata["summary"]`, chỉ
 fallback về toàn văn CV khi cả hai đều rỗng — thay vì luôn dùng toàn văn CV. Kết quả: **MRR và NDCG không chỉ
 phục hồi mà còn vượt cả baseline gốc trước khi có bug** (MRR 0.44→0.38→**0.46**; NDCG@10 0.80→0.78→**0.84**),
-calibration top-3 cải thiện rõ (25/40→**30/40**). Precision/Recall giữ nguyên hoặc nhích nhẹ, không có đánh
-đổi. Xác nhận nguyên nhân gốc rễ đúng như phân tích ở trên, và fix giải quyết trọn vẹn — không còn khoảng
-trống cần điều tra thêm cho hướng này.
+calibration top-3 cải thiện rõ (25/40→**30/40**). Precision/Recall hầu hết giữ nguyên hoặc nhích nhẹ; ngoại lệ
+duy nhất là R@10 giảm nhẹ so với cột giữa (0.85→0.84, −0.01), không đáng kể so với mức tăng của MRR/NDCG/
+calibration. Xác nhận nguyên nhân gốc rễ đúng như phân tích ở trên, và fix giải quyết phần lớn vấn đề —
+không còn khoảng trống đáng kể cần điều tra thêm cho hướng này.
 
 ## 5. Việc còn lại
 

@@ -5,13 +5,12 @@ import json
 import pytest
 
 from backend.app.core.llm_evaluator import (
-    RepoEvaluator,
     RepoEvaluationResult,
+    RepoEvaluator,
     RepoMetadata,
     RepoMetricScore,
     _heuristic_result,
 )
-
 
 # =============================================================================
 # Fixtures

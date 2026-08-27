@@ -177,7 +177,7 @@ class TestEvaluationDispatch:
         request = ChatRequest(message="Tôi cần học gì để làm AI Engineer")
         actor_id = uuid4()
 
-        response = await service.chat(request, actor_id=actor_id)
+        await service.chat(request, actor_id=actor_id)
 
         assert recommend_called is False
         assert eval_called_with is not None
@@ -230,7 +230,7 @@ class TestRecommendDispatch:
         request = ChatRequest(message="Tìm việc AI Engineer tại Hà Nội")
         actor_id = uuid4()
 
-        response = await service.chat(request, actor_id=actor_id)
+        await service.chat(request, actor_id=actor_id)
 
         assert recommend_called_with is not None
         assert recommend_called_with[0] == actor_id
@@ -262,7 +262,7 @@ class TestRecommendDispatch:
         request = ChatRequest(message="Tìm ứng viên phù hợp", job_id=uuid4())
         actor_id = uuid4()
 
-        response = await service.chat(request, actor_id=actor_id)
+        await service.chat(request, actor_id=actor_id)
 
         assert recommend_called is True
 

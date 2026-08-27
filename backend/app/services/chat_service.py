@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID, uuid4
 
 from backend.app.agents.evaluation.types import IntentType
 from backend.app.agents.routing.intents import classify_intent
-from backend.app.api.schemas.chat import ChatRequest, ChatResponse, RecommendationItem, RecommendedCandidate, RecommendedJob
+from backend.app.api.schemas.chat import (
+    ChatRequest,
+    ChatResponse,
+    RecommendedCandidate,
+    RecommendedJob,
+)
 from backend.app.config.models import FINAL_CANDIDATE_K
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger

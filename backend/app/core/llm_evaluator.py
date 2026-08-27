@@ -11,7 +11,7 @@ import html
 import json
 import logging
 import re
-from typing import Any, Callable
+from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
@@ -128,7 +128,6 @@ def _heuristic_result(metadata: RepoMetadata) -> RepoEvaluationResult:
     scores. LLM is far more accurate; this is a last-resort fallback.
     """
     stars = metadata.stars
-    forks = metadata.forks
     has_readme = bool(metadata.readme_preview)
     lang = (metadata.language or "").lower()
 

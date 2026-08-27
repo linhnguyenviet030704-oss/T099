@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel, Field
 
 from backend.app.agents.eval.graph import agent1_graph

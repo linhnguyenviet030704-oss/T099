@@ -1,5 +1,6 @@
 import json
 from uuid import UUID
+
 from fastapi import APIRouter, Depends
 
 from backend.app.api.schemas.chat import (
@@ -17,7 +18,6 @@ from backend.app.api.schemas.chat import (
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
-
 from backend.app.dependencies.auth import get_current_user
 from backend.app.dependencies.services import get_chat_service, get_profile_service
 from backend.app.guardrails.rate_limit import enforce_chat_rate_limit

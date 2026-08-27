@@ -7,6 +7,19 @@
 - Thay thế vai trò mốc tham chiếu của [`docs/evaluation.md`](evaluation.md) (giữ nguyên file cũ để đối chiếu lịch sử — lưu ý file cũ dùng golden dataset **v1** 10 JD × 20 CV, còn baseline này dùng golden dataset **v2** 20 JD × 40 CV, nên số liệu quality hai file **không so sánh trực tiếp được**, xem mục 6).
 - Tài liệu nguồn: [spec](superpowers/specs/2026-08-27-rag-full-benchmark-design.md), [plan](superpowers/plans/2026-08-27-rag-full-benchmark.md).
 
+## 0. Addendum 2026-08-27 (sau baseline): fix BM25 bị thiếu trong golden eval harness
+
+Đọc lại code RAG agent thật (`backend/app/services/matching/{retrieve,retrieve_jobs,rrf,rrf_jobs}.py` +
+cách nối dây trong `backend/app/dependencies/services.py`) xác nhận **production đã implement BM25 đầy đủ ở
+cả 2 chiều** (JD→CV lẫn CV→JD) và fuse RRF đúng thiết kế — không có bug trong code agent. Bug nằm ở harness
+`evaluation/golden/run_eval.py`: nó không hề tính `bm25_score` (bỏ trống ở chiều JD→CV, set cứng `0.0` ở
+chiều CV→JD), nên các con số quality ở mục 2 và mục 3 dưới đây (bảng gốc, giữ nguyên không xoá) thực chất đo
+một pipeline **dense-only**, thấp hơn hệ thống hybrid BM25+dense mà production thật sự chạy. Đã sửa harness
+để tính BM25 thật khớp production, và tiện thể áp fix hiệu năng đã nêu ở mục 7.2 (cache `matching_tokens()`).
+Chi tiết điều tra + số liệu so sánh đầy đủ: [`eval/results/report2.md`](../eval/results/report2.md). Bảng
+gốc trong mục 2/mục 3 bên dưới **giữ nguyên** (không ghi đè) để đối chiếu lịch sử; số liệu mới được thêm
+thành bảng "trước/sau" ngay cạnh mỗi bảng gốc.
+
 ## 1. Ingest Agent
 
 Nguồn: [`evaluation/ingest_eval_v2/results/report.md`](../evaluation/ingest_eval_v2/results/report.md) (77 CV, chạy lại toàn bộ ngày 2026-08-27).
@@ -44,6 +57,17 @@ Quality: faithfulness 0.99 (so với 1.00), skill precision 0.91 (không đổi)
 |---|---|---|---|---|---|---|
 | 0.73 | 0.35 | 0.57 | 0.68 | 0.60 | 0.66 | 0.32 |
 
+**Sau fix BM25 golden eval (mục 0)** — cùng golden dataset v2, cùng qrels đã cache, chỉ đổi cách tính ranking:
+
+| | P@5 | R@5 | NDCG@5 | P@10 | R@10 | NDCG@10 | MRR |
+|---|---|---|---|---|---|---|---|
+| Trước (dense-only, bug) | 0.73 | 0.35 | 0.57 | 0.68 | 0.60 | 0.66 | 0.32 |
+| Sau (hybrid BM25+dense) | **0.83** | **0.41** | **0.72** | **0.73** | **0.65** | **0.78** | **0.49** |
+| Chênh lệch | +0.10 | +0.06 | +0.15 | +0.05 | +0.05 | +0.12 | +0.17 |
+
+Cải thiện đều trên toàn bộ metric — tín hiệu BM25 (khớp từ khoá cứng: tên công nghệ, chức danh) bù cho những
+chỗ dense embedding bỏ sót hoặc pha loãng.
+
 ## 3. Recommend Agent (CV→JD)
 
 **Latency per-node** (score-path và advice-path) — [`evaluation/recommend_perf/results/report.md`](../evaluation/recommend_perf/results/report.md) (5/40 CV, 1 lần lặp/path):
@@ -80,6 +104,22 @@ Advice path (`router → retrieve → kg_retrieval → advice`, khi intent là S
 | 0.62 | 0.57 | 0.74 | 0.49 | 0.81 | 0.80 | 0.44 |
 
 Calibration: 26/40 CV có JD gốc lọt top-3 trong xếp hạng 20 JD.
+
+**Sau fix BM25 golden eval (mục 0)** — cùng golden dataset v2, cùng qrels đã cache, chỉ đổi cách tính ranking:
+
+| | P@5 | R@5 | NDCG@5 | P@10 | R@10 | NDCG@10 | MRR | Calibration top-3 |
+|---|---|---|---|---|---|---|---|---|
+| Trước (dense-only, bug) | 0.62 | 0.57 | 0.74 | 0.49 | 0.81 | 0.80 | 0.44 | 26/40 |
+| Sau (hybrid BM25+dense) | **0.64** | **0.61** | 0.72 | **0.51** | **0.85** | 0.78 | 0.38 | 25/40 |
+| Chênh lệch | +0.02 | +0.04 | −0.02 | +0.02 | +0.04 | −0.02 | −0.06 | −1 |
+
+Không cải thiện đều như chiều JD→CV: precision/recall nhích lên nhưng NDCG/MRR/calibration giảm nhẹ. Giả
+thuyết: `bm25_query()` ở chiều này dùng **toàn bộ text CV** làm query (so với chiều JD→CV chỉ dùng title +
+skill list ngắn gọn) — query dài, nhiều nhiễu hơn có thể kéo một vài JD không thật sự khớp lên hạng cao qua
+kênh BM25, lệch vị trí top-1 (ảnh hưởng MRR/calibration) dù vẫn kéo đúng nhiều JD liên quan vào top-10 (ảnh
+hưởng recall). Đây là kết quả thật của đúng logic RRF production đang chạy (`rrf_jobs.py`), không phải lỗi
+đo — nhưng là hướng điều tra tiếp theo đáng chú ý (ví dụ: rút gọn/trọng số hoá BM25 query chiều CV→JD thay
+vì dùng nguyên văn CV). Chi tiết xem [`eval/results/report2.md`](../eval/results/report2.md) mục 4.2.
 
 ## 4. Service RAG lõi
 
@@ -120,6 +160,15 @@ Cả `matching_perf` và `recommend_perf` cache LLM response theo `cache_key=f".
 ### 7.2. `bm25_scores` — ưu tiên tối ưu compute-local cao nhất
 
 ~1.38s cho 40 tài liệu ngắn là bất thường (mục 4). Hướng điều tra: có tokenize/tính IDF lại từ đầu mỗi lần gọi `bm25_scores()` không (nên cache theo corpus nếu corpus không đổi giữa các lần gọi trong 1 request), hay `_SPLIT`/`STOPWORDS` regex có đang chạy trên object lớn không cần thiết. Vì `bm25_scores` được gọi trong đường retrieve thật (`backend/app/services/matching/retrieve.py`) cho mỗi request, đây có thể là bottleneck ẩn không xuất hiện rõ trong `matching_perf`/`recommend_perf` vì 2 benchmark đó dùng fixture với `bm25_score=0.0` cố định (không thực sự gọi `bm25_scores` qua graph — xem ghi chú trong `evaluation/matching_perf/fixtures.py`).
+
+**Cập nhật 2026-08-27 (đợt fix BM25 golden eval, mục 0):** đã thêm `@lru_cache(maxsize=4096)` lên
+`matching_tokens()` trong `backend/app/services/matching/bm25.py` — xác nhận root cause một phần: benchmark
+`compute_local_bench.py` gọi `bm25_scores(docs, query)` với **cùng một bộ `docs`/`query`** 50 lần liên tiếp
+(`time_callable(..., repeats=50)`), nên phần lớn "1.38s" đo được là chi phí tokenize lại y hệt nhau từ đầu ở
+mỗi lần lặp — cache cắt gần hết chi phí đó từ lần gọi thứ 2 trở đi, và phản ánh đúng tình huống thật (pool
+job/CV không đổi giữa nhiều request liên tiếp). **Chưa chạy lại `compute_local_bench.py` để lấy số latency
+mới** (đợt này chỉ chạy quality eval theo yêu cầu) — cần chạy ở đợt sau để cập nhật bảng mục 4. Lưu ý: cache
+chỉ cắt chi phí cho văn bản đã gặp trước đó — lần đầu gặp 1 CV/JD mới vẫn tốn chi phí gốc.
 
 ### 7.3. `summarize` (Ingest) và `explain`/`advice` (Matching/Recommend) là LLM-call, chiếm >80-99% latency mỗi graph
 

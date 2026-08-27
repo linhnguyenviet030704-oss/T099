@@ -126,7 +126,15 @@ def _protect_aliases(text: str) -> str:
     return combined.sub(repl, text)
 
 
+@lru_cache(maxsize=4096)
 def matching_tokens(text: str, *, drop_stopwords: bool = False) -> list[str]:
+    """Cached because bm25_scores() is routinely called with a corpus that's
+    unchanged from the previous call (the same ~200 published-job pool scored
+    per recommend request, the same candidate pool re-scored on every matching
+    re-run) — re-running extract_skills' taxonomy scan + _protect_aliases'
+    alias substitution over identical text is pure waste. Safe to cache: pure
+    function of its arguments, and every caller (bm25_scores) only iterates
+    the returned list, never mutates it."""
     injected = extract_skills(text)
     protected = _protect_aliases(text)
 

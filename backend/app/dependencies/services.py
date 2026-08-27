@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import Depends
 
 from backend.app.agents.evaluation import EvaluationAgent
 from backend.app.agents.evaluation.types import EvaluationType, IntentType
 from backend.app.agents.routing.intents import classify_intent
+from backend.app.agents.routing.semantic import classify_intent_semantically
 from backend.app.agents.matching.graph import build_matching_graph
 from backend.app.agents.recommend.graph import build_recommend_graph
 from backend.app.api.schemas.chat import ChatResponse
@@ -50,6 +53,15 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
     # Get per-agent brains with correct models
     matching_brain = get_brain("matching")
     recommend_brain = get_brain("recommend")
+    routing_brain = get_brain("routing")
+
+    async def resolve_intent(message):
+        # Lời gọi provider là đồng bộ, chuyển sang thread để không chặn event loop.
+        return await asyncio.to_thread(
+            classify_intent_semantically,
+            message,
+            complete=routing_brain.chat,
+        )
 
     async def fetch_jobs() -> list:
         return await list_published_jobs(client)
@@ -246,7 +258,8 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
 
     return ChatService(
         fetch_jobs, fetch_candidates, assert_access, match_candidates,
-        recommend_jobs, dispatch_evaluation=dispatch_evaluation, supabase_client=client,
+        recommend_jobs, dispatch_evaluation=dispatch_evaluation,
+        resolve_intent=resolve_intent, supabase_client=client,
     )
 
 

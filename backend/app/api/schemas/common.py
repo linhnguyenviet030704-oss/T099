@@ -37,5 +37,3 @@ class DeleteResumeResponse(BaseModel):
     id: str
     deleted: bool
     message: str
-
-

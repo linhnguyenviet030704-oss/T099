@@ -241,5 +241,3 @@ async def delete_resume(
         deleted=True,
         message="Đã xóa CV thành công.",
     )
-
-

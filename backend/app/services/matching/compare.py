@@ -17,6 +17,8 @@ from backend.app.api.schemas.compare import (
 )
 from backend.app.clients.llm import chat_complete
 from backend.app.core.exceptions import AppError, NotFoundError
+from backend.app.guardrails.gates import gate_context
+from backend.app.guardrails.output import validate_generated_text
 from backend.app.observability.logger import get_logger
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.skills import extract_skills
@@ -42,9 +44,6 @@ def _strip_fence(raw: str) -> str:
 
 def _clean_cv_text_for_prompt(markdown: str, metadata: dict[str, Any] | None = None) -> str:
     text = (markdown or "").strip()
-    # Remove obvious PII patterns as safeguard
-    text = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL ĐÃ ẨN]", text)
-    text = re.sub(r"(?:\+?84|0)(?:3|5|7|8|9)\d(?:[\s.-]?\d){7,8}", "[SĐT ĐÃ ẨN]", text)
     if not text and metadata:
         parts = []
         if metadata.get("summary"):
@@ -52,7 +51,10 @@ def _clean_cv_text_for_prompt(markdown: str, metadata: dict[str, Any] | None = N
         if metadata.get("skills"):
             parts.append(f"Kỹ năng: {', '.join(str(s) for s in metadata['skills'])}")
         text = "\n".join(parts)
-    return text[:3000] if len(text) > 3000 else (text or "Hồ sơ chưa có mô tả chi tiết.")
+    decision = gate_context(text, source="cv", max_chars=3000)
+    if decision.action == "block" or not decision.value:
+        return "Hồ sơ chưa có mô tả chi tiết."
+    return str(decision.value)
 
 
 def _parse_llm_response(raw: str) -> list[dict[str, Any]]:
@@ -275,10 +277,11 @@ async def compare_candidates_for_job(
     if job.get("requirements"):
         jd_parts.append(f"Yêu cầu công việc:\n{job['requirements']}")
     jd_text = "\n\n".join(jd_parts)
+    guarded_jd = gate_context(jd_text, source="jd", max_chars=8000)
     anonymized_cvs_text = "\n".join(anonymized_cv_blocks)
 
     prompt = COMPARE_PROMPT_TEMPLATE.replace(
-        "{job_description_and_requirements}", jd_text
+        "{job_description_and_requirements}", str(guarded_jd.value)
     ).replace(
         "{anonymized_cvs}", anonymized_cvs_text
     )
@@ -287,6 +290,8 @@ async def compare_candidates_for_job(
     fn = complete or chat_complete
     parsed_results: list[dict[str, Any]] = []
     try:
+        if guarded_jd.action == "block" or not guarded_jd.value:
+            raise ValueError("job context blocked by safety gate")
         raw_output = await asyncio.to_thread(fn, prompt, json_object=True, api_key=api_key, base_url=base_url)
         parsed_results = _parse_llm_response(raw_output)
     except Exception as exc:
@@ -313,8 +318,12 @@ async def compare_candidates_for_job(
                 score_val = max(1.0, min(10.0, score_val))
             except (TypeError, ValueError):
                 score_val = default_score
-            reason_val = str(sub.get("reason") or "Phù hợp với yêu cầu vị trí.").strip()
-            return MetricScore(score=round(score_val, 1), reason=reason_val[:120])
+            reason = validate_generated_text(
+                str(sub.get("reason") or ""),
+                max_chars=120,
+                fallback="Phù hợp với yêu cầu vị trí.",
+            )
+            return MetricScore(score=round(score_val, 1), reason=str(reason.value))
 
         llm_metrics_by_label[matched_label] = CandidateMetrics(
             experience=_extract_metric("experience", 7.0),

@@ -231,5 +231,3 @@ async def get_chat_history(
         )
     return ChatHistoryResponse(session_id=sid, messages=messages)
 
-
-

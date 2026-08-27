@@ -6,6 +6,9 @@ from typing import Any
 
 from backend.app.agents.evaluation.types import IntentType, RejectionReason
 from backend.app.agents.routing.graph import build_routing_graph
+from backend.app.core.exceptions import BadRequestError
+from backend.app.guardrails.gates import gate_context
+from backend.app.guardrails.input import validate_text
 from backend.app.shared_brain import AgentBrain
 
 
@@ -45,8 +48,13 @@ class RoutingAgent:
         Returns:
             RoutingResult with intent, CV/DB usage, and dispatch info
         """
+        validated = validate_text(raw_input, source="chat", max_chars=50_000)
+        guarded = gate_context(validated.text, source="chat", max_chars=50_000)
+        if guarded.action == "block":
+            code = guarded.codes[0] if guarded.codes else "DATA_INJECTION_SIGNAL"
+            raise BadRequestError("Yêu cầu không an toàn để định tuyến", code=code)
         initial_state = {
-            "raw_input": raw_input,
+            "raw_input": str(guarded.value),
             "user_id": user_id,
             "intent": None,
             "is_valid": False,

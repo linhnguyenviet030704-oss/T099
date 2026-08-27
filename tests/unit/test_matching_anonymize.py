@@ -40,9 +40,9 @@ def test_anonymize_candidates_creates_sequential_ids():
     assert result.candidates[0]["_anon_id"] == "CAND_001"
     assert result.candidates[1]["_anon_id"] == "CAND_002"
 
-    # Original IDs NOT in candidates (PII safety)
-    assert result.candidates[0].get("application_id") == "app1"
-    # _anon_id is added but application_id is still there as we copy the row
+    # Original IDs are kept only in the request-local id_map, never in provider payloads.
+    assert result.candidates[0].get("application_id") is None
+    assert result.candidates[0].get("applicant_user_id") is None
     assert "_anon_id" in result.candidates[0]
 
 

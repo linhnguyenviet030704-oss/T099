@@ -232,6 +232,9 @@ def test_agent_brain_registration_and_dispatch():
 
 
 def test_settings_env_sync_and_defaults(monkeypatch):
+    # Đảm bảo môi trường sạch để kiểm tra cơ chế fallback alias từ DASHSCOPE và GOOGLE API key
+    monkeypatch.delenv("QWEN_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-live-test")
     monkeypatch.setenv("GOOGLE_API_KEY", "goog-key-123")
     monkeypatch.setenv("DASHSCOPE_API_KEY", "dash-key-456")

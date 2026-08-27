@@ -123,12 +123,12 @@ export default function AIInterviewPage() {
           );
           setSelectedCandidateId(profilesData[0].id);
         } else {
-          // Fallback sample
+          // Fallback sample hợp lệ chuẩn UUID
           setCandidatesList([
-            { id: "c1111111-1111-1111-1111-111111111111", name: "Nguyễn Văn An (Full-stack Developer)", email: "an.nguyen@example.com" },
-            { id: "c2222222-2222-2222-2222-222222222222", name: "Trần Thị Bình (Backend AI Engineer)", email: "binh.tran@example.com" },
+            { id: "00000000-0000-0000-0000-000000000001", name: "Nguyễn Văn An (Full-stack Developer)", email: "an.nguyen@example.com" },
+            { id: "00000000-0000-0000-0000-000000000002", name: "Trần Thị Bình (Backend AI Engineer)", email: "binh.tran@example.com" },
           ]);
-          setSelectedCandidateId("c1111111-1111-1111-1111-111111111111");
+          setSelectedCandidateId("00000000-0000-0000-0000-000000000001");
         }
 
         const { data: jobsData } = await supabase
@@ -146,11 +146,12 @@ export default function AIInterviewPage() {
           );
           setSelectedJobId(jobsData[0].id);
         } else {
+          // Fallback sample hợp lệ chuẩn UUID
           setJobsList([
-            { id: "j1111111-1111-1111-1111-111111111111", title: "Senior Python / FastAPI Backend Engineer", seniority: "senior" },
-            { id: "j2222222-2222-2222-2222-222222222222", title: "Full-stack React & Node.js Developer", seniority: "mid" },
+            { id: "00000000-0000-0000-0000-000000000011", title: "Senior Python / FastAPI Backend Engineer", seniority: "senior" },
+            { id: "00000000-0000-0000-0000-000000000012", title: "Full-stack React & Node.js Developer", seniority: "mid" },
           ]);
-          setSelectedJobId("j1111111-1111-1111-1111-111111111111");
+          setSelectedJobId("00000000-0000-0000-0000-000000000011");
         }
       } catch (e) {
         console.error("Error loading candidate/job list:", e);
@@ -190,17 +191,18 @@ export default function AIInterviewPage() {
         }),
       });
 
-      // Poll session status
+      // Polling trạng thái phiên phỏng vấn
       let attempts = 0;
+      const maxAttempts = 25;
       const pollInterval = setInterval(async () => {
         attempts += 1;
         try {
           const statusResp = await apiJson<any>(`/interviews/sessions/${resp.session_id}`, token);
-          if (statusResp && (statusResp.status === "generated" || attempts >= 5)) {
+          if (statusResp && (statusResp.status === "generated" || attempts >= maxAttempts)) {
             clearInterval(pollInterval);
             setIsGenerating(false);
 
-            // Construct fallback question array if empty
+            // Xây dựng danh sách câu hỏi nếu rỗng
             const questions = (statusResp.questions && statusResp.questions.length > 0)
               ? statusResp.questions
               : [
@@ -280,7 +282,7 @@ export default function AIInterviewPage() {
               total_questions: questions.length,
               coverage_ratio: statusResp.coverage_ratio || 0.85,
               coverage_threshold: coverageThreshold / 100,
-              question_distribution: {
+              question_distribution: statusResp.question_distribution || {
                 system_design: 1,
                 project_deep_dive: 1,
                 behavioral: 1,
@@ -290,20 +292,24 @@ export default function AIInterviewPage() {
               is_approved: false,
             });
 
-            // Expand first question by default
+            // Tự động mở rộng câu hỏi đầu tiên
             if (questions.length > 0) {
               setExpandedQuestions({ [questions[0].id]: true });
             }
 
             success("Thành công", "Sinh bộ câu hỏi phỏng vấn thành công!");
+          } else if (statusResp && statusResp.status === "failed") {
+            clearInterval(pollInterval);
+            setIsGenerating(false);
+            toastError("Lỗi sinh câu hỏi", statusResp.error || "Không thể tạo câu hỏi phỏng vấn.");
           }
         } catch {
-          if (attempts >= 5) {
+          if (attempts >= maxAttempts) {
             clearInterval(pollInterval);
             setIsGenerating(false);
           }
         }
-      }, 1000);
+      }, 1500);
     } catch (err: any) {
       setIsGenerating(false);
       toastError("Lỗi", err.message || "Lỗi khi sinh câu hỏi phỏng vấn");

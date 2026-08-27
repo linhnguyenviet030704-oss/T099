@@ -146,30 +146,63 @@ async def test_evaluate_single_endpoint(app):
 
 @pytest.mark.asyncio
 async def test_repo_search_history_crud(app):
+    from types import SimpleNamespace
+
+    # Mock client Supabase trong unit test
+    fake_data = []
+
+    class FakeQuery:
+        def select(self, *_args, **_kwargs):
+            return self
+
+        def order(self, *_args, **_kwargs):
+            return self
+
+        def limit(self, *_args, **_kwargs):
+            return self
+
+        def eq(self, *_args, **_kwargs):
+            return self
+
+        def upsert(self, data, *_args, **_kwargs):
+            fake_data.append(data)
+            return self
+
+        def delete(self, *_args, **_kwargs):
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=fake_data)
+
+    class FakeClient:
+        def table(self, _name: str):
+            return FakeQuery()
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # 1. Save history record
-        hist_id = str(uuid.uuid4())
-        save_resp = await client.post(
-            "/api/v1/evaluations/history",
-            json={
-                "id": hist_id,
-                "search_type": "cv",
-                "title": "Nghiên cứu CV Nguyễn Văn A",
-                "extracted_repos": [{"repo_url": "https://github.com/fastapi/fastapi", "repo_name": "fastapi"}],
-                "evaluation_results": [{"repo_full_name": "fastapi/fastapi", "overall_score": 8.5}],
-                "status": "completed",
-            },
-        )
-        assert save_resp.status_code == 200
-        assert save_resp.json()["id"] == hist_id
+        with patch("backend.app.api.v1.evaluations.get_supabase_client", return_value=FakeClient()):
+            # 1. Save history record
+            hist_id = str(uuid.uuid4())
+            save_resp = await client.post(
+                "/api/v1/evaluations/history",
+                json={
+                    "id": hist_id,
+                    "search_type": "cv",
+                    "title": "Nghiên cứu CV Nguyễn Văn A",
+                    "extracted_repos": [{"repo_url": "https://github.com/fastapi/fastapi", "repo_name": "fastapi"}],
+                    "evaluation_results": [{"repo_full_name": "fastapi/fastapi", "overall_score": 8.5}],
+                    "status": "completed",
+                },
+            )
+            assert save_resp.status_code == 200
+            assert save_resp.json()["id"] == hist_id
 
-        # 2. Get history
-        get_resp = await client.get("/api/v1/evaluations/history")
-        assert get_resp.status_code == 200
-        assert isinstance(get_resp.json(), list)
+            # 2. Get history
+            get_resp = await client.get("/api/v1/evaluations/history")
+            assert get_resp.status_code == 200
+            assert isinstance(get_resp.json(), list)
 
-        # 3. Delete history
-        del_resp = await client.delete(f"/api/v1/evaluations/history/{hist_id}")
-        assert del_resp.status_code == 200
-        assert del_resp.json()["deleted"] is True
+            # 3. Delete history
+            del_resp = await client.delete(f"/api/v1/evaluations/history/{hist_id}")
+            assert del_resp.status_code == 200
+            assert del_resp.json()["deleted"] is True

@@ -249,8 +249,10 @@ Output only the valid JSON array with no markdown fences or other text.
         validation = state.get("validation_result") or {}
         coverage_ratio = validation.get("ratio", 1.0)
         threshold = state.get("coverage_threshold", 0.80)
+        state_session_id = state.get("session_id") or str(uuid.uuid4())
 
         session_id = persist_interview_session.invoke({
+            "session_id": state_session_id,
             "candidate_id": candidate_id,
             "job_id": job_id,
             "questions": questions,
@@ -260,7 +262,7 @@ Output only the valid JSON array with no markdown fences or other text.
         })
 
         return {
-            "session_id": session_id,
+            "session_id": session_id or state_session_id,
             "status": "generated",
         }
 

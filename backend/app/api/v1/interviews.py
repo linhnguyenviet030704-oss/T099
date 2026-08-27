@@ -20,15 +20,15 @@ _INTERVIEW_STATUS_STORE: dict[str, dict[str, Any]] = {}
 
 
 class GenerateInterviewRequest(BaseModel):
-    candidate_id: uuid.UUID
-    job_id: uuid.UUID
-    question_count_range: tuple[int, int] = Field(default=(5, 30))
+    candidate_id: str | uuid.UUID = Field(..., description="ID của ứng viên")
+    job_id: str | uuid.UUID | None = Field(default=None, description="ID của bài đăng tuyển dụng")
+    question_count_range: tuple[int, int] | list[int] = Field(default=(5, 30))
     coverage_threshold: float = Field(default=0.80, ge=0.0, le=1.0)
     include_project_refs: bool = True
 
 
 class GenerateInterviewResponse(BaseModel):
-    session_id: uuid.UUID
+    session_id: uuid.UUID | str
     status: Literal["generating", "generated", "failed"]
     poll_url: str
 
@@ -43,13 +43,14 @@ async def generate_interview(
     req: GenerateInterviewRequest,
     background_tasks: BackgroundTasks,
 ) -> GenerateInterviewResponse:
-    """Trigger async generation of tailored interview questions."""
+    """Kích hoạt sinh bộ câu hỏi phỏng vấn theo hồ sơ ứng viên và JD."""
     session_id = uuid.uuid4()
     session_id_str = str(session_id)
     candidate_id_str = str(req.candidate_id)
-    job_id_str = str(req.job_id)
+    job_id_str = str(req.job_id) if req.job_id else ""
+    count_range = tuple(req.question_count_range) if isinstance(req.question_count_range, list) else req.question_count_range
 
-    # Initial session store
+    # Khởi tạo dữ liệu phiên phỏng vấn trong bộ nhớ tạm
     _INTERVIEW_STATUS_STORE[session_id_str] = {
         "id": session_id_str,
         "candidate_id": candidate_id_str,
@@ -61,7 +62,7 @@ async def generate_interview(
         "reviewer_notes": None,
     }
 
-    # Dispatch Celery task or BackgroundTask
+    # Điều phối xử lý qua Celery hoặc chạy nền trực tiếp (BackgroundTasks)
     try:
         from backend.app.tasks.interview_tasks import run_interview_pipeline
 
@@ -69,20 +70,20 @@ async def generate_interview(
             session_id=session_id_str,
             candidate_id=candidate_id_str,
             job_id=job_id_str,
-            question_count_range=req.question_count_range,
+            question_count_range=count_range,
             coverage_threshold=req.coverage_threshold,
             include_project_refs=req.include_project_refs,
         )
     except Exception as e:
         logger.warning("Celery dispatch failed or broker offline, running via BackgroundTasks: %s", e)
-        from backend.app.tasks.interview_tasks import run_interview_pipeline
+        from backend.app.tasks.interview_tasks import execute_interview_generation_sync
 
         background_tasks.add_task(
-            run_interview_pipeline,
+            execute_interview_generation_sync,
             session_id=session_id_str,
             candidate_id=candidate_id_str,
             job_id=job_id_str,
-            question_count_range=req.question_count_range,
+            question_count_range=count_range,
             coverage_threshold=req.coverage_threshold,
             include_project_refs=req.include_project_refs,
         )
@@ -95,15 +96,15 @@ async def generate_interview(
 
 
 @router.get("/sessions/{session_id}")
-async def get_interview_session(session_id: uuid.UUID) -> dict[str, Any]:
-    """Retrieve full interview session and its generated questions."""
+async def get_interview_session(session_id: str) -> dict[str, Any]:
+    """Lấy thông tin chi tiết phiên phỏng vấn và các câu hỏi đã sinh."""
     session_id_str = str(session_id)
 
-    # Check in-memory store
+    # Kiểm tra trong bộ nhớ tạm in-memory store trước
     if session_id_str in _INTERVIEW_STATUS_STORE:
         return _INTERVIEW_STATUS_STORE[session_id_str]
 
-    # Check Supabase tables
+    # Kiểm tra trong bảng Supabase
     try:
         db = get_supabase_client()
         session_resp = db.table("interview_sessions").select("*").eq("id", session_id_str).execute()
@@ -125,10 +126,10 @@ async def get_interview_session(session_id: uuid.UUID) -> dict[str, Any]:
 
 @router.patch("/sessions/{session_id}")
 async def update_interview_session(
-    session_id: uuid.UUID,
+    session_id: str,
     req: UpdateSessionRequest,
 ) -> dict[str, Any]:
-    """Update approval status or reviewer notes for an interview session."""
+    """Cập nhật trạng thái phê duyệt và ghi chú của người đánh giá."""
     session_id_str = str(session_id)
     update_data = req.model_dump(exclude_unset=True)
 

@@ -60,7 +60,8 @@ async def test_matching_graph_ranks_then_responds():
             ],
         }
 
-    graph = build_matching_graph(retrieve=retrieve)
+    # Truyền explain_complete=_complete để tránh gọi mạng ngoài trong unit test
+    graph = build_matching_graph(retrieve=retrieve, explain_complete=_complete)
     result = await graph.ainvoke(
         {"job_id": str(uuid4()), "query": "Gợi ý ứng viên", "rerank_mode": "agent"}
     )
@@ -128,7 +129,8 @@ async def test_matching_graph_qwen_rerank_reorders():
         assert documents == ["ada cv", "bob cv"]
         return [{"index": 1, "relevance_score": 0.95}, {"index": 0, "relevance_score": 0.1}]
 
-    graph = build_matching_graph(retrieve=retrieve, rerank_fn=rerank_fn)
+    # Truyền explain_complete=_complete để tránh gọi mạng ngoài trong unit test
+    graph = build_matching_graph(retrieve=retrieve, rerank_fn=rerank_fn, explain_complete=_complete)
     result = await graph.ainvoke(
         {"job_id": str(uuid4()), "query": "Gợi ý ứng viên", "rerank_mode": "qwen"}
     )

@@ -113,19 +113,35 @@ async def test_extract_cv_repos_api_empty(app):
 async def test_evaluate_single_endpoint(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.post(
-            "/api/v1/evaluations/evaluate-single",
-            json={
-                "repo_url": "https://github.com/fastapi/fastapi",
-                "project_name": "FastAPI Framework",
+        # Mock lời gọi đồ thị agent để tránh phụ thuộc API ngoài trong unit test
+        mock_result = {
+            "status": "complete",
+            "final_scores": {
+                "completeness": 8.5,
+                "complexity": 8.0,
+                "optimization": 8.0,
+                "code_cleanliness": 9.0,
+                "project_understanding": 8.5,
+                "weighted_score": 8.4,
             },
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["repo_full_name"] == "fastapi/fastapi"
-        assert "overall_score" in data
-        assert "evaluation_scores" in data
-        assert data["status"] == "complete"
+            "heuristic_metrics": {"tier1_score": 8.0, "file_count": 50},
+            "summary": "Đã hoàn thành đánh giá kỹ thuật dự án.",
+            "llm_evaluation": {"red_flags": []},
+        }
+        with patch("backend.app.api.v1.evaluations.agent1_graph.ainvoke", return_value=mock_result):
+            response = await client.post(
+                "/api/v1/evaluations/evaluate-single",
+                json={
+                    "repo_url": "https://github.com/fastapi/fastapi",
+                    "project_name": "FastAPI Framework",
+                },
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["repo_full_name"] == "fastapi/fastapi"
+            assert "overall_score" in data
+            assert "evaluation_scores" in data
+            assert data["status"] == "complete"
 
 
 @pytest.mark.asyncio

@@ -33,7 +33,7 @@ def test_run_recommend_pipeline_score_path_runs_full_graph():
         query="Gợi ý công việc phù hợp với hồ sơ của tôi",
         explain_complete=_fake_explain_complete,
     )
-    assert set(result["timings_ms"]) == {"router", "retrieve", "kg_retrieval", "score", "rerank", "explain", "respond"}
+    assert set(result["timings_ms"]) == {"router", "retrieve", "kg_retrieval", "score", "rerank", "snapshot", "explain", "output_guard", "respond"}
     assert result["total_ms"] == pytest.approx(sum(result["timings_ms"].values()), abs=0.1)
 
 

@@ -224,7 +224,7 @@ class TestParseGitmodules(unittest.TestCase):
         self.assertFalse(result)
 
 
-class TestGetRepoTreeSubmodule(unittest.TestCase):
+class TestGetRepoTreeSubmodule(unittest.IsolatedAsyncioTestCase):
     async def test_get_repo_tree_detects_submodule_path(self):
         """Submodule detection via .gitmodules path."""
         client = GitHubClient(token="test")

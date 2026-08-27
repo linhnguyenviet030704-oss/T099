@@ -77,9 +77,11 @@ def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
                 rerank_score=None if rerank_score is None else float(rerank_score),
                 rerank_status=rerank_status,  # type: ignore[arg-type]
                 match_reason=reason_clean or None,
+                is_public_candidate=bool(row.get("is_public_candidate", False) or row.get("current_status") == "job_seeking"),
             )
         )
     return ChatResponse(response=str(result.get("response") or ""), candidates=candidates)
+
 
 
 def jobs_response_from_graph(result: dict[str, Any]) -> ChatResponse:

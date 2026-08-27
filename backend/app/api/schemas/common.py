@@ -21,3 +21,14 @@ class IngestResponse(BaseModel):
     markdown: str | None = None
     lines: list[ParsedCvLine] = []
     header: CvHeaderInfo | None = None
+
+
+class SetResumePublicRequest(BaseModel):
+    is_public: bool
+
+
+class SetResumePublicResponse(BaseModel):
+    id: str
+    is_public: bool
+    message: str
+

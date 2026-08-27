@@ -5,6 +5,8 @@ import re
 from typing import Any
 from uuid import UUID
 
+from rapidfuzz import fuzz, process
+
 from backend.app.config.models import (
     DEFAULT_EMBED_MODEL,
     DEFAULT_RERANK_MODEL,
@@ -25,6 +27,34 @@ from backend.app.services.recommend import _company_name
 from supabase import Client
 
 JOB_POOL_LIMIT = 200
+
+# Fuzzy fallback only kicks in for query words long enough that a high
+# similarity ratio is meaningful — mirrors the convention in skills.py's
+# extract_skills() (_FUZZY_MIN_LEN / _FUZZY_SCORE_CUTOFF).
+_BOOST_FUZZY_MIN_LEN = 4
+_BOOST_FUZZY_SCORE_CUTOFF = 88
+
+_WORD_RE = re.compile(r"[^\W_]+")
+
+
+def _word_tokens(text: str) -> list[str]:
+    return _WORD_RE.findall(text.lower())
+
+
+def _word_matches(word: str, tokens: list[str]) -> bool:
+    """Whole-word membership check for search-query boost keywords, with a
+    bounded fuzzy fallback for near-miss spellings. Replaces a substring
+    scan (`word in blob`), which let short words like "ai" match inside
+    unrelated words ("maintain", "retail", "container") and inflate the
+    boost for jobs that had nothing to do with the query."""
+    if not tokens:
+        return False
+    if word in tokens:
+        return True
+    if len(word) < _BOOST_FUZZY_MIN_LEN:
+        return False
+    match = process.extractOne(word, tokens, scorer=fuzz.ratio, score_cutoff=_BOOST_FUZZY_SCORE_CUTOFF)
+    return match is not None
 
 
 async def persist_recommend_job_rows(
@@ -292,6 +322,11 @@ async def retrieve_jobs_for_resume(
             company = (candidate.get("company_name") or "").lower()
             body = (candidate.get("markdown") or "").lower()
             job_skills_str = " ".join(candidate.get("skills") or []).lower()
+            title_tokens = _word_tokens(title)
+            job_skills_tokens = _word_tokens(job_skills_str)
+            company_tokens = _word_tokens(company)
+            body_tokens = _word_tokens(body)
+            location_tokens = _word_tokens(location)
 
             if target_num and (f"#{target_num}" in title or f"#{target_num}" in (candidate.get("job_id") or "")):
                 boost += 5.0  # Dominant boost for exact job number match like #4 or #2
@@ -300,15 +335,15 @@ async def retrieve_jobs_for_resume(
                 boost += float(direct_scores[idx]) * 2.0
 
             for clean_word in words:
-                if clean_word in title:
+                if _word_matches(clean_word, title_tokens):
                     boost += 2.0
-                if clean_word in job_skills_str:
+                if _word_matches(clean_word, job_skills_tokens):
                     boost += 1.5
-                if clean_word in company:
+                if _word_matches(clean_word, company_tokens):
                     boost += 1.2
-                if clean_word in body:
+                if _word_matches(clean_word, body_tokens):
                     boost += 1.0
-                if clean_word in location:
+                if _word_matches(clean_word, location_tokens):
                     boost += 0.5
 
             if boost > 0:

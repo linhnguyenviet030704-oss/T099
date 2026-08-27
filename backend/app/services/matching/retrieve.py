@@ -63,7 +63,9 @@ def _parse_constraints(raw: Any) -> dict[str, Any]:
     return empty_constraints()
 
 
-def _bm25_skill_ids(job: dict[str, Any], constraints: dict[str, Any], *, confirmed: bool) -> list[str]:
+def _bm25_skill_ids(
+    job: dict[str, Any], constraints: dict[str, Any], *, confirmed: bool, jd_skills: list[str]
+) -> list[str]:
     if confirmed:
         ids: list[str] = []
         for group in constraints.get("must") or []:
@@ -76,7 +78,7 @@ def _bm25_skill_ids(job: dict[str, Any], constraints: dict[str, Any], *, confirm
                 seen.add(skill_id)
                 unique.append(skill_id)
         return unique
-    return extract_skills(job_query_text(job))
+    return jd_skills
 
 
 def _try_cosine(left: list[float], right: list[float]) -> float | None:
@@ -141,6 +143,11 @@ async def persist_match_resume_rows(
     recruiter_message: str,
     rerank_mode: str,
     rerank_status: str,
+    pool_size: int = 0,
+    pool_truncated: bool = False,
+    dropped_count: int = 0,
+    pool_latency_warn: bool = False,
+    embedding_mismatch_count: int = 0,
 ) -> None:
     await assert_recruiter_job_access(client, actor_id, job_id)
     resume_ids = [str(row["resume_id"]) for row in ranked if row.get("resume_id")]
@@ -192,6 +199,11 @@ async def persist_match_resume_rows(
                 "p_embedding_model": DEFAULT_EMBED_MODEL,
                 "p_matched_resume_ids": resume_ids,
                 "p_evidence": evidence,
+                "p_pool_size": pool_size,
+                "p_pool_truncated": pool_truncated,
+                "p_dropped_count": dropped_count,
+                "p_pool_latency_warn": pool_latency_warn,
+                "p_embedding_mismatch_count": embedding_mismatch_count,
             },
         ).execute()
 
@@ -303,8 +315,9 @@ async def retrieve_for_job(
     constraints = _parse_constraints(job.get("skill_constraints"))
     confirmed = job.get("skill_constraints_confirmed_at") is not None
     query_text = job_query_text(job)
-    dense_q = expand_query(query_text)
-    bm25_skills = _bm25_skill_ids(job, constraints, confirmed=confirmed)
+    jd_skills_extracted = extract_skills(query_text)
+    dense_q = expand_query(query_text, extracted=jd_skills_extracted)
+    bm25_skills = _bm25_skill_ids(job, constraints, confirmed=confirmed, jd_skills=jd_skills_extracted)
     bm25_q = bm25_query(str(job.get("title") or ""), bm25_skills)
     query_embedding = embed_text(dense_q, encode=encode, api_key=api_key, base_url=base_url)
 
@@ -370,7 +383,7 @@ async def retrieve_for_job(
         part.strip() for part in (job.get("title"), job.get("description"), job.get("requirements")) if part
     )
     return {
-        "jd_skills": extract_skills(query_text),
+        "jd_skills": jd_skills_extracted,
         "jd_query": query_text,
         "job_description": job_description,
         "dense_query": dense_q,

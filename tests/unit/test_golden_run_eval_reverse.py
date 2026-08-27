@@ -5,7 +5,11 @@ def test_rank_jds_for_cv_ranks_closer_embedding_first():
     from backend.app.services.matching.skills import load_taxonomy_index
 
     ingest_results = {
-        "CV-A": {"extracted_skills": ["Python", "FastAPI"], "embedding": [1.0, 0.0]},
+        "CV-A": {
+            "extracted_skills": ["Python", "FastAPI"],
+            "embedding": [1.0, 0.0],
+            "original_markdown": "Backend engineer with Python and FastAPI experience.",
+        },
     }
     jd_embeddings_expanded = {
         "JD-01": [1.0, 0.0],  # same direction as CV-A -> cosine distance 0
@@ -25,7 +29,9 @@ def test_rank_jds_for_cv_ranks_closer_embedding_first():
 def test_rank_jds_for_cv_returns_every_jd_exactly_once():
     from backend.app.services.matching.skills import load_taxonomy_index
 
-    ingest_results = {"CV-A": {"extracted_skills": [], "embedding": [1.0, 0.0, 0.0]}}
+    ingest_results = {
+        "CV-A": {"extracted_skills": [], "embedding": [1.0, 0.0, 0.0], "original_markdown": "Generalist CV."}
+    }
     jd_embeddings_expanded = {
         "JD-01": [1.0, 0.0, 0.0],
         "JD-02": [0.0, 1.0, 0.0],
@@ -39,6 +45,37 @@ def test_rank_jds_for_cv_returns_every_jd_exactly_once():
 
     assert sorted(ranked) == ["JD-01", "JD-02", "JD-03"]
     assert len(ranked) == len(set(ranked)) == 3
+
+
+def test_rank_jds_for_cv_uses_titles_over_full_cv_text_for_bm25_query(monkeypatch):
+    from backend.app.services.matching.skills import load_taxonomy_index
+    import evaluation.golden.run_eval as run_eval_module
+
+    ingest_results = {
+        "CV-A": {
+            "extracted_skills": ["python"],
+            "embedding": [1.0, 0.0],
+            "original_markdown": "Long noisy CV text about retail logistics containers and unrelated hobbies.",
+            "titles": ["Backend Developer"],
+            "summary": "Backend developer with Python experience.",
+        },
+    }
+    jd_embeddings_expanded = {"JD-01": [1.0, 0.0]}
+    jds_by_id = {"JD-01": {"jd_id": "JD-01", "taxonomy_skills": ["python"]}}
+
+    captured = {}
+    real_bm25_query = run_eval_module.bm25_query
+
+    def _spy(title, skill_ids):
+        captured["value"] = title
+        return real_bm25_query(title, skill_ids)
+
+    monkeypatch.setattr(run_eval_module, "bm25_query", _spy)
+
+    run_eval_module.rank_jds_for_cv("CV-A", ingest_results, jd_embeddings_expanded, jds_by_id, load_taxonomy_index())
+
+    assert captured["value"] == "Backend Developer"
+    assert "retail" not in captured["value"]
 
 
 def test_transpose_qrels_flips_jd_cv_axes():

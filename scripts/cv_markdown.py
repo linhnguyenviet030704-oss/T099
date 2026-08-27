@@ -49,13 +49,51 @@ def _unicode_font() -> str | None:
     return None
 
 
+def _split_long_paragraph(para: str, max_chars: int) -> list[str]:
+    """Split a single paragraph into chunks if it exceeds max_chars.
+
+    Splits on whitespace near the limit to avoid cutting mid-word.
+    Returns a list of chunks, each under max_chars.
+    """
+    if len(para) <= max_chars:
+        return [para]
+
+    chunks = []
+    words = para.split()
+    current_chunk = []
+    current_len = 0
+
+    for word in words:
+        word_len = len(word) + 1  # +1 for the space
+        if current_len + word_len > max_chars and current_chunk:
+            chunks.append(" ".join(current_chunk))
+            current_chunk = [word]
+            current_len = word_len
+        else:
+            current_chunk.append(word)
+            current_len += word_len
+
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+
+    return chunks
+
+
 def render_markdown_to_pdf(body: str, fontsize: float = 9.5) -> bytes:
     """Render CV body text into a paginated PDF, packing paragraphs greedily
     so each page stays under CHARS_PER_PAGE — a plain-text render (no markdown
     formatting), same minimal approach scripts/seed_mock_cvs.py used, just
     extended to span multiple pages for longer real CVs.
+
+    Any single paragraph exceeding CHARS_PER_PAGE is hard-wrapped on whitespace
+    to prevent silent truncation by insert_textbox.
     """
-    paragraphs = [p for p in body.split("\n\n") if p.strip()] or [""]
+    raw_paragraphs = [p for p in body.split("\n\n") if p.strip()] or [""]
+    # Split any oversized paragraphs to ensure no single chunk exceeds CHARS_PER_PAGE
+    paragraphs = []
+    for para in raw_paragraphs:
+        paragraphs.extend(_split_long_paragraph(para, CHARS_PER_PAGE))
+
     pages_text: list[str] = []
     buffer: list[str] = []
     buffer_len = 0

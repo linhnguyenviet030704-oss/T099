@@ -24,6 +24,10 @@ RECRUITER_CHITCHAT_RESPONSE = (
     "hoặc tìm kiếm ứng viên theo kỹ năng, số năm kinh nghiệm cụ thể."
 )
 INVALID_RESPONSE = "Nội dung không hợp lệ. Vui lòng mô tả yêu cầu rõ hơn."
+UNSUPPORTED_LANGUAGE_RESPONSE = (
+    "Hệ thống chỉ hỗ trợ tiếng Việt và tiếng Anh. "
+    "Vui lòng gửi lại yêu cầu bằng tiếng Việt hoặc tiếng Anh."
+)
 
 logger = get_logger(__name__)
 
@@ -148,8 +152,11 @@ class ChatService:
         if request.job_id is not None and actor_id is not None and self._assert_job_access is not None:
             await self._assert_job_access(actor_id, request.job_id)
 
+        # Short-circuit: unsupported language
+        if classification.intent == IntentType.UNSUPPORTED_LANGUAGE:
+            response = ChatResponse(response=UNSUPPORTED_LANGUAGE_RESPONSE, session_id=session_id)
         # Short-circuit: pure chitchat — no candidate/job matching, no LLM call
-        if classification.intent == IntentType.CHITCHAT:
+        elif classification.intent == IntentType.CHITCHAT:
             greeting = RECRUITER_CHITCHAT_RESPONSE if request.job_id is not None else CHITCHAT_RESPONSE
             response = ChatResponse(response=greeting, session_id=session_id)
         # Short-circuit: invalid/off-topic/security probe input

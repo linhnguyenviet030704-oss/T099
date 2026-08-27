@@ -45,6 +45,7 @@ class IntentType(StrEnum):
     OUT_OF_SCOPE = "out_of_scope"
     SENSITIVE_CONTENT = "sensitive_content"
     RATE_LIMITED = "rate_limited"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
 
 
 class RejectionReason(StrEnum):
@@ -56,6 +57,7 @@ class RejectionReason(StrEnum):
     SENSITIVE_DATA_DETECTED = "sensitive_data_detected"
     QUOTA_EXCEEDED = "quota_exceeded"
     MALFORMED_REQUEST = "malformed_request"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
 
 
 @dataclass

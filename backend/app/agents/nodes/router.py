@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from backend.app.agents.routing.intents import is_supported_language
 from backend.app.agents.state import AgentState
 from backend.app.observability.logger import get_logger
 
@@ -64,14 +65,25 @@ def _matches_domain(text: str) -> str | None:
 
 
 def classify_intent(message: str) -> dict[str, Any]:
-    text = (message or "").strip().lower()
-    if not text:
+    raw_text = (message or "").strip()
+    if not raw_text:
         return {
             "intent": "RECOMMEND_GENERAL",
             "needs_db_query": True,
             "db_query_params": {},
             "kg_params": {},
         }
+
+    is_supported, _ = is_supported_language(raw_text)
+    if not is_supported:
+        return {
+            "intent": "UNSUPPORTED_LANGUAGE",
+            "needs_db_query": False,
+            "db_query_params": {},
+            "kg_params": {},
+        }
+
+    text = raw_text.lower()
 
     # Check for Skill Gap Advice intent
     is_skill_gap = any(kw in text for kw in _SKILL_GAP_KEYWORDS)

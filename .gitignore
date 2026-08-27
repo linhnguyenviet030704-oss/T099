@@ -71,3 +71,6 @@ docs/superpowers/
 # Supabase local temp files (keep config.toml, migrations/, seed.sql tracked)
 supabase/.branches/
 supabase/.temp/
+
+# Worktrees (skill using-git-worktrees)
+.worktrees/

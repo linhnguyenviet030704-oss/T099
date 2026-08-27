@@ -12,9 +12,12 @@ import { supabase } from "../lib/supabase";
 import { ENUM_LABELS, formatCurrency } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
 import Badge from "../components/Badge";
+import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
+import { useLang } from "../context/LangContext";
 import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
 import JobComparisonModal from "../components/candidate/JobComparisonModal";
+
 
 const QUICK_PROMPT = "Gợi ý việc phù hợp";
 const FIT_GOOD = 0.45;
@@ -189,7 +192,8 @@ function JobRecommendationCard({
 export default function AISuggestionsPage() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
-  const { info, error: toastError } = useToast();
+  const { info, error: toastError, success } = useToast();
+  const { lang, t } = useLang();
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -211,7 +215,11 @@ export default function AISuggestionsPage() {
   ]);
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
+  const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
 
   // Ensure session exists
   useEffect(() => {
@@ -306,10 +314,38 @@ export default function AISuggestionsPage() {
     }
   }, [session, loadSession]);
 
-  // Delete session
-  const handleDeleteSession = async (e: React.MouseEvent, sid: string) => {
+  // Delete session trigger
+  const handleDeleteSession = (e: React.MouseEvent, sid: string) => {
     e.stopPropagation();
-    if (!window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?")) return;
+    setIsClearAllConfirm(false);
+    setDeleteTargetSessionId(sid);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (isClearAllConfirm) {
+      setIsDeletingSession(true);
+      try {
+        if (session?.access_token) {
+          await apiJson("/chat/history", session.access_token, { method: "DELETE" });
+        } else if (supabase && user) {
+          await supabase.from("chat_messages").delete().eq("user_id", user.id);
+        }
+        setChatHistory([]);
+        startNewChat();
+        success(t.clearAllChatSuccess);
+        setIsClearAllConfirm(false);
+      } catch (err) {
+        console.error("Failed to clear chat history", err);
+        toastError(t.deleteChatFailed, "Không thể xóa toàn bộ lịch sử trò chuyện");
+      } finally {
+        setIsDeletingSession(false);
+      }
+      return;
+    }
+
+    if (!deleteTargetSessionId) return;
+    const sid = deleteTargetSessionId;
+    setIsDeletingSession(true);
     try {
       if (session?.access_token) {
         await apiJson(`/chat/sessions/${sid}`, session.access_token, { method: "DELETE" });
@@ -320,11 +356,16 @@ export default function AISuggestionsPage() {
       if (sessionId === sid) {
         startNewChat();
       }
+      success(t.deleteChatSuccess);
+      setDeleteTargetSessionId(null);
     } catch (err) {
       console.error("Failed to delete session", err);
-      toastError("Lỗi", "Không thể xóa cuộc trò chuyện");
+      toastError(t.deleteChatFailed, "Không thể xóa cuộc trò chuyện");
+    } finally {
+      setIsDeletingSession(false);
     }
   };
+
 
   // New chat
   const startNewChat = () => {
@@ -479,9 +520,24 @@ export default function AISuggestionsPage() {
 
       {/* Sessions List */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-1 text-xs">
-        <div className="px-1 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
-          Danh sách phiên chat ({chatHistory.length})
+        <div className="px-1 py-1 flex items-center justify-between text-[10px] uppercase font-bold tracking-wider text-slate-400">
+          <span>Danh sách phiên chat ({chatHistory.length})</span>
+          {chatHistory.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteTargetSessionId(null);
+                setIsClearAllConfirm(true);
+              }}
+              className="text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 normal-case font-medium hover:underline flex items-center gap-1 cursor-pointer"
+              title={t.clearAllChat}
+            >
+              <Trash2 size={11} />
+              <span>{t.clearAllChat}</span>
+            </button>
+          )}
         </div>
+
 
         {chatHistory.length === 0 ? (
           <div className="px-3 py-6 text-center text-slate-400 space-y-1">
@@ -901,7 +957,23 @@ export default function AISuggestionsPage() {
         resumeId={selectedResumeId}
         resumes={resumes}
       />
+
+      {/* Confirmation Modal for Delete Chat Session / History */}
+      <ConfirmModal
+        open={Boolean(deleteTargetSessionId || isClearAllConfirm)}
+        title={isClearAllConfirm ? t.clearAllChatConfirmTitle : t.deleteChatConfirmTitle}
+        message={isClearAllConfirm ? t.clearAllChatConfirmDesc : t.deleteChatConfirmDesc}
+        confirmLabel={isDeletingSession ? (lang === "en" ? "Deleting..." : "Đang xóa...") : t.delete}
+        cancelLabel={t.cancel}
+        danger={true}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => {
+          setDeleteTargetSessionId(null);
+          setIsClearAllConfirm(false);
+        }}
+      />
     </AnimatedPage>
   );
 }
+
 

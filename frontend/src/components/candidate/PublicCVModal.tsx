@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, AlertCircle, Clock, Check, X } from "lucide-react";
+import { Globe, AlertCircle, Clock, Check, X, Loader2 } from "lucide-react";
 import Button from "../ui/Button";
 
 interface PublicCVModalProps {
@@ -98,13 +98,13 @@ export default function PublicCVModal({
                 <div>
                   <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Xác nhận công khai hồ sơ</p>
                   <p className="text-slate-700 dark:text-slate-300">
-                    "Nhà tuyển dụng có thể nhìn thấy CV của bạn, kể cả khi bạn không ứng tuyển, bạn đồng ý chứ?"
+                    Nhà tuyển dụng có thể nhìn thấy CV của bạn, kể cả khi bạn không ứng tuyển, bạn đồng ý chứ?
                   </p>
                 </div>
               </div>
 
               {/* Countdown Progress indicator */}
-              {countdown > 0 && (
+              {!isSubmitting && countdown > 0 && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 px-1 pt-1">
                   <Clock size={14} className="text-indigo-500 animate-spin" style={{ animationDuration: "3s" }} />
                   <span>Vui lòng đọc kỹ thông tin, nút đồng ý sẽ mở sau <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{countdown}s</strong></span>
@@ -127,12 +127,19 @@ export default function PublicCVModal({
                 onClick={() => void onConfirm()}
                 disabled={!canConfirm}
                 className={`px-5 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 shadow-md ${
-                  canConfirm
+                  isSubmitting
+                    ? "bg-emerald-600/80 text-white cursor-wait opacity-90"
+                    : canConfirm
                     ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer hover:shadow-emerald-500/25 scale-100"
                     : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-80"
                 }`}
               >
-                {canConfirm ? (
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Đang xác nhận...</span>
+                  </>
+                ) : canConfirm ? (
                   <>
                     <Check size={16} strokeWidth={2.5} />
                     <span>Đồng ý</span>

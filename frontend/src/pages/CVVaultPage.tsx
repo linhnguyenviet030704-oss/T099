@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit, Globe } from "lucide-react";
+import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit, Globe, Trash2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
 import { supabase, handleSupabaseError } from "../lib/supabase";
@@ -10,10 +10,12 @@ import { formatDate } from "../lib/format";
 import type { Resume } from "../types";
 import AnimatedPage from "../components/AnimatedPage";
 import Button from "../components/ui/Button";
+import ConfirmModal from "../components/ConfirmModal";
 import PublicCVModal from "../components/candidate/PublicCVModal";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
 import { motion } from "framer-motion";
+
 
 export default function CVVaultPage() {
   const { user, session } = useAuth();
@@ -31,6 +33,9 @@ export default function CVVaultPage() {
   const [editName, setEditName] = useState("");
   const [publicModalTarget, setPublicModalTarget] = useState<Resume | null>(null);
   const [togglingPublic, setTogglingPublic] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Resume | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
 
 
   const load = useCallback(async () => {
@@ -181,6 +186,50 @@ export default function CVVaultPage() {
     }
   };
 
+  const handleDeleteResume = async () => {
+    if (!user || !deleteTarget) return;
+    setDeleting(true);
+    try {
+      if (session?.access_token) {
+        await apiJson<{ id: string; deleted: boolean; message: string }>(
+          `/resumes/${deleteTarget.id}`,
+          session.access_token,
+          { method: "DELETE" }
+        );
+      } else if (supabase) {
+        const { error } = await supabase
+          .from("resumes")
+          .update({
+            deleted_at: new Date().toISOString(),
+            is_public: false,
+            is_default: false,
+          })
+          .eq("id", deleteTarget.id)
+          .eq("user_id", user.id);
+        if (error) throw error;
+        await supabase
+          .from("profiles")
+          .update({ default_resume_id: null })
+          .eq("id", user.id)
+          .eq("default_resume_id", deleteTarget.id);
+        await supabase
+          .from("embedded_resumes")
+          .delete()
+          .eq("resume_id", deleteTarget.id);
+      }
+
+      setResumes((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      success(t.deleteCVSuccess);
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : handleSupabaseError(err);
+      toastError(t.deleteCVFailed, msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+
   return (
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
@@ -305,6 +354,14 @@ export default function CVVaultPage() {
                 >
                   <ExternalLink size={16} />
                 </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setDeleteTarget(r)}
+                  className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  title={t.deleteCV}
+                >
+                  <Trash2 size={16} />
+                </motion.button>
               </div>
             </div>
           ))}
@@ -323,8 +380,21 @@ export default function CVVaultPage() {
         }}
         isSubmitting={togglingPublic}
       />
+
+      {/* Confirmation Modal for Delete CV */}
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title={t.deleteCVConfirmTitle}
+        message={t.deleteCVConfirmDesc}
+        confirmLabel={deleting ? (lang === 'en' ? "Deleting..." : "Đang xóa...") : t.delete}
+        cancelLabel={t.cancel}
+        danger={true}
+        onConfirm={() => void handleDeleteResume()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AnimatedPage>
   );
 }
+
 
 

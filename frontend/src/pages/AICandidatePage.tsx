@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, Bot, User, FileText, ExternalLink,
   PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, Check, Plus,
+  Trash2, Clock,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -12,9 +13,12 @@ import { ENUM_LABELS } from "../lib/format";
 import { APP_STATUS_COLORS } from "../lib/ui";
 import type { JobPost } from "../types";
 import AnimatedPage from "../components/AnimatedPage";
+import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
+import { useLang } from "../context/LangContext";
 import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
 import CVComparisonModal from "../components/candidate/CVComparisonModal";
+
 
 const QUICK_PROMPT = "Gợi ý ứng viên phù hợp";
 const FIT_GOOD = 0.45;
@@ -177,7 +181,8 @@ function CandidateCard({
 
 export default function AICandidatePage() {
   const { user, session } = useAuth();
-  const { error: toastError } = useToast();
+  const { error: toastError, success } = useToast();
+  const { lang, t } = useLang();
   const [jobs, setJobs] = useState<JobOption[]>([]);
   const [jobId, setJobId] = useState("");
   const [jobsError, setJobsError] = useState<string | null>(null);
@@ -198,7 +203,11 @@ export default function AICandidatePage() {
 
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id_candidate"));
   const [chatHistory, setChatHistory] = useState<SavedSession[]>([]);
+  const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
+  const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
 
   const handleToggleCompare = (cand: ChatCandidate) => {
     setSelectedCompareCandidates((prev) => {
@@ -329,6 +338,52 @@ export default function AICandidatePage() {
     setMessages([{ id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." }]);
   };
 
+  const handleConfirmDelete = async () => {
+    if (isClearAllConfirm) {
+      setIsDeletingSession(true);
+      try {
+        if (session?.access_token) {
+          await apiJson("/chat/history", session.access_token, { method: "DELETE" });
+        } else if (supabase && user) {
+          await supabase.from("chat_messages").delete().eq("user_id", user.id);
+        }
+        setChatHistory([]);
+        startNewChat();
+        success(t.clearAllChatSuccess);
+        setIsClearAllConfirm(false);
+      } catch (err) {
+        console.error("Failed to clear chat history", err);
+        toastError(t.deleteChatFailed, "Không thể xóa toàn bộ lịch sử trò chuyện");
+      } finally {
+        setIsDeletingSession(false);
+      }
+      return;
+    }
+
+    if (!deleteTargetSessionId) return;
+    const sid = deleteTargetSessionId;
+    setIsDeletingSession(true);
+    try {
+      if (session?.access_token) {
+        await apiJson(`/chat/sessions/${sid}`, session.access_token, { method: "DELETE" });
+      } else if (supabase && user) {
+        await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("session_id", sid);
+      }
+      setChatHistory((prev) => prev.filter((s) => s.id !== sid));
+      if (sessionId === sid) {
+        startNewChat();
+      }
+      success(t.deleteChatSuccess);
+      setDeleteTargetSessionId(null);
+    } catch (err) {
+      console.error("Failed to delete session", err);
+      toastError(t.deleteChatFailed, "Không thể xóa cuộc trò chuyện");
+    } finally {
+      setIsDeletingSession(false);
+    }
+  };
+
+
   const handleSelectJob = async (nextId: string) => {
     setJobId(nextId);
     setSelectedCompareCandidates([]);
@@ -431,7 +486,23 @@ export default function AICandidatePage() {
 
         {/* Saved Sessions */}
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Phiên đã lưu</p>
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">
+            <span>Phiên đã lưu ({chatHistory.length})</span>
+            {chatHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTargetSessionId(null);
+                  setIsClearAllConfirm(true);
+                }}
+                className="text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 normal-case font-medium hover:underline flex items-center gap-1 cursor-pointer"
+                title={t.clearAllChat}
+              >
+                <Trash2 size={11} />
+                <span>{t.clearAllChat}</span>
+              </button>
+            )}
+          </div>
           {chatHistory.length === 0 ? (
             <p className="text-slate-400">Chưa có phiên nào được lưu.</p>
           ) : (
@@ -440,7 +511,7 @@ export default function AICandidatePage() {
                 <li
                   key={sess.id}
                   onClick={() => void loadSession(sess.id)}
-                  className={`rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${
+                  className={`group relative rounded-lg px-2 py-1.5 cursor-pointer transition-colors pr-7 ${
                     sessionId === sess.id
                       ? "bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200"
                       : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600"
@@ -448,11 +519,25 @@ export default function AICandidatePage() {
                 >
                   <p className="truncate line-clamp-1">{sess.first_message}</p>
                   <p className="text-[10px] text-slate-400">{new Date(sess.created_at).toLocaleString("vi-VN")}</p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsClearAllConfirm(false);
+                      setDeleteTargetSessionId(sess.id);
+                    }}
+                    className="absolute right-1.5 top-2 p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title={t.deleteChatSession}
+                    aria-label={t.deleteChatSession}
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </div>
+
 
         {/* Lượt gợi ý */}
         <div>
@@ -799,6 +884,22 @@ export default function AICandidatePage() {
         jobTitle={jobs.find((j) => j.id === jobId)?.title || ""}
         applicationIds={selectedCompareCandidates.map((c) => c.id)}
       />
+
+      {/* Confirmation Modal for Delete Chat Session / History */}
+      <ConfirmModal
+        open={Boolean(deleteTargetSessionId || isClearAllConfirm)}
+        title={isClearAllConfirm ? t.clearAllChatConfirmTitle : t.deleteChatConfirmTitle}
+        message={isClearAllConfirm ? t.clearAllChatConfirmDesc : t.deleteChatConfirmDesc}
+        confirmLabel={isDeletingSession ? (lang === "en" ? "Deleting..." : "Đang xóa...") : t.delete}
+        cancelLabel={t.cancel}
+        danger={true}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => {
+          setDeleteTargetSessionId(null);
+          setIsClearAllConfirm(false);
+        }}
+      />
     </AnimatedPage>
   );
 }
+

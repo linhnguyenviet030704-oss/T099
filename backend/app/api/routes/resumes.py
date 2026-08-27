@@ -1,10 +1,12 @@
 import re
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
 from backend.app.api.schemas.common import (
     CvHeaderInfo,
+    DeleteResumeResponse,
     IngestResponse,
     ParsedCvLine,
     SetResumePublicRequest,
@@ -196,4 +198,48 @@ async def set_resume_public(
         is_public=payload.is_public,
         message=msg,
     )
+
+
+@router.delete("/resumes/{resume_id}", response_model=DeleteResumeResponse)
+async def delete_resume(
+    resume_id: UUID,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    client: Client = Depends(get_supabase_client),
+) -> DeleteResumeResponse:
+    res = (
+        client.table("resumes")
+        .select("id, user_id, is_default, is_public, deleted_at, storage_path, bucket_id")
+        .eq("id", str(resume_id))
+        .maybe_single()
+        .execute()
+    )
+    resume = res.data
+    if not resume or resume.get("deleted_at") is not None:
+        raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
+
+    if str(resume.get("user_id")) != str(current_user.id):
+        raise ForbiddenError("Bạn chỉ có quyền xóa CV do chính mình sở hữu")
+
+    now_iso = datetime.now(UTC).isoformat()
+    # 1. Soft-delete the resume and clear public / default flags
+    client.table("resumes").update({
+        "deleted_at": now_iso,
+        "is_public": False,
+        "is_default": False,
+    }).eq("id", str(resume_id)).eq("user_id", str(current_user.id)).execute()
+
+    # 2. If this was the user's default_resume_id in profiles, clear it
+    client.table("profiles").update({
+        "default_resume_id": None,
+    }).eq("id", str(current_user.id)).eq("default_resume_id", str(resume_id)).execute()
+
+    # 3. Clean up vector search embedding record if present
+    client.table("embedded_resumes").delete().eq("resume_id", str(resume_id)).execute()
+
+    return DeleteResumeResponse(
+        id=str(resume_id),
+        deleted=True,
+        message="Đã xóa CV thành công.",
+    )
+
 

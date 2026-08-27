@@ -88,3 +88,21 @@ class ChatSessionsResponse(BaseModel):
     """Response for user chat sessions list."""
     sessions: list[ChatSessionSummary]
 
+
+class DeleteChatSessionResponse(BaseModel):
+    session_id: UUID
+    deleted: bool
+    message: str
+
+
+class ClearChatHistoryResponse(BaseModel):
+    deleted: bool
+    message: str
+
+
+class DeleteChatMessageResponse(BaseModel):
+    message_id: UUID
+    deleted: bool
+    message: str
+
+

@@ -339,7 +339,23 @@ const translations = {
     duplicateCV: "Sao chép & Sửa",
     duplicateSuccess: "Đã tạo bản sao CV!",
     renameCV: "Đổi tên",
+    deleteCV: "Xóa CV",
+    deleteCVConfirmTitle: "Xác nhận xóa CV",
+    deleteCVConfirmDesc: "Bạn có chắc chắn muốn xóa CV này? CV sẽ bị xóa khỏi Tủ hồ sơ và không còn được dùng cho các đề xuất tìm việc.",
+    deleteCVSuccess: "Đã xóa CV thành công!",
+    deleteCVFailed: "Xóa CV thất bại",
+    deleteChatSession: "Xóa cuộc trò chuyện",
+    deleteChatConfirmTitle: "Xác nhận xóa cuộc trò chuyện",
+    deleteChatConfirmDesc: "Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Lịch sử tin nhắn sẽ bị xóa vĩnh viễn.",
+    clearAllChat: "Xóa tất cả",
+    clearAllChatConfirmTitle: "Xác nhận xóa toàn bộ lịch sử",
+    clearAllChatConfirmDesc: "Bạn có chắc chắn muốn xóa toàn bộ lịch sử các cuộc trò chuyện đã lưu? Hành động này không thể hoàn tác.",
+    deleteChatSuccess: "Đã xóa cuộc trò chuyện!",
+    clearAllChatSuccess: "Đã xóa toàn bộ lịch sử trò chuyện!",
+    deleteChatFailed: "Không thể xóa cuộc trò chuyện",
   },
+
+
   en: {
     // Navbar
     home: "Home",
@@ -676,7 +692,23 @@ const translations = {
     duplicateCV: "Duplicate & Edit",
     duplicateSuccess: "CV duplicated successfully!",
     renameCV: "Rename",
+    deleteCV: "Delete CV",
+    deleteCVConfirmTitle: "Confirm Delete CV",
+    deleteCVConfirmDesc: "Are you sure you want to delete this CV? It will be removed from your CV Vault and will no longer be used for job recommendations.",
+    deleteCVSuccess: "CV deleted successfully!",
+    deleteCVFailed: "Failed to delete CV",
+    deleteChatSession: "Delete conversation",
+    deleteChatConfirmTitle: "Confirm Delete Conversation",
+    deleteChatConfirmDesc: "Are you sure you want to delete this conversation? Message history will be permanently deleted.",
+    clearAllChat: "Clear all",
+    clearAllChatConfirmTitle: "Confirm Clear All History",
+    clearAllChatConfirmDesc: "Are you sure you want to delete all saved conversations? This action cannot be undone.",
+    deleteChatSuccess: "Conversation deleted successfully!",
+    clearAllChatSuccess: "All chat history cleared successfully!",
+    deleteChatFailed: "Failed to delete conversation",
   },
+
+
 };
 
 type Translations = typeof translations.vi;

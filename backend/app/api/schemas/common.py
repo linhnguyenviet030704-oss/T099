@@ -32,3 +32,10 @@ class SetResumePublicResponse(BaseModel):
     is_public: bool
     message: str
 
+
+class DeleteResumeResponse(BaseModel):
+    id: str
+    deleted: bool
+    message: str
+
+

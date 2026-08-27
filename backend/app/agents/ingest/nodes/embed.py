@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable, Sequence
 
 from backend.app.agents.state import AgentState
@@ -24,13 +25,13 @@ def make_embed_node(
         blob = state.get("markdown") or " "
         if quotes:
             blob = blob + "\n" + "\n".join(quotes)
-        return {
-            "embedding": embed_text(
-                blob,
-                encode=encode,
-                api_key=api_key,
-                base_url=base_url,
-            )
-        }
+        embedding = await asyncio.to_thread(
+            embed_text,
+            blob,
+            encode=encode,
+            api_key=api_key,
+            base_url=base_url,
+        )
+        return {"embedding": embedding}
 
     return embed_node

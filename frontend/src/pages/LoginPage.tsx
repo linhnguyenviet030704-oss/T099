@@ -4,7 +4,9 @@ import { motion } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, AlertCircle, Briefcase } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
+import { SITE_URL } from "../lib/env";
 import AnimatedPage from "../components/AnimatedPage";
+import GoogleIcon from "../components/GoogleIcon";
 
 import Button from "../components/ui/Button";
 import { useToast } from "../context/ToastContext";
@@ -20,6 +22,7 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   if (authLoading) return null;
   if (user) return <Navigate to={from} replace />;
@@ -44,6 +47,25 @@ export default function LoginPage() {
       setError(handleSupabaseError(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (!supabase) {
+      setError("Hệ thống Supabase chưa được cấu hình.");
+      return;
+    }
+    setError("");
+    setGoogleLoading(true);
+    try {
+      const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${SITE_URL || window.location.origin}${from}` },
+      });
+      if (oauthErr) throw oauthErr;
+    } catch (err: unknown) {
+      setError(handleSupabaseError(err));
+      setGoogleLoading(false);
     }
   };
 
@@ -86,7 +108,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mật khẩu</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Mật khẩu</label>
+                <Link to="/forgot-password" className="text-xs text-indigo-600 font-medium hover:underline">
+                  Quên mật khẩu?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -123,6 +150,28 @@ export default function LoginPage() {
               Đăng nhập
             </Button>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-white dark:bg-slate-800 px-3 text-slate-400">hoặc</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            fullWidth
+            size="lg"
+            leftIcon={<GoogleIcon />}
+            isLoading={googleLoading}
+            loadingText="Đang chuyển đến Google..."
+            onClick={() => void handleGoogleLogin()}
+          >
+            Đăng nhập với Google
+          </Button>
 
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
             Chưa có tài khoản?{" "}

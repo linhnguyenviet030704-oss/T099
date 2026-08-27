@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 
 from backend.app.agents.state import AgentState
@@ -33,7 +34,7 @@ def make_summarize_node(
             return active_brain.chat(prompt, api_key=api_key, base_url=base_url, json_object=True)
 
         source = state.get("markdown") or ""
-        meta = summarize_resume(source, complete=_complete)
+        meta = await asyncio.to_thread(summarize_resume, source, complete=_complete)
         body = redact_pii(meta.get("body") or "")
 
         metadata = dict(state.get("metadata") or {})

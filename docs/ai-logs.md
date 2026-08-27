@@ -170,10 +170,10 @@ class AgentState(TypedDict, total=False):
 **Yêu cầu cốt lõi**: `['python', 'fastapi', 'postgresql', 'docker', 'kubernetes']`
 
 ```
-[START] ──> router ──> retrieve ──> kg_retrieval ──> skill ──> rrf ──> rerank ──> explain ──> respond ──> [END]
+[START] ──> retrieve ──> skill ──> rrf ──> rerank ──> explain ──> respond ──> [END]
 ```
 
-### Bước 1: Node `router` & `retrieve` (Semantic Search pgvector)
+### Bước 1: Node `retrieve` (Semantic Search pgvector)
 - **Hành động (Action)**:
   - Load nội dung JD và danh sách 5 ứng viên đã ứng tuyển (`job_submits`).
   - Sinh 2 câu truy vấn embedding (Truy vấn gốc + Truy vấn mở rộng đồng nghĩa).
@@ -185,7 +185,7 @@ class AgentState(TypedDict, total=False):
 
 ---
 
-### Bước 2: Node `kg_retrieval` & `skill` (Tính toán Độ phủ Kỹ năng)
+### Bước 2: Node `skill` (Tính toán Độ phủ Kỹ năng)
 - **Hành động (Action)**:
   - Đối chiếu kỹ năng ứng viên với JD yêu cầu: `['python', 'fastapi', 'postgresql', 'docker', 'kubernetes']`.
 - **Kết quả phân tích từng ứng viên**:

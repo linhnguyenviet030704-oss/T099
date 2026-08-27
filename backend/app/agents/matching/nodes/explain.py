@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 
 from backend.app.agents.state import AgentState
@@ -28,7 +29,8 @@ def make_explain_node(
             candidates = candidates[:max_candidates]
         jd_text = state.get("job_description") or state.get("jd_query") or ""
         jd_skills = list(state.get("jd_skills") or [])
-        reasons = explain_matches(
+        reasons = await asyncio.to_thread(
+            explain_matches,
             jd_text=jd_text,
             candidates=candidates,
             complete=_complete,

@@ -242,11 +242,18 @@ async def test_persist_match_resume_rows_calls_insert_rpc_once(monkeypatch):
         recruiter_message="Gợi ý ứng viên phù hợp",
         rerank_mode="qwen",
         rerank_status="success",
+        pool_size=7,
+        pool_truncated=False,
+        dropped_count=0,
+        pool_latency_warn=False,
+        embedding_mismatch_count=1,
     )
     assert len(client.calls) == 1
     assert client.calls[0]["name"] == "insert_match_resume_run"
     params = client.calls[0]["params"]
     assert params["p_job_post_id"] == str(job_id)
+    assert params["p_pool_size"] == 7
+    assert params["p_embedding_mismatch_count"] == 1
     assert params["p_requested_by"] == str(actor_id)
     assert params["p_query_text"] == "Python"
     assert params["p_rerank_mode"] == "qwen"

@@ -28,12 +28,14 @@ sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from backend.app.services.matching.bm25 import bm25_document, bm25_query, bm25_scores  # noqa: E402
 from backend.app.services.matching.embed import embed_text  # noqa: E402
 from backend.app.services.matching.parse import clean_markdown, parse_resume_bytes, redact_pii  # noqa: E402
 from backend.app.services.matching.rrf import score_candidates  # noqa: E402
 from backend.app.services.matching.rrf_jobs import score_jobs_for_resume  # noqa: E402
 from backend.app.services.matching.skills import expand_query, extract_skills, load_taxonomy_index  # noqa: E402
-from backend.app.services.matching.summarize import summarize_resume  # noqa: E402
+from backend.app.services.matching.retrieve_jobs import _cv_query_text  # noqa: E402
+from backend.app.services.matching.summarize import grounded_titles, summarize_resume  # noqa: E402
 
 from evaluation.golden import judge_quality  # noqa: E402
 from evaluation.golden.judge_relevance import build_qrels, calibration_report  # noqa: E402
@@ -97,6 +99,8 @@ def ingest_all_cvs(manifest: list[dict], index: dict) -> dict:
             "summarized_body": summarized_body,
             "extracted_skills": skills,
             "embedding": embedding,
+            "titles": grounded_titles(list(meta.get("titles") or []), original_markdown),
+            "summary": meta.get("summary") or "",
         }
 
     results: dict[str, dict] = {}
@@ -114,13 +118,25 @@ def ingest_all_cvs(manifest: list[dict], index: dict) -> dict:
 def rank_candidates_for_jd(jd: dict, ingest_results: dict, index: dict) -> list[str]:
     text = jd_query_text(jd)
     jd_skills = extract_skills(text, index)
-    expanded = expand_query(text)
+    expanded = expand_query(text, extracted=jd_skills)
 
     jd_emb = oai_embed(text)
     jd_emb_expanded = oai_embed(expanded)
 
+    # Mirror retrieve_for_job(): BM25 over each CV's original text with its
+    # extracted skills injected, scored against title + JD skills (unconfirmed
+    # constraints path, same as _bm25_skill_ids' `not confirmed` branch).
+    cv_ids = list(ingest_results.keys())
+    docs = [
+        bm25_document(ingest_results[cv_id]["original_markdown"], ingest_results[cv_id]["extracted_skills"])
+        for cv_id in cv_ids
+    ]
+    bm25_q = bm25_query(str(jd.get("title") or ""), jd_skills)
+    bm25_vals = bm25_scores(docs, bm25_q) if docs else []
+
     rows = []
-    for cv_id, row in ingest_results.items():
+    for cv_id, bm25_val in zip(cv_ids, bm25_vals, strict=True):
+        row = ingest_results[cv_id]
         emb = row["embedding"]
         rows.append(
             {
@@ -129,6 +145,7 @@ def rank_candidates_for_jd(jd: dict, ingest_results: dict, index: dict) -> list[
                 "skills": row["extracted_skills"],
                 "distance_original": cosine_distance(jd_emb, emb),
                 "distance_expanded": cosine_distance(jd_emb_expanded, emb),
+                "bm25_score": bm25_val,
             }
         )
 
@@ -146,16 +163,28 @@ def rank_jds_for_cv(
     cv_row = ingest_results[cv_id]
     cv_skills = cv_row["extracted_skills"]
     cv_emb = cv_row["embedding"]
+    cv_text = cv_row["original_markdown"]
+
+    # Mirror retrieve_jobs_for_resume(): BM25 over each JD's text with its
+    # taxonomy skills injected, scored against a short CV query text (titles,
+    # falling back to summary, falling back to the full CV) via the shared
+    # _cv_query_text() helper — see eval/results/report2.md section 4.2 for
+    # why using the full CV text as the query hurt MRR/NDCG.
+    jd_ids = list(jd_embeddings_expanded.keys())
+    docs = [bm25_document(jd_query_text(jds_by_id[jd_id]), jds_by_id[jd_id]["taxonomy_skills"]) for jd_id in jd_ids]
+    bm25_q = bm25_query(_cv_query_text(cv_row, cv_text), cv_skills)
+    bm25_vals = bm25_scores(docs, bm25_q) if docs else []
 
     rows = []
-    for jd_id, jd_emb in jd_embeddings_expanded.items():
+    for jd_id, bm25_val in zip(jd_ids, bm25_vals, strict=True):
+        jd_emb = jd_embeddings_expanded[jd_id]
         jd = jds_by_id[jd_id]
         rows.append(
             {
                 "job_id": jd_id,
                 "skills": jd["taxonomy_skills"],
                 "distance_expanded": cosine_distance(cv_emb, jd_emb),
-                "bm25_score": 0.0,
+                "bm25_score": bm25_val,
             }
         )
 

@@ -516,3 +516,115 @@ class TestGitHubExceptions:
     def test_github_not_found_error_custom_message(self):
         exc = GitHubNotFoundError("Custom not found")
         assert "Custom not found" in str(exc)
+
+
+class TestGitHubFileSubmoduleType:
+    def test_from_tree_entry_submodule(self):
+        entry = {"path": "lib/submodule", "type": "submodule", "sha": "abc123", "size": 40}
+        git_file = GitHubFile.from_tree_entry(entry)
+        assert git_file.path == "lib/submodule"
+        assert git_file.type == FileType.SUBMODULE
+        assert git_file.sha == "abc123"
+
+    def test_from_tree_entry_submodule_unknown_type_defaults_to_file(self):
+        entry = {"path": "weird", "type": "unknown", "sha": "xyz"}
+        git_file = GitHubFile.from_tree_entry(entry)
+        assert git_file.type == FileType.FILE
+
+
+class TestBinaryFiltering:
+    @pytest.mark.asyncio
+    async def test_get_text_file_skips_binary_by_extension(self, respx_mock):
+        import httpx
+
+        client = GitHubClient(token="test")
+        client._client = httpx.AsyncClient(
+            headers=client._get_headers(),
+            base_url=client.api_url,
+        )
+
+        with respx_mock:
+            respx.get("https://api.github.com/repos/owner/repo/contents/image.png").mock(
+                return_value=httpx.Response(200, json={"content": "fake", "encoding": "base64"})
+            )
+
+            content = await client.get_text_file("owner", "repo", "image.png")
+            assert content == ""
+
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_get_text_file_skips_oversized_files(self, respx_mock):
+        import httpx
+
+        client = GitHubClient(token="test")
+        client._client = httpx.AsyncClient(
+            headers=client._get_headers(),
+            base_url=client.api_url,
+        )
+
+        with respx_mock:
+            respx.get("https://api.github.com/repos/owner/repo/contents/large.txt").mock(
+                return_value=httpx.Response(200, json={"content": "fake", "encoding": "base64", "size": 2_000_000})
+            )
+
+            content = await client.get_text_file("owner", "repo", "large.txt")
+            assert content == ""
+
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_get_text_file_allows_text_file(self, respx_mock):
+        import httpx
+        import base64
+
+        client = GitHubClient(token="test")
+        client._client = httpx.AsyncClient(
+            headers=client._get_headers(),
+            base_url=client.api_url,
+        )
+
+        test_content = "print('hello')"
+        encoded = base64.b64encode(test_content.encode()).decode()
+
+        with respx_mock:
+            respx.get("https://api.github.com/repos/owner/repo/contents/main.py").mock(
+                return_value=httpx.Response(200, json={"content": encoded, "encoding": "base64", "size": 14})
+            )
+
+            content = await client.get_text_file("owner", "repo", "main.py")
+            assert content == test_content
+
+        await client.close()
+
+
+class TestCircuitBreakerFastFail:
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_open_fails_fast_without_retry(self, respx_mock):
+        """When circuit is OPEN, request should fail immediately without entering retry loop."""
+        import httpx
+        import time
+
+        client = GitHubClient(token="test")
+        client._client = httpx.AsyncClient(
+            headers=client._get_headers(),
+            base_url=client.api_url,
+        )
+
+        client._circuit_breaker._state = "open"
+        client._circuit_breaker._opened_at = time.monotonic()
+
+        start = time.time()
+        with respx_mock:
+            respx.get("https://api.github.com/repos/owner/repo/contents/test.txt").mock(
+                return_value=httpx.Response(200, json={"content": "", "encoding": "base64"})
+            )
+
+            with pytest.raises(GitHubAPIError) as exc_info:
+                await client.get_text_file("owner", "repo", "test.txt")
+
+            elapsed = time.time() - start
+            assert "Circuit breaker is OPEN" in str(exc_info.value)
+            assert elapsed < 0.5
+
+        await client.close()

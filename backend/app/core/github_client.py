@@ -13,6 +13,19 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+BINARY_EXTENSIONS = frozenset({
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg",
+    ".pdf", ".zip", ".tar", ".gz", ".rar", ".7z",
+    ".exe", ".dll", ".so", ".dylib",
+    ".mp3", ".wav", ".ogg", ".flac", ".aac",
+    ".mp4", ".avi", ".mkv", ".mov", ".wmv",
+    ".ttf", ".otf", ".woff", ".woff2", ".eot",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".class", ".pyc", ".o", ".obj",
+})
+
+MAX_CONTENT_SIZE = 1_000_000
+
 
 # === Exceptions ===
 
@@ -136,7 +149,14 @@ class GitHubFile:
     @classmethod
     def from_tree_entry(cls, entry: dict[str, Any]) -> GitHubFile:
         entry_type = entry.get("type", "blob")
-        file_type = FileType.FILE if entry_type == "blob" else FileType.DIRECTORY
+        if entry_type == "blob":
+            file_type = FileType.FILE
+        elif entry_type == "tree":
+            file_type = FileType.DIRECTORY
+        elif entry_type == "submodule":
+            file_type = FileType.SUBMODULE
+        else:
+            file_type = FileType.FILE
         return cls(
             path=entry.get("path", ""),
             type=file_type,
@@ -204,7 +224,7 @@ class GitHubClient:
             self._rate_limit_reset = float(reset)
 
     async def _proactive_rate_limit_sleep(self) -> None:
-        if self._rate_limit_remaining == 0 and self._rate_limit_reset > 0:
+        if self._rate_limit_remaining <= 1 and self._rate_limit_reset > 0:
             sleep_seconds = max(0, self._rate_limit_reset - time.time()) + 1
             logger.info("Rate limit reached, sleeping for %.1fs", sleep_seconds)
             await asyncio.sleep(sleep_seconds)
@@ -217,6 +237,9 @@ class GitHubClient:
         **kwargs: Any,
     ) -> httpx.Response:
         await self._proactive_rate_limit_sleep()
+
+        if not self._circuit_breaker._can_execute():
+            raise GitHubAPIError("Circuit breaker is OPEN, request blocked")
 
         async def do_request() -> httpx.Response:
             client = await self._get_client()
@@ -239,6 +262,8 @@ class GitHubClient:
         for attempt in range(max_retries):
             try:
                 return await self._circuit_breaker.execute(do_request)
+            except GitHubRateLimitError:
+                raise
             except GitHubAPIError:
                 raise
             except httpx.HTTPStatusError as exc:
@@ -282,36 +307,39 @@ class GitHubClient:
         tree_data = await self._get(url, params=params)
 
         files: list[GitHubFile] = []
-        submodule_paths: set[str] = set()
-
-        for entry in tree_data.get("tree", []):
-            if entry.get("path") == ".gitmodules":
-                submodule_paths.update(self._parse_gitmodules(tree_data))
-                break
+        has_submodules = self._parse_gitmodules(tree_data)
 
         for entry in tree_data.get("tree", []):
             git_file = GitHubFile.from_tree_entry(entry)
-            if entry.get("type") == "blob":
-                git_file.submodule = git_file.path in submodule_paths
+            if has_submodules and entry.get("type") == "blob":
+                git_file.submodule = git_file.path.endswith(".gitmodules")
             files.append(git_file)
 
         return files
 
-    def _parse_gitmodules(self, tree_data: dict[str, Any]) -> set[str]:
-        """Parse .gitmodules from tree to find submodule paths."""
-        submodule_paths: set[str] = set()
+    def _parse_gitmodules(self, tree_data: dict[str, Any]) -> bool:
+        """Check if .gitmodules exists in tree data."""
         for entry in tree_data.get("tree", []):
             if entry.get("path") == ".gitmodules" and entry.get("type") == "blob":
-                submodule_paths.add(entry.get("path"))
-        return submodule_paths
+                return True
+        return False
 
     async def get_text_file(self, owner: str, repo: str, path: str) -> str:
         """Get text file content using GitHub API.
 
-        Returns empty string for binary files.
+        Returns empty string for binary files or oversized files.
         """
+        ext = "." + path.split(".")[-1] if "." in path else ""
+        if ext.lower() in BINARY_EXTENSIONS:
+            return ""
+
         url = f"/repos/{owner}/{repo}/contents/{path}"
         data = await self._get(url)
+
+        size = data.get("size")
+        if size is not None and size > MAX_CONTENT_SIZE:
+            return ""
+
         content = data.get("content", "")
         if data.get("encoding") == "base64" and content:
             import base64
@@ -352,4 +380,6 @@ __all__ = [
     "GitHubNotFoundError",
     "FileType",
     "CircuitBreaker",
+    "BINARY_EXTENSIONS",
+    "MAX_CONTENT_SIZE",
 ]

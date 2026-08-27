@@ -196,11 +196,13 @@ class TestEvaluate:
         evaluator = RepoEvaluator()
         valid_json = json.dumps({
             "overall_score": 7.5,
-            "code_quality": {"score": 8.0, "reason": "Clean code."},
-            "documentation": {"score": 7.0, "reason": "Good docs."},
-            "testing": {"score": 6.5, "reason": "Adequate tests."},
-            "activity": {"score": 7.0, "reason": "Active repo."},
-            "technical_alignment": {"score": 7.5, "reason": "Good fit."},
+            "completeness": {"score": 8.0, "reason": "Clean code."},
+            "complexity": {"score": 7.0, "reason": "Good complexity."},
+            "optimization": {"score": 7.0, "reason": "Well optimized."},
+            "code_cleanliness": {"score": 7.5, "reason": "Clean."},
+            "project_understanding": {"score": 7.0, "reason": "Good fit."},
+            "overall_summary": "Good repository overall.",
+            "red_flags": [],
         })
 
         def fake_client(prompt, **kwargs) -> str:
@@ -208,18 +210,22 @@ class TestEvaluate:
 
         result = evaluator.evaluate(sample_metadata, sample_files, llm_client=fake_client)
         assert result.overall_score == 7.5
-        assert result.code_quality.score == 8.0
+        assert result.completeness.score == 8.0
         assert result.heuristic_fallback is False
+        assert result.overall_summary == "Good repository overall."
+        assert result.red_flags == []
 
     def test_strips_markdown_fences(self, sample_metadata, sample_files):
         evaluator = RepoEvaluator()
         valid_json = json.dumps({
             "overall_score": 6.0,
-            "code_quality": {"score": 6.0, "reason": "ok"},
-            "documentation": {"score": 6.0, "reason": "ok"},
-            "testing": {"score": 6.0, "reason": "ok"},
-            "activity": {"score": 6.0, "reason": "ok"},
-            "technical_alignment": {"score": 6.0, "reason": "ok"},
+            "completeness": {"score": 6.0, "reason": "ok"},
+            "complexity": {"score": 6.0, "reason": "ok"},
+            "optimization": {"score": 6.0, "reason": "ok"},
+            "code_cleanliness": {"score": 6.0, "reason": "ok"},
+            "project_understanding": {"score": 6.0, "reason": "ok"},
+            "overall_summary": "Summary.",
+            "red_flags": [],
         })
 
         def fake_client(prompt, **kwargs) -> str:
@@ -241,16 +247,51 @@ class TestEvaluate:
                 return "still not json"
             return json.dumps({
                 "overall_score": 5.5,
-                "code_quality": {"score": 5.5, "reason": "ok"},
-                "documentation": {"score": 5.5, "reason": "ok"},
-                "testing": {"score": 5.5, "reason": "ok"},
-                "activity": {"score": 5.5, "reason": "ok"},
-                "technical_alignment": {"score": 5.5, "reason": "ok"},
+                "completeness": {"score": 5.5, "reason": "ok"},
+                "complexity": {"score": 5.5, "reason": "ok"},
+                "optimization": {"score": 5.5, "reason": "ok"},
+                "code_cleanliness": {"score": 5.5, "reason": "ok"},
+                "project_understanding": {"score": 5.5, "reason": "ok"},
+                "overall_summary": "OK.",
+                "red_flags": [],
             })
 
         result = evaluator.evaluate(sample_metadata, sample_files, llm_client=flaky_client)
         assert result.overall_score == 5.5
         assert call_count == 3
+
+    def test_retry_sends_full_original_prompt(self, sample_metadata, sample_files):
+        """On retry, the full original prompt + correction is sent, not just the error."""
+        evaluator = RepoEvaluator(max_retries=3)
+        call_count = 0
+        received_prompts: list[str] = []
+
+        def tracking_client(prompt, **kwargs) -> str:
+            nonlocal call_count
+            call_count += 1
+            received_prompts.append(prompt)
+            if call_count == 1:
+                return "not json"
+            if call_count == 2:
+                return "not json either"
+            return json.dumps({
+                "overall_score": 6.0,
+                "completeness": {"score": 6.0, "reason": "ok"},
+                "complexity": {"score": 6.0, "reason": "ok"},
+                "optimization": {"score": 6.0, "reason": "ok"},
+                "code_cleanliness": {"score": 6.0, "reason": "ok"},
+                "project_understanding": {"score": 6.0, "reason": "ok"},
+                "overall_summary": "OK.",
+                "red_flags": [],
+            })
+
+        evaluator.evaluate(sample_metadata, sample_files, llm_client=tracking_client)
+        assert call_count == 3
+        # Retry prompts must include original repo content
+        assert "awesome-lib" in received_prompts[1]
+        assert "awesome-lib" in received_prompts[2]
+        assert "Re-evaluate the repository from scratch" in received_prompts[1]
+        assert "Re-evaluate the repository from scratch" in received_prompts[2]
 
     def test_falls_back_to_heuristic_after_all_retries_fail(
         self, sample_metadata, sample_files
@@ -268,11 +309,13 @@ class TestEvaluate:
         evaluator = RepoEvaluator()
         out_of_range_json = json.dumps({
             "overall_score": 999,
-            "code_quality": {"score": -5, "reason": "bad"},
-            "documentation": {"score": 15, "reason": "too high"},
-            "testing": {"score": 5, "reason": "ok"},
-            "activity": {"score": 5, "reason": "ok"},
-            "technical_alignment": {"score": 5, "reason": "ok"},
+            "completeness": {"score": -5, "reason": "bad"},
+            "complexity": {"score": 15, "reason": "too high"},
+            "optimization": {"score": 5, "reason": "ok"},
+            "code_cleanliness": {"score": 5, "reason": "ok"},
+            "project_understanding": {"score": 5, "reason": "ok"},
+            "overall_summary": "Summary.",
+            "red_flags": [],
         })
 
         def fake_client(prompt, **kwargs) -> str:
@@ -281,15 +324,16 @@ class TestEvaluate:
         result = evaluator.evaluate(sample_metadata, sample_files, llm_client=fake_client)
         assert result.overall_score <= 10.0
         assert result.overall_score >= 0.0
-        assert result.code_quality.score <= 10.0
-        assert result.code_quality.score >= 0.0
+        assert result.completeness.score <= 10.0
+        assert result.completeness.score >= 0.0
 
     def test_fills_missing_metric_keys(self, sample_metadata, sample_files):
         evaluator = RepoEvaluator()
         partial_json = json.dumps({
             "overall_score": 7.0,
-            "code_quality": {"score": 7.0, "reason": "ok"},
-            # missing other keys
+            "completeness": {"score": 7.0, "reason": "ok"},
+            "overall_summary": "Partial.",
+            "red_flags": [],
         })
 
         def fake_client(prompt, **kwargs) -> str:
@@ -297,8 +341,67 @@ class TestEvaluate:
 
         result = evaluator.evaluate(sample_metadata, sample_files, llm_client=fake_client)
         # Should use defaults (score=5.0, reason="No explanation provided.")
-        assert result.documentation.score == 5.0
-        assert result.testing.score == 5.0
+        assert result.complexity.score == 5.0
+        assert result.optimization.score == 5.0
+
+    def test_overall_summary_truncated_to_500_chars(self, sample_metadata, sample_files):
+        evaluator = RepoEvaluator()
+        long_summary = "x" * 600
+        valid_json = json.dumps({
+            "overall_score": 7.0,
+            "completeness": {"score": 7.0, "reason": "ok"},
+            "complexity": {"score": 7.0, "reason": "ok"},
+            "optimization": {"score": 7.0, "reason": "ok"},
+            "code_cleanliness": {"score": 7.0, "reason": "ok"},
+            "project_understanding": {"score": 7.0, "reason": "ok"},
+            "overall_summary": long_summary,
+            "red_flags": [],
+        })
+
+        def fake_client(prompt, **kwargs) -> str:
+            return valid_json
+
+        result = evaluator.evaluate(sample_metadata, sample_files, llm_client=fake_client)
+        assert len(result.overall_summary) <= 500
+
+    def test_red_flags_defaults_to_empty_list(self, sample_metadata, sample_files):
+        evaluator = RepoEvaluator()
+        valid_json = json.dumps({
+            "overall_score": 7.0,
+            "completeness": {"score": 7.0, "reason": "ok"},
+            "complexity": {"score": 7.0, "reason": "ok"},
+            "optimization": {"score": 7.0, "reason": "ok"},
+            "code_cleanliness": {"score": 7.0, "reason": "ok"},
+            "project_understanding": {"score": 7.0, "reason": "ok"},
+            "overall_summary": "Summary.",
+            # red_flags omitted
+        })
+
+        def fake_client(prompt, **kwargs) -> str:
+            return valid_json
+
+        result = evaluator.evaluate(sample_metadata, sample_files, llm_client=fake_client)
+        assert result.red_flags == []
+
+    def test_red_flags_parsed_from_response(self, sample_metadata, sample_files):
+        evaluator = RepoEvaluator()
+        valid_json = json.dumps({
+            "overall_score": 5.0,
+            "completeness": {"score": 5.0, "reason": "ok"},
+            "complexity": {"score": 5.0, "reason": "ok"},
+            "optimization": {"score": 5.0, "reason": "ok"},
+            "code_cleanliness": {"score": 5.0, "reason": "ok"},
+            "project_understanding": {"score": 5.0, "reason": "ok"},
+            "overall_summary": "Issues found.",
+            "red_flags": ["Missing tests", "No CI/CD"],
+        })
+
+        def fake_client(prompt, **kwargs) -> str:
+            return valid_json
+
+        result = evaluator.evaluate(sample_metadata, sample_files, llm_client=fake_client)
+        assert "Missing tests" in result.red_flags
+        assert "No CI/CD" in result.red_flags
 
 
 # =============================================================================
@@ -306,28 +409,28 @@ class TestEvaluate:
 # =============================================================================
 
 class TestHeuristicFallback:
-    def test_high_stars_high_score(self):
+    def test_high_stars_high_completeness(self):
         metadata = RepoMetadata(name="t", owner="o", stars=2000, forks=200, language="Python")
         result = _heuristic_result(metadata)
-        assert result.code_quality.score >= 8.0
+        assert result.completeness.score >= 7.0
         assert result.heuristic_fallback is True
 
-    def test_no_readme_low_doc_score(self):
+    def test_no_readme_low_completeness_score(self):
         metadata = RepoMetadata(name="t", owner="o", readme_preview=None)
         result = _heuristic_result(metadata)
-        assert result.documentation.score < 5.0
+        assert result.completeness.score < 5.0
 
-    def test_readme_present_higher_doc_score(self):
+    def test_readme_present_higher_completeness_score(self):
         metadata = RepoMetadata(name="t", owner="o", readme_preview="hello")
         result = _heuristic_result(metadata)
-        assert result.documentation.score >= 7.0
+        assert result.completeness.score >= 7.0
 
-    def test_popular_language_better_alignment(self):
+    def test_popular_language_better_complexity_score(self):
         meta_go = RepoMetadata(name="t", owner="o", language="Go")
         meta_unknown = RepoMetadata(name="t", owner="o", language=None)
         r_go = _heuristic_result(meta_go)
         r_unknown = _heuristic_result(meta_unknown)
-        assert r_go.technical_alignment.score > r_unknown.technical_alignment.score
+        assert r_go.complexity.score > r_unknown.complexity.score
 
     def test_overall_score_in_valid_range(self):
         metadata = RepoMetadata(name="t", owner="o", stars=100)
@@ -337,11 +440,27 @@ class TestHeuristicFallback:
     def test_all_metrics_have_reasons(self):
         metadata = RepoMetadata(name="t", owner="o", stars=50)
         result = _heuristic_result(metadata)
-        assert result.code_quality.reason
-        assert result.documentation.reason
-        assert result.testing.reason
-        assert result.activity.reason
-        assert result.technical_alignment.reason
+        assert result.completeness.reason
+        assert result.complexity.reason
+        assert result.optimization.reason
+        assert result.code_cleanliness.reason
+        assert result.project_understanding.reason
+
+    def test_heuristic_has_overall_summary(self):
+        metadata = RepoMetadata(name="t", owner="o", stars=50)
+        result = _heuristic_result(metadata)
+        assert result.overall_summary
+        assert len(result.overall_summary) <= 500
+
+    def test_heuristic_no_readme_has_red_flag(self):
+        metadata = RepoMetadata(name="t", owner="o", readme_preview=None)
+        result = _heuristic_result(metadata)
+        assert len(result.red_flags) > 0
+
+    def test_heuristic_low_stars_has_red_flag(self):
+        metadata = RepoMetadata(name="t", owner="o", stars=5, readme_preview="x")
+        result = _heuristic_result(metadata)
+        assert len(result.red_flags) > 0
 
 
 # =============================================================================
@@ -444,11 +563,13 @@ class TestPromptInjectionDefense:
         evaluator = RepoEvaluator()
         valid_json = json.dumps({
             "overall_score": 7.0,
-            "code_quality": {"score": 7.0, "reason": "ok"},
-            "documentation": {"score": 7.0, "reason": "ok"},
-            "testing": {"score": 7.0, "reason": "ok"},
-            "activity": {"score": 7.0, "reason": "ok"},
-            "technical_alignment": {"score": 7.0, "reason": "ok"},
+            "completeness": {"score": 7.0, "reason": "ok"},
+            "complexity": {"score": 7.0, "reason": "ok"},
+            "optimization": {"score": 7.0, "reason": "ok"},
+            "code_cleanliness": {"score": 7.0, "reason": "ok"},
+            "project_understanding": {"score": 7.0, "reason": "ok"},
+            "overall_summary": "Good repo.",
+            "red_flags": [],
         })
 
         def fake_client(prompt, **kwargs) -> str:
@@ -487,13 +608,13 @@ class TestEdgeCases:
         assert "🎉" in prompt
 
     def test_none_content_treated_as_empty(self, sample_metadata):
-        evaluator = RepoEvaluator()
         files = [("empty.txt", None)]  # type: ignore
+        evaluator = RepoEvaluator()
         prompt = evaluator.build_user_prompt(sample_metadata, files)
         assert "empty.txt" in prompt
         # Should not raise
 
-    def test_llm_client_接受了_system_kwarg(self, sample_metadata, sample_files):
+    def test_llm_client_receives_system_kwarg(self, sample_metadata, sample_files):
         """LLM client is called with the defense system prompt."""
         evaluator = RepoEvaluator()
         received_kwargs: dict = {}
@@ -502,11 +623,13 @@ class TestEdgeCases:
             received_kwargs.update(kwargs)
             return json.dumps({
                 "overall_score": 6.0,
-                "code_quality": {"score": 6.0, "reason": "ok"},
-                "documentation": {"score": 6.0, "reason": "ok"},
-                "testing": {"score": 6.0, "reason": "ok"},
-                "activity": {"score": 6.0, "reason": "ok"},
-                "technical_alignment": {"score": 6.0, "reason": "ok"},
+                "completeness": {"score": 6.0, "reason": "ok"},
+                "complexity": {"score": 6.0, "reason": "ok"},
+                "optimization": {"score": 6.0, "reason": "ok"},
+                "code_cleanliness": {"score": 6.0, "reason": "ok"},
+                "project_understanding": {"score": 6.0, "reason": "ok"},
+                "overall_summary": "Summary.",
+                "red_flags": [],
             })
 
         evaluator.evaluate(sample_metadata, sample_files, llm_client=fake_client)

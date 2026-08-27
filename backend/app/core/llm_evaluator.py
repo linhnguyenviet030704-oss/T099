@@ -40,18 +40,26 @@ class RepoEvaluationResult(BaseModel):
     overall_score: float = Field(
         ..., ge=0.0, le=10.0, description="Weighted overall score 0-10"
     )
-    code_quality: RepoMetricScore = Field(
-        ..., description="Code quality and maintainability"
+    completeness: RepoMetricScore = Field(
+        ..., description="Feature completeness and scope coverage"
     )
-    documentation: RepoMetricScore = Field(
-        ..., description="README, docs, and inline comments"
+    complexity: RepoMetricScore = Field(
+        ..., description="Code complexity relative to feature scope"
     )
-    testing: RepoMetricScore = Field(..., description="Test coverage and quality")
-    activity: RepoMetricScore = Field(
-        ..., description="Recent commits, issues, PRs activity"
+    optimization: RepoMetricScore = Field(
+        ..., description="Performance optimization and efficiency"
     )
-    technical_alignment: RepoMetricScore = Field(
-        ..., description="Alignment with target tech stack / requirements"
+    code_cleanliness: RepoMetricScore = Field(
+        ..., description="Code style, readability, and maintainability"
+    )
+    project_understanding: RepoMetricScore = Field(
+        ..., description="Alignment with stated project goals and requirements"
+    )
+    overall_summary: str = Field(
+        ..., max_length=500, description="High-level summary of the evaluation"
+    )
+    red_flags: list[str] = Field(
+        default_factory=list, description="List of concerns or issues found"
     )
     heuristic_fallback: bool = Field(
         default=False,
@@ -86,11 +94,13 @@ Your task: Evaluate the repository described in the user message and return a JS
 Return JSON with these exact keys:
 {
   "overall_score": float (0.0-10.0),
-  "code_quality": {"score": float, "reason": string},
-  "documentation": {"score": float, "reason": string},
-  "testing": {"score": float, "reason": string},
-  "activity": {"score": float, "reason": string},
-  "technical_alignment": {"score": float, "reason": string}
+  "completeness": {"score": float, "reason": string},
+  "complexity": {"score": float, "reason": string},
+  "optimization": {"score": float, "reason": string},
+  "code_cleanliness": {"score": float, "reason": string},
+  "project_understanding": {"score": float, "reason": string},
+  "overall_summary": string (max 500 chars),
+  "red_flags": list of strings
 }
 
 Score guidelines (0.0-10.0):
@@ -122,70 +132,89 @@ def _heuristic_result(metadata: RepoMetadata) -> RepoEvaluationResult:
     has_readme = bool(metadata.readme_preview)
     lang = (metadata.language or "").lower()
 
-    # Code quality: stars and forks as proxies
+    # Completeness: README presence and stars as proxies
     if stars > 1000:
-        cq_score = 8.5
-        cq_reason = f"Popular repository ({stars} stars) indicates well-regarded code."
+        comp_score = 8.0
+        comp_reason = f"Popular repository ({stars} stars) — complete feature set."
     elif stars > 100:
-        cq_score = 7.0
-        cq_reason = f"Good visibility ({stars} stars) with community认可."
+        comp_score = 7.0
+        comp_reason = f"Good visibility ({stars} stars)."
+    elif has_readme:
+        comp_score = 7.5
+        comp_reason = "README present — project scope is documented."
     elif stars > 10:
-        cq_score = 5.5
-        cq_reason = f"Growing repository ({stars} stars)."
+        comp_score = 5.5
+        comp_reason = f"Growing repository ({stars} stars)."
     else:
-        cq_score = 4.0
-        cq_reason = "New or low-visibility repository, limited community signal."
+        comp_score = 3.0
+        comp_reason = "New or low-visibility repository."
 
-    # Documentation: README presence
-    if has_readme:
-        doc_score = 7.5
-        doc_reason = "README present and readable."
-    else:
-        doc_score = 2.0
-        doc_reason = "No README found — critical documentation gap."
-
-    # Testing: unknown, score conservatively
-    test_score = 5.0
-    test_reason = "Cannot determine test coverage from metadata alone."
-
-    # Activity: stars/forks as engagement proxies
-    if stars > 500:
-        act_score = 8.0
-        act_reason = f"Active community ({stars} stars, {forks} forks)."
-    elif stars > 50:
-        act_score = 6.0
-        act_reason = "Moderate community engagement."
-    else:
-        act_score = 4.0
-        act_reason = "Limited community engagement visible in metadata."
-
-    # Technical alignment: language-based scoring
+    # Complexity: language-based scoring
     popular_langs = {"python", "typescript", "javascript", "go", "rust", "java"}
     if lang in popular_langs:
-        ta_score = 7.0
-        ta_reason = f"Uses {lang}, a mainstream language with good tooling."
+        cx_score = 6.5
+        cx_reason = f"Uses {lang}, moderate complexity tooling."
     elif lang:
-        ta_score = 5.5
-        ta_reason = f"Uses {lang}, specialized tooling may be required."
+        cx_score = 5.5
+        cx_reason = f"Uses {lang}, specialized complexity."
     else:
-        ta_score = 4.0
-        ta_reason = "No language detected in metadata."
+        cx_score = 4.0
+        cx_reason = "No language detected."
+
+    # Optimization: stars as proxy for well-maintained code
+    if stars > 1000:
+        opt_score = 7.5
+        opt_reason = f"Popular repository ({stars} stars) — likely optimized."
+    elif stars > 100:
+        opt_score = 6.5
+        opt_reason = f"Good visibility ({stars} stars)."
+    elif stars > 10:
+        opt_score = 5.5
+        opt_reason = f"Growing repository ({stars} stars)."
+    else:
+        opt_score = 4.0
+        opt_reason = "New or low-visibility repository."
+
+    # Code cleanliness: stars and forks as proxies
+    if stars > 1000:
+        cc_score = 7.5
+        cc_reason = f"Popular repository ({stars} stars) indicates clean code."
+    elif stars > 100:
+        cc_score = 6.5
+        cc_reason = f"Good visibility ({stars} stars)."
+    elif stars > 10:
+        cc_score = 5.5
+        cc_reason = f"Growing repository ({stars} stars)."
+    else:
+        cc_score = 4.0
+        cc_reason = "New or low-visibility repository."
+
+    # Project understanding: unknown, score conservatively
+    pu_score = 5.0
+    pu_reason = "Cannot determine project understanding from metadata alone."
 
     overall = round(
-        0.30 * cq_score + 0.15 * doc_score + 0.20 * test_score + 0.15 * act_score + 0.20 * ta_score,
+        0.25 * comp_score + 0.15 * cx_score + 0.20 * opt_score + 0.25 * cc_score + 0.15 * pu_score,
         1,
     )
 
+    red_flags_list: list[str] = []
+    if not has_readme:
+        red_flags_list.append("Missing README — project scope unclear.")
+    if stars < 10:
+        red_flags_list.append("Low visibility — limited community signal.")
+
     return RepoEvaluationResult(
         overall_score=overall,
-        code_quality=RepoMetricScore(score=cq_score, reason=cq_reason),
-        documentation=RepoMetricScore(score=doc_score, reason=doc_reason),
-        testing=RepoMetricScore(score=test_score, reason=test_reason),
-        activity=RepoMetricScore(score=act_score, reason=act_reason),
-        technical_alignment=RepoMetricScore(score=ta_score, reason=ta_reason),
+        completeness=RepoMetricScore(score=comp_score, reason=comp_reason),
+        complexity=RepoMetricScore(score=cx_score, reason=cx_reason),
+        optimization=RepoMetricScore(score=opt_score, reason=opt_reason),
+        code_cleanliness=RepoMetricScore(score=cc_score, reason=cc_reason),
+        project_understanding=RepoMetricScore(score=pu_score, reason=pu_reason),
+        overall_summary=f"Repository has {stars} stars and {'a README' if has_readme else 'no README'}.",
+        red_flags=red_flags_list,
         heuristic_fallback=True,
     )
-
 
 # --- Core Evaluator ---
 
@@ -303,19 +332,20 @@ class RepoEvaluator:
 
     def _call_with_retry(
         self,
-        prompt: str,
+        original_prompt: str,
         llm_client: LLMCompleteFn,
     ) -> RepoEvaluationResult | None:
         """Call LLM with up to max_retries on JSON parse failure.
 
-        On each retry sends a correction prompt explaining the parse error.
+        On each retry re-sends the full original prompt with the correction message.
         """
         last_error: Exception | None = None
+        current_prompt = original_prompt
 
         for attempt in range(self.max_retries):
             try:
                 raw = llm_client(
-                    prompt,
+                    current_prompt,
                     system=_EVAL_SYSTEM_PROMPT,
                     response_format={"type": "json_object"},
                     temperature=0.1,
@@ -330,16 +360,20 @@ class RepoEvaluator:
                     self.max_retries,
                     exc,
                 )
-                # Build correction prompt
+                # Build correction prompt: prepend correction to original content
                 correction = (
                     f"Your previous response was not valid JSON: {exc}. "
                     f'Please return ONLY a valid JSON object with these keys: '
-                    f'"overall_score", "code_quality", "documentation", '
-                    f'"testing", "activity", "technical_alignment". '
+                    f'"overall_score", "completeness", "complexity", '
+                    f'"optimization", "code_cleanliness", "project_understanding", '
+                    f'"overall_summary", "red_flags". '
                     f'Each sub-object must have "score" (float) and "reason" (string). '
-                    f'Do NOT include any text outside the JSON.'
+                    f'"overall_summary" must be a string (max 500 chars). '
+                    f'"red_flags" must be a list of strings. '
+                    f'Do NOT include any text outside the JSON.\n\n'
+                    f'Re-evaluate the repository from scratch using the content below:\n\n'
                 )
-                prompt = correction  # reuse the same system prompt
+                current_prompt = correction + original_prompt
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
                 logger.warning(
@@ -349,6 +383,7 @@ class RepoEvaluator:
                     exc,
                 )
                 if attempt < self.max_retries - 1:
+                    current_prompt = original_prompt
                     continue
                 break
 
@@ -374,13 +409,21 @@ class RepoEvaluator:
             reason = str(sub.get("reason", "No explanation provided."))[:200]
             return RepoMetricScore(score=round(score, 1), reason=reason)
 
+        overall_summary = str(data.get("overall_summary", ""))[:500]
+        red_flags = data.get("red_flags", [])
+        if not isinstance(red_flags, list):
+            red_flags = []
+        red_flags = [str(flag) for flag in red_flags[:10]]  # cap at 10
+
         return RepoEvaluationResult(
             overall_score=round(float(data.get("overall_score", 5.0)), 1),
-            code_quality=parse_metric("code_quality"),
-            documentation=parse_metric("documentation"),
-            testing=parse_metric("testing"),
-            activity=parse_metric("activity"),
-            technical_alignment=parse_metric("technical_alignment"),
+            completeness=parse_metric("completeness"),
+            complexity=parse_metric("complexity"),
+            optimization=parse_metric("optimization"),
+            code_cleanliness=parse_metric("code_cleanliness"),
+            project_understanding=parse_metric("project_understanding"),
+            overall_summary=overall_summary,
+            red_flags=red_flags,
             heuristic_fallback=False,
         )
 

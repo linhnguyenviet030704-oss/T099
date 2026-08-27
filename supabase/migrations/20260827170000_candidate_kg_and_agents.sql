@@ -243,7 +243,7 @@ CREATE POLICY "Recruiters see assigned sessions" ON interview_sessions
         EXISTS (
             SELECT 1 FROM job_posts jp
             WHERE jp.id = job_id
-            AND jp.recruiter_id = auth.uid()
+            AND jp.created_by_user_id = auth.uid()
         )
     );
 
@@ -254,7 +254,7 @@ CREATE POLICY "Recruiters see session questions" ON interview_questions
             SELECT 1 FROM interview_sessions s
             LEFT JOIN job_posts jp ON jp.id = s.job_id
             WHERE s.id = session_id
-            AND (s.candidate_id = auth.uid() OR jp.recruiter_id = auth.uid())
+            AND (s.candidate_id = auth.uid() OR jp.created_by_user_id = auth.uid())
         )
     );
 

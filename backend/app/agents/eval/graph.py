@@ -474,11 +474,17 @@ def build_agent1_graph(
     )
     workflow.add_edge("compute_heuristic_only", "persist_results")
     workflow.add_edge("persist_results", END)
-    workflow.add_edge("return_cached", END)
     workflow.add_edge("handle_error", END)
 
     return workflow.compile(checkpointer=checkpointer)
 
 
+def _default_llm_client(prompt: str, **kwargs: Any) -> str:
+    from backend.app.clients.llm import chat_complete
+    system = kwargs.get("system", "")
+    full_prompt = f"{system}\n\n{prompt}" if system else prompt
+    return chat_complete(full_prompt, json_object=True)
+
+
 # Default compiled graph instance
-agent1_graph = build_agent1_graph()
+agent1_graph = build_agent1_graph(llm_client=_default_llm_client)

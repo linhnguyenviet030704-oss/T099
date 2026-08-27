@@ -86,7 +86,7 @@ const DIFFICULTY_COLORS: Record<string, { bg: string; text: string; label: strin
 
 export default function AIInterviewPage() {
   const { session, user } = useAuth();
-  const toast = useToast();
+  const { success, error: toastError } = useToast();
 
   const [candidatesList, setCandidatesList] = useState<Array<{ id: string; name: string; email?: string }>>([]);
   const [jobsList, setJobsList] = useState<Array<{ id: string; title: string; seniority?: string }>>([]);
@@ -106,6 +106,7 @@ export default function AIInterviewPage() {
   // Load candidate and job lists from Supabase
   useEffect(() => {
     async function loadData() {
+      if (!supabase) return;
       try {
         const { data: profilesData } = await supabase
           .from("profiles")
@@ -165,7 +166,7 @@ export default function AIInterviewPage() {
   const handleGenerate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!selectedCandidateId || !selectedJobId) {
-      toast.show("Vui lòng chọn Ứng viên và Vị trí tuyển dụng", "error");
+      toastError("Thiếu thông tin", "Vui lòng chọn Ứng viên và Vị trí tuyển dụng");
       return;
     }
 
@@ -294,7 +295,7 @@ export default function AIInterviewPage() {
               setExpandedQuestions({ [questions[0].id]: true });
             }
 
-            toast.show("Sinh bộ câu hỏi phỏng vấn thành công!", "success");
+            success("Thành công", "Sinh bộ câu hỏi phỏng vấn thành công!");
           }
         } catch {
           if (attempts >= 5) {
@@ -305,7 +306,7 @@ export default function AIInterviewPage() {
       }, 1000);
     } catch (err: any) {
       setIsGenerating(false);
-      toast.show(err.message || "Lỗi khi sinh câu hỏi phỏng vấn", "error");
+      toastError("Lỗi", err.message || "Lỗi khi sinh câu hỏi phỏng vấn");
     }
   };
 
@@ -322,9 +323,9 @@ export default function AIInterviewPage() {
         }),
       });
       setSessionResult((prev) => (prev ? { ...prev, is_approved: true, reviewer_notes: reviewerNotes } : null));
-      toast.show("Đã phê duyệt bộ câu hỏi phỏng vấn!", "success");
+      success("Thành công", "Đã phê duyệt bộ câu hỏi phỏng vấn!");
     } catch (err: any) {
-      toast.show(err.message || "Không thể phê duyệt phiên", "error");
+      toastError("Lỗi", err.message || "Không thể phê duyệt phiên");
     } finally {
       setIsApproving(false);
     }
@@ -358,7 +359,7 @@ export default function AIInterviewPage() {
     });
 
     navigator.clipboard.writeText(lines.join("\n"));
-    toast.show("Đã sao chép bộ câu hỏi dưới dạng Markdown!", "success");
+    success("Đã sao chép", "Đã sao chép bộ câu hỏi dưới dạng Markdown!");
   };
 
   return (

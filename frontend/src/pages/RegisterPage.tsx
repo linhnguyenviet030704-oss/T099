@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { SITE_URL } from "../lib/env";
 import AnimatedPage from "../components/AnimatedPage";
+import GoogleIcon from "../components/GoogleIcon";
 import Button from "../components/ui/Button";
 
 export default function RegisterPage() {
@@ -16,9 +17,29 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<"session" | "confirm" | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   if (authLoading) return null;
   if (user && !success) return <Navigate to="/profile" replace />;
+
+  const handleGoogleRegister = async () => {
+    if (!supabase) {
+      setError("Hệ thống Supabase chưa được cấu hình.");
+      return;
+    }
+    setError("");
+    setGoogleLoading(true);
+    try {
+      const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${SITE_URL || window.location.origin}/profile` },
+      });
+      if (oauthErr) throw oauthErr;
+    } catch (err: unknown) {
+      setError(handleSupabaseError(err));
+      setGoogleLoading(false);
+    }
+  };
 
   const handleChange = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }));
@@ -187,6 +208,29 @@ export default function RegisterPage() {
               Đăng ký
             </Button>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-white dark:bg-slate-800 px-3 text-slate-400">hoặc</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            fullWidth
+            size="lg"
+            leftIcon={<GoogleIcon />}
+            isLoading={googleLoading}
+            loadingText="Đang chuyển đến Google..."
+            onClick={() => void handleGoogleRegister()}
+          >
+            Đăng ký với Google
+          </Button>
+
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
             Đã có tài khoản?{" "}
             <Link to="/login" className="text-indigo-600 font-medium hover:underline">Đăng nhập</Link>

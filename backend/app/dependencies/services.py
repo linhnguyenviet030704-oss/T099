@@ -116,6 +116,11 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
                 recruiter_message=message,
                 rerank_mode=rerank,
                 rerank_status=status,
+                pool_size=int(result.get("pool_size") or 0),
+                pool_truncated=bool(result.get("pool_truncated") or False),
+                dropped_count=int(result.get("dropped_count") or 0),
+                pool_latency_warn=bool(result.get("pool_latency_warn") or False),
+                embedding_mismatch_count=int(result.get("embedding_mismatch_count") or 0),
             )
         except Exception:
             logger.exception("match_resume persist failed")

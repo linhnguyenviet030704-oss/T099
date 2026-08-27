@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import { User, Phone, Plus, Trash2, Edit2, FileText, Check, X, Save, Camera, Upload, Loader2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
@@ -45,9 +45,13 @@ export default function ProfilePage() {
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarCameraInputRef = useRef<HTMLInputElement>(null);
 
   const addTextareaRef = useRef<HTMLTextAreaElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
 
   const enumLabels = getEnumLabels(lang);
   const lineTypeOptions = getLineTypeOptions(lang);
@@ -72,9 +76,18 @@ export default function ProfilePage() {
     void supabase.from("profiles").select("*").order("updated_at", { ascending: false }).limit(50).then(({ data }) => setAdminUsers((data || []) as Profile[]));
   }, [isAdmin]);
 
-  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
+    e.target.value = "";
     if (!selectedFile || !supabase || !user) return;
+    if (!ALLOWED_AVATAR_TYPES.includes(selectedFile.type)) {
+      toastError(t.avatarUploadError, t.avatarInvalidType);
+      return;
+    }
+    if (selectedFile.size > MAX_AVATAR_SIZE_BYTES) {
+      toastError(t.avatarUploadError, t.avatarTooLarge);
+      return;
+    }
 
     setUploadingAvatar(true);
     const oldAvatarUrl = avatarUrl;
@@ -88,21 +101,15 @@ export default function ProfilePage() {
 
       setAvatarUrl(newUrl);
       await refreshProfile();
-      success(t.avatarUploadSuccess || (lang === "en" ? "Avatar updated!" : "Đã cập nhật ảnh đại diện!"));
+      success(t.avatarUploadSuccess);
 
       if (oldAvatarUrl && oldAvatarUrl !== newUrl) {
         void removeAvatarFile(user.id, oldAvatarUrl);
       }
     } catch (err: unknown) {
-      toastError(
-        lang === "en" ? "Upload Failed" : "Tải ảnh thất bại",
-        err instanceof Error ? err.message : handleSupabaseError(err)
-      );
+      toastError(t.avatarUploadError, err instanceof Error ? err.message : handleSupabaseError(err));
     } finally {
       setUploadingAvatar(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
   };
 
@@ -119,16 +126,13 @@ export default function ProfilePage() {
 
       setAvatarUrl("");
       await refreshProfile();
-      success(t.avatarRemoveSuccess || (lang === "en" ? "Avatar removed!" : "Đã gỡ ảnh đại diện!"));
+      success(t.avatarRemoveSuccess);
 
       if (oldAvatarUrl) {
         void removeAvatarFile(user.id, oldAvatarUrl);
       }
     } catch (err: unknown) {
-      toastError(
-        lang === "en" ? "Remove Failed" : "Gỡ ảnh thất bại",
-        err instanceof Error ? err.message : handleSupabaseError(err)
-      );
+      toastError(t.avatarUploadError, err instanceof Error ? err.message : handleSupabaseError(err));
     } finally {
       setUploadingAvatar(false);
     }
@@ -294,7 +298,15 @@ export default function ProfilePage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(e) => void handleAvatarSelect(e)}
+                  className="hidden"
+                />
+                <input
+                  ref={avatarCameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
                   onChange={(e) => void handleAvatarSelect(e)}
                   className="hidden"
                 />
@@ -307,6 +319,16 @@ export default function ProfilePage() {
                   loadingText={t.uploadingAvatar}
                 >
                   {avatarUrl ? t.changeAvatar : t.uploadAvatar}
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  leftIcon={<Camera size={13} />}
+                  onClick={() => avatarCameraInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  {t.takePhoto}
                 </Button>
                 {avatarUrl && (
                   <Button

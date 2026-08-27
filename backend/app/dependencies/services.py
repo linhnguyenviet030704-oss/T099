@@ -60,12 +60,22 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
     async def assert_access(actor_id, job_id):
         await assert_recruiter_job_access(client, actor_id, job_id)
 
-    async def match_candidates(job_id, actor_id, message, rerank):
+    async def match_candidates(
+        job_id,
+        actor_id,
+        message,
+        rerank,
+        include_public: bool = True,
+        verified_only: bool = False,
+        max_results: int | None = None,
+    ):
         async def retrieve(retrieve_job_id):
             return await retrieve_for_job(
                 client,
                 actor_id,
                 retrieve_job_id,
+                include_public=include_public,
+                verified_only=verified_only,
                 store=store,
                 api_key=settings.qwen_api_key,
                 base_url=settings.qwen_base_url,
@@ -112,12 +122,19 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
             )
         except Exception:
             logger.exception("match_resume persist failed")
-        return chat_response_from_graph(result)
+        return chat_response_from_graph(result, max_results=max_results)
 
-    async def recommend_jobs(actor_id, message, rerank):
+    async def recommend_jobs(
+        actor_id,
+        message,
+        rerank,
+        resume_id: UUID | None = None,
+        max_results: int | None = None,
+    ):
         payload = await retrieve_jobs_for_resume(
             client,
             actor_id,
+            resume_id=resume_id,
             query=message,
             store=store,
             api_key=settings.qwen_api_key,
@@ -166,7 +183,7 @@ def get_chat_service(client: Client = Depends(get_supabase_client)) -> ChatServi
         except Exception:
             logger.exception("recommend_job persist failed")
 
-        return jobs_response_from_graph(result)
+        return jobs_response_from_graph(result, max_results=max_results)
 
     async def dispatch_evaluation(actor_id, message):
         classification = classify_intent(message)

@@ -42,7 +42,7 @@ async def test_chat_returns_mock_jobs():
     async def fetch_jobs():
         return [_row(id=str(job_id))]
 
-    result = await ChatService(fetch_jobs).chat(ChatRequest(message="hello"))
+    result = await ChatService(fetch_jobs).chat(ChatRequest(message="Gợi ý việc phù hợp"))
     assert len(result.jobs) == 1
     assert result.jobs[0].id == job_id
     assert result.jobs[0].score == 0.95
@@ -65,7 +65,7 @@ async def test_chat_fetch_failure_is_502():
         raise RuntimeError("supabase down")
 
     with pytest.raises(AppError) as exc:
-        await ChatService(fetch_jobs).chat(ChatRequest(message="hello"))
+        await ChatService(fetch_jobs).chat(ChatRequest(message="Gợi ý việc phù hợp"))
     assert exc.value.status_code == 502
     assert exc.value.code == "JOBS_UNAVAILABLE"
 
@@ -124,7 +124,7 @@ async def test_chat_candidates_empty_pool():
         return None
 
     result = await ChatService(fetch_jobs, fetch_candidates, allow).chat(
-        ChatRequest(message="hello", job_id=job_id),
+        ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
         uuid4(),
     )
     assert result.candidates == []
@@ -146,7 +146,7 @@ async def test_chat_candidates_forbidden():
 
     with pytest.raises(ForbiddenError):
         await ChatService(fetch_jobs, fetch_candidates, deny).chat(
-            ChatRequest(message="hello", job_id=job_id),
+            ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
             uuid4(),
         )
 
@@ -339,7 +339,7 @@ async def test_chat_recommend_runner_failure_is_502():
 
     with pytest.raises(AppError) as exc:
         await ChatService(fetch_jobs, recommend_jobs=recommend).chat(
-            ChatRequest(message="hello"), actor_id
+            ChatRequest(message="Gợi ý việc phù hợp"), actor_id
         )
     assert exc.value.status_code == 502
     assert exc.value.code == "JOBS_UNAVAILABLE"

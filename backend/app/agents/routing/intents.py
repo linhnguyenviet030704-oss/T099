@@ -69,7 +69,7 @@ _BROWSE_BY_FILTER_KEYWORDS = (
 # Explicit "use my CV" - strong CV-based matching
 _USE_CV_KEYWORDS = (
     "phù hợp với cv", "phù hợp với tôi", "phù hợp với mình",
-    "match với cv", "match với tôi",
+    "match với cv", "match với tôi", "match cv",
     "suitable for my cv", "suitable for me", "match my cv", "fit my profile",
     "based on my cv", "dựa trên cv", "dựa trên hồ sơ", "theo cv của tôi",
     "theo hồ sơ của tôi", "từ cv của tôi", "cv của tôi", "hồ sơ của tôi",
@@ -78,22 +78,26 @@ _USE_CV_KEYWORDS = (
 # Case C: Deep CV evaluation - scoring, strengths, weaknesses
 _EVALUATE_CV_KEYWORDS = (
     "đánh giá cv", "đánh giá resume", "đánh giá hồ sơ",
-    "chấm điểm cv", "review cv", "rate my cv", "evaluate my resume",
-    "cv mạnh yếu", "cv tốt không", "cv có tốt không",
+    "chấm điểm cv", "review cv", "review my cv", "rate my cv", "rate my resume",
+    "evaluate my resume", "evaluate cv", "evaluate resume",
+    "cv mạnh yếu", "cv tôi mạnh yếu", "cv của tôi mạnh yếu",
+    "cv tốt không", "cv có tốt không",
     "điểm mạnh điểm yếu", "strengths and weaknesses",
-    "cv của tôi như thế nào", "hồ sơ của tôi thế nào",
+    "cv của tôi như thế nào", "cv của tôi thế nào",
+    "hồ sơ của tôi như thế nào", "hồ sơ của tôi thế nào",
 )
 
 # Case D: Skill gap advice (CV-based)
 _SKILL_GAP_KEYWORDS = (
     "bổ sung", "cần học", "kỹ năng gì", "thiếu kỹ năng",
     "học thêm", "lộ trình", "skill gap", "yêu cầu thêm", "học gì",
-    "cần cải thiện", "cần phát triển",
+    "cần cải thiện", "tôi cần cải thiện", "cần phát triển",
+    "improve my skills", "cải thiện kỹ năng",
 )
 
 # Chitchat
 _CHITCHAT_KEYWORDS = (
-    "xin chào", "chào bạn", "cảm ơn", "bạn là ai", "hướng dẫn", "giúp đỡ",
+    "xin chào", "chào bạn", "cảm ơn", "cảm ơn bạn", "bạn là ai", "hướng dẫn", "giúp đỡ",
     "hello", "hi", "hey", "thanks", "thank you",
 )
 
@@ -102,6 +106,204 @@ _TARGET_SPECIFIC_KEYWORDS = (
     "tại fpt", "tại vng", "tại viettel", "tại shopee", "tại grab",
     "tại momo", "tại tiki", "tại zalo", "tại coccoc",
 )
+
+_RECRUITER_MATCH_KEYWORDS = (
+    "gợi ý ứng viên", "tìm ứng viên", "lọc ứng viên", "danh sách ứng viên",
+    "các ứng viên", "ứng viên phù hợp", "xem ứng viên", "suggest candidates",
+    "find candidates", "recommend candidates", "list candidates",
+)
+
+# Security, prompt injection, and credential probe keywords
+_SECURITY_AND_INJECTION_KEYWORDS = (
+    "api key", "apikey", "api_key", "secret key", "secret token", "token bí mật",
+    "system prompt", "mật khẩu", "password", "bỏ qua hướng dẫn", "previous instructions",
+    "ignore instructions", "override instructions", "disregard instructions", "output keys",
+    "đưa cho tôi api", "cho tôi api", "lấy api key", "show api key", "your api key", "api key của bạn",
+    "cung cấp api key", "lộ key", "lộ api", "jailbreak", "prompt injection",
+)
+
+
+# === Language Validation Patterns & Dictionaries ===
+
+# Non-Latin script ranges: CJK, Kana, Hangul, Cyrillic, Arabic, Hebrew, Thai, Lao, Khmer, Indic, Greek
+_NON_LATIN_SCRIPTS_PATTERN = re.compile(
+    r"["
+    r"\u4e00-\u9fff"  # CJK Unified Ideographs (Chinese / Japanese Kanji)
+    r"\u3400-\u4dbf"  # CJK Unified Ideographs Extension A
+    r"\u3040-\u309f"  # Hiragana
+    r"\u30a0-\u30ff"  # Katakana
+    r"\uac00-\ud7af"  # Hangul Syllables (Korean)
+    r"\u1100-\u11ff"  # Hangul Jamo
+    r"\u3130-\u318f"  # Hangul Compatibility Jamo
+    r"\u0400-\u04ff"  # Cyrillic (Russian, Ukrainian, etc.)
+    r"\u0500-\u052f"  # Cyrillic Supplementary
+    r"\u0600-\u06ff"  # Arabic
+    r"\u0750-\u077f"  # Arabic Supplement
+    r"\u0590-\u05ff"  # Hebrew
+    r"\u0e00-\u0e7f"  # Thai
+    r"\u0e80-\u0eff"  # Lao
+    r"\u1780-\u17ff"  # Khmer
+    r"\u1000-\u109f"  # Myanmar
+    r"\u0900-\u097f"  # Devanagari (Hindi, Sanskrit, Marathi, Nepali)
+    r"\u0980-\u09ff"  # Bengali
+    r"\u0a80-\u0aff"  # Gujarati
+    r"\u0b00-\u0b7f"  # Oriya
+    r"\u0b80-\u0bff"  # Tamil
+    r"\u0c00-\u0c7f"  # Telugu
+    r"\u0c80-\u0cff"  # Kannada
+    r"\u0d00-\u0d7f"  # Malayalam
+    r"\u0370-\u03ff"  # Greek and Coptic
+    r"]"
+)
+
+# Foreign Latin letters / diacritics not present in English or Vietnamese
+_FOREIGN_LATIN_CHARS_PATTERN = re.compile(
+    r"[äöüßÄÖÜẞçœæÇŒÆñÑ¿¡ąęłśźżćńğşıİțșčšžřďťňůőűåøÅØĄĘŁŚŹŻĆŃĞŞȚȘČŠŽŘĎŤŇŮŐŰ]"
+)
+
+# Distinctive foreign words / stopwords (French, German, Spanish, Portuguese, Italian, Japanese Romaji, Russian Translit)
+_FOREIGN_LANGUAGE_KEYWORDS = {
+    # French
+    "bonjour", "bonsoir", "merci", "cherche", "recherche", "emploi", "travail",
+    "poste", "postes", "candidat", "candidats", "recrutement", "dans", "avec", "pour",
+    "vous", "nous", "ils", "elle", "suis", "une", "les", "des", "sur", "par", "qui",
+    "que", "faire", "quelles", "sont", "cette", "ces", "salut", "bien", "vouloir",
+    "évaluer", "evaluer", "compétence", "compétences", "competence", "competences",
+    "requise", "requises", "mon", "ton", "son", "notre", "votre", "leur", "développeur", "developpeur",
+    # German
+    "guten", "morgen", "abend", "danke", "bitte", "suche", "stelle", "stellen",
+    "arbeit", "beruf", "bewerbung", "lebenslauf", "fähigkeiten", "kenntnisse",
+    "ich", "sie", "wir", "nicht", "und", "der", "die", "das", "ein", "eine",
+    "einer", "einem", "einen", "mit", "für", "fuer", "auf", "kann", "welche",
+    "sind", "brauche", "woher", "warum", "diesen", "dieser", "bewerten", "softwareentwickler",
+    # Spanish / Portuguese
+    "hola", "buenos", "dias", "días", "tardes", "noches", "gracias", "favor",
+    "busco", "trabajo", "empleo", "puesto", "puestos", "vacante", "vacantes",
+    "candidatos", "curriculum", "currículum", "habilidades", "experiencia", "para",
+    "como", "cómo", "esta", "está", "estoy", "donde", "dónde", "cuales", "cuáles",
+    "quiero", "necesito", "olá", "obrigado", "obrigada", "procuro", "vaga", "vagas",
+    "curriculo", "currículo", "quais", "muito", "evalúa", "evalua", "disponibles",
+    "pela", "ajuda", "desenvolvedor", "desarrollador",
+    # Italian
+    "ciao", "buongiorno", "buonasera", "grazie", "prego", "cerco", "lavoro",
+    "competenze", "sono", "cosa", "dove", "voglio", "posso", "posizioni", "aperte",
+    "quali",
+    # Japanese Romaji
+    "konnichiwa", "arigatou", "arigato", "sayonara", "ohayou", "hajimemashite", "gozaimasu",
+    # Russian Transliteration
+    "privet", "spasibo", "pozhaluysta", "rabota", "ischu",
+}
+
+# Vietnamese diacritics pattern
+_VIETNAMESE_DIACRITICS_PATTERN = re.compile(
+    r"[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ"
+    r"ÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ]"
+)
+
+# Common Vietnamese words/syllables
+_VIETNAMESE_WORDS = {
+    "toi", "tôi", "minh", "mình", "ban", "bạn", "cac", "các", "nhung", "những",
+    "viec", "việc", "lam", "làm", "tim", "tìm", "cong", "công", "tuyen", "tuyển",
+    "dung", "dụng", "ung", "ứng", "vien", "viên", "ho", "hồ", "so", "sơ",
+    "danh", "sach", "sách", "phu", "phù", "hop", "hợp", "cho", "tai", "tại",
+    "voi", "với", "ve", "về", "de", "để", "co", "có", "khong", "không",
+    "nao", "nào", "gi", "gì", "sao", "the", "thế", "can", "cần", "hoc", "học",
+    "diem", "điểm", "manh", "mạnh", "yeu", "yếu", "chua", "chưa", "chao", "chào",
+    "xin", "cam", "cảm", "on", "ơn", "tot", "tốt", "kem", "kém", "nhieu", "nhiều",
+    "it", "ít", "cao", "thap", "thấp", "muc", "mức", "luong", "lương",
+    "kinh", "nghiem", "nghiệm", "ky", "kỹ", "nang", "năng", "nganh", "ngành",
+    "nghe", "nghề", "vi", "vị", "tri", "trí", "ty", "fpt", "vng", "viettel",
+    "shopee", "tiki", "momo", "zalo", "coccoc", "hcm", "tphcm", "hanoi", "danang",
+    "ha", "noi", "da", "nang", "sai", "gon", "saigon", "tro", "ly", "giup", "do",
+    "huong", "dan", "lo", "trinh", "bo", "sung", "them", "cai", "thien", "danh",
+    "gia", "cham", "duoi", "tren", "theo", "tu", "cua", "nhan", "su", "lap", "trinh",
+    "phat", "trien", "kiem", "toan", "ke", "tai", "chinh", "ngan", "hang", "ban",
+    "hang", "kho", "van", "chuoi", "cung", "ung", "an", "toan", "thong", "tin",
+}
+
+# Common English words
+_ENGLISH_WORDS = {
+    "a", "about", "above", "after", "again", "against", "ai", "all", "am", "an",
+    "and", "any", "are", "as", "at", "backend", "be", "because", "been", "before",
+    "being", "below", "best", "between", "both", "browse", "but", "by", "can",
+    "candidate", "candidates", "cloud", "company", "compare", "cv", "data",
+    "developer", "devops", "do", "does", "doing", "down", "during", "each",
+    "engineer", "engineering", "evaluate", "evaluation", "experience", "few",
+    "filter", "find", "fit", "for", "from", "frontend", "fullstack", "further",
+    "gap", "get", "give", "good", "had", "has", "have", "having", "he", "hello",
+    "help", "her", "here", "hers", "herself", "hey", "hi", "him", "himself",
+    "his", "how", "i", "if", "in", "into", "is", "it", "its", "itself", "java",
+    "javascript", "jd", "job", "jobs", "just", "kubernetes", "learn", "list",
+    "logistic", "logistics", "looking", "machine", "marketing", "match", "matching",
+    "me", "ml", "mobile", "more", "most", "my", "myself", "need", "no", "nor",
+    "not", "now", "of", "off", "on", "once", "only", "open", "opening", "openings",
+    "or", "other", "our", "ours", "ourselves", "out", "over", "own", "please",
+    "position", "positions", "profile", "python", "rate", "react", "recommend",
+    "recommendation", "recruiter", "recruitment", "remote", "resume", "review",
+    "role", "roles", "salary", "same", "search", "senior", "she", "should", "show",
+    "skill", "skills", "so", "software", "some", "such", "suitable", "tech",
+    "than", "thank", "thanks", "that", "the", "their", "theirs", "them",
+    "themselves", "then", "there", "these", "they", "this", "those", "through",
+    "to", "too", "top", "under", "until", "up", "us", "very", "want", "was",
+    "we", "were", "what", "when", "where", "which", "while", "who", "whom",
+    "why", "with", "work", "working", "would", "you", "your", "yours", "yourself",
+    "yourselves",
+}
+
+
+def is_supported_language(text: str) -> tuple[bool, str | None]:
+    """
+    Check whether the input text is in a supported language (Vietnamese or English).
+
+    Returns:
+        (True, "vi") if Vietnamese,
+        (True, "en") if English,
+        (False, None) if foreign script, foreign language, or unsupported.
+    """
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return False, None
+
+    # 1. Non-Latin scripts check (Chinese, Japanese, Korean, Cyrillic, Arabic, Thai, Hindi, etc.)
+    if _NON_LATIN_SCRIPTS_PATTERN.search(cleaned):
+        return False, None
+
+    # 2. Distinct foreign Latin characters / diacritics check (German, French, Spanish, etc.)
+    if _FOREIGN_LATIN_CHARS_PATTERN.search(cleaned):
+        return False, None
+
+    text_lower = cleaned.lower()
+
+    # 3. Foreign distinctive words check
+    words = re.findall(r"\b[^\W\d_]+\b", text_lower, re.UNICODE)
+    if words:
+        foreign_matches = sum(1 for w in words if w in _FOREIGN_LANGUAGE_KEYWORDS)
+        vi_count = sum(1 for w in words if w in _VIETNAMESE_WORDS)
+        en_count = sum(
+            1 for w in words
+            if w in _ENGLISH_WORDS or w in _KNOWN_DOMAINS or w in _KNOWN_COMPANIES or w in _KNOWN_LOCATIONS
+        )
+
+        if foreign_matches >= 1 and foreign_matches >= vi_count and foreign_matches >= en_count:
+            return False, None
+
+    # 4. Check for Vietnamese diacritics
+    if _VIETNAMESE_DIACRITICS_PATTERN.search(cleaned):
+        return True, "vi"
+
+    # 5. Check words against Vietnamese and English dictionaries + known entities
+    if not words:
+        return True, "en"
+
+    vi_count = sum(1 for w in words if w in _VIETNAMESE_WORDS)
+    en_count = sum(
+        1 for w in words
+        if w in _ENGLISH_WORDS or w in _KNOWN_DOMAINS or w in _KNOWN_COMPANIES or w in _KNOWN_LOCATIONS
+    )
+
+    if vi_count > en_count:
+        return True, "vi"
+    return True, "en"
 
 
 # === Content validation ===
@@ -146,7 +348,14 @@ class IntentClassification(NamedTuple):
 # === Helper functions ===
 
 def _match_any(text: str, keywords: tuple[str, ...]) -> bool:
-    return any(kw in text for kw in keywords)
+    for kw in keywords:
+        if len(kw) <= 3:
+            if re.search(rf"(?:\b|^|\s){re.escape(kw)}(?:\b|$|\s)", text):
+                return True
+        else:
+            if kw in text:
+                return True
+    return False
 
 
 def _extract_location(text: str) -> str | None:
@@ -188,7 +397,10 @@ def _is_chitchat_only(text: str) -> bool:
     if not _match_any(text_lower, _CHITCHAT_KEYWORDS):
         return False
     # If has recruitment-related terms, it's not pure chitchat
-    recruitment_kw = ("cv", "resume", "job", "việc", "tuyển", "ứng", "hồ sơ", "kỹ năng", "skill")
+    recruitment_kw = (
+        "cv", "resume", "job", "việc", "tuyển", "ứng", "hồ sơ", "kỹ năng", "skill",
+        "cải thiện", "đánh giá", "lộ trình", "học", "match",
+    )
     return not _match_any(text_lower, recruitment_kw)
 
 
@@ -213,15 +425,17 @@ def classify_intent(message: str) -> IntentClassification:
     Classify user intent with CV/DB usage flags.
 
     Priority order:
-    1. Chitchat (no recruitment context)
-    2. Skill gap (always CV-based)
-    3. Evaluate CV (deep evaluation)
-    4. List jobs / browse by filter (NO CV)
-    5. Use CV explicitly (CV-based matching)
-    6. Default: browse jobs
+    0. Language validation (reject non-English / non-Vietnamese)
+    1. Security & Prompt Injection probe / Off-topic
+    2. Chitchat (no recruitment context)
+    3. Skill gap (always CV-based)
+    4. Evaluate CV (deep evaluation)
+    5. List jobs / browse by filter (NO CV)
+    6. Use CV explicitly (CV-based matching)
+    7. Default: browse jobs / recommend general
     """
-    text = (message or "").strip().lower()
-    if not text:
+    raw_text = (message or "").strip()
+    if not raw_text:
         return IntentClassification(
             intent=IntentType.RECOMMEND_GENERAL,
             needs_db=True,
@@ -231,6 +445,35 @@ def classify_intent(message: str) -> IntentClassification:
             needs_vector_search=True,  # Default job search needs VS
             db_query_params={},
             kg_params={"entity_name": "target_job"},
+        )
+
+    # === 0. Language Check (Reject non-English and non-Vietnamese) ===
+    is_supported, _ = is_supported_language(raw_text)
+    if not is_supported:
+        return IntentClassification(
+            intent=IntentType.UNSUPPORTED_LANGUAGE,
+            needs_db=False,
+            needs_cv=False,
+            dispatch_target=None,
+            requires_user_cv=False,
+            needs_vector_search=False,
+            db_query_params={},
+            kg_params={},
+        )
+
+    text = raw_text.lower()
+
+    # === 0.1 Security / Injection / Off-topic Check ===
+    if _match_any(text, _SECURITY_AND_INJECTION_KEYWORDS) or check_off_topic(text):
+        return IntentClassification(
+            intent=IntentType.OUT_OF_SCOPE,
+            needs_db=False,
+            needs_cv=False,
+            dispatch_target=None,
+            requires_user_cv=False,
+            needs_vector_search=False,
+            db_query_params={},
+            kg_params={},
         )
 
     # === 1. Chitchat ===
@@ -377,12 +620,16 @@ def classify_intent(message: str) -> IntentClassification:
 # === Validation ===
 
 def validate_content(text: str) -> tuple[bool, RejectionReason | None]:
-    """Validate content meets minimum requirements."""
+    """Validate content meets minimum requirements and language policy."""
     if not text or len(text.strip()) < MIN_CONTENT_LENGTH:
         return False, RejectionReason.MINIMUM_CONTENT_NOT_MET
 
     if len(text) > MAX_INPUT_LENGTH:
         return False, RejectionReason.MALFORMED_REQUEST
+
+    is_supported, _ = is_supported_language(text)
+    if not is_supported:
+        return False, RejectionReason.UNSUPPORTED_LANGUAGE
 
     return True, None
 

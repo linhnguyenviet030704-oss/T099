@@ -135,6 +135,7 @@ async def retrieve_jobs_for_resume(
     client: Client,
     actor_id: UUID,
     *,
+    resume_id: UUID | None = None,
     query: str = "",
     encode=None,
     complete=None,
@@ -145,6 +146,19 @@ async def retrieve_jobs_for_resume(
     resume_store = store or SupabaseResumeStore(client)
 
     def _default_resume() -> dict[str, Any] | None:
+        if resume_id is not None:
+            res = (
+                client.table("resumes")
+                .select("id")
+                .eq("id", str(resume_id))
+                .eq("user_id", str(actor_id))
+                .is_("deleted_at", "null")
+                .maybe_single()
+                .execute()
+            )
+            if res and res.data and res.data.get("id"):
+                return res.data
+
         # Try to find explicitly marked default resume first
         result = (
             client.table("resumes")

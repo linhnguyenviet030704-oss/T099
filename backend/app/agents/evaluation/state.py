@@ -64,3 +64,4 @@ class RoutingState(TypedDict, total=False):
     # Context for downstream
     context: dict[str, Any]
     validation_errors: list[str]
+    response: str | None

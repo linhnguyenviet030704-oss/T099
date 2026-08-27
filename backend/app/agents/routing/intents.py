@@ -69,7 +69,7 @@ _BROWSE_BY_FILTER_KEYWORDS = (
 # Explicit "use my CV" - strong CV-based matching
 _USE_CV_KEYWORDS = (
     "phù hợp với cv", "phù hợp với tôi", "phù hợp với mình",
-    "match với cv", "match với tôi",
+    "match với cv", "match với tôi", "match cv",
     "suitable for my cv", "suitable for me", "match my cv", "fit my profile",
     "based on my cv", "dựa trên cv", "dựa trên hồ sơ", "theo cv của tôi",
     "theo hồ sơ của tôi", "từ cv của tôi", "cv của tôi", "hồ sơ của tôi",
@@ -78,22 +78,26 @@ _USE_CV_KEYWORDS = (
 # Case C: Deep CV evaluation - scoring, strengths, weaknesses
 _EVALUATE_CV_KEYWORDS = (
     "đánh giá cv", "đánh giá resume", "đánh giá hồ sơ",
-    "chấm điểm cv", "review cv", "rate my cv", "evaluate my resume",
-    "cv mạnh yếu", "cv tốt không", "cv có tốt không",
+    "chấm điểm cv", "review cv", "review my cv", "rate my cv", "rate my resume",
+    "evaluate my resume", "evaluate cv", "evaluate resume",
+    "cv mạnh yếu", "cv tôi mạnh yếu", "cv của tôi mạnh yếu",
+    "cv tốt không", "cv có tốt không",
     "điểm mạnh điểm yếu", "strengths and weaknesses",
-    "cv của tôi như thế nào", "hồ sơ của tôi thế nào",
+    "cv của tôi như thế nào", "cv của tôi thế nào",
+    "hồ sơ của tôi như thế nào", "hồ sơ của tôi thế nào",
 )
 
 # Case D: Skill gap advice (CV-based)
 _SKILL_GAP_KEYWORDS = (
     "bổ sung", "cần học", "kỹ năng gì", "thiếu kỹ năng",
     "học thêm", "lộ trình", "skill gap", "yêu cầu thêm", "học gì",
-    "cần cải thiện", "cần phát triển",
+    "cần cải thiện", "tôi cần cải thiện", "cần phát triển",
+    "improve my skills", "cải thiện kỹ năng",
 )
 
 # Chitchat
 _CHITCHAT_KEYWORDS = (
-    "xin chào", "chào bạn", "cảm ơn", "bạn là ai", "hướng dẫn", "giúp đỡ",
+    "xin chào", "chào bạn", "cảm ơn", "cảm ơn bạn", "bạn là ai", "hướng dẫn", "giúp đỡ",
     "hello", "hi", "hey", "thanks", "thank you",
 )
 
@@ -101,6 +105,21 @@ _CHITCHAT_KEYWORDS = (
 _TARGET_SPECIFIC_KEYWORDS = (
     "tại fpt", "tại vng", "tại viettel", "tại shopee", "tại grab",
     "tại momo", "tại tiki", "tại zalo", "tại coccoc",
+)
+
+_RECRUITER_MATCH_KEYWORDS = (
+    "gợi ý ứng viên", "tìm ứng viên", "lọc ứng viên", "danh sách ứng viên",
+    "các ứng viên", "ứng viên phù hợp", "xem ứng viên", "suggest candidates",
+    "find candidates", "recommend candidates", "list candidates",
+)
+
+# Security, prompt injection, and credential probe keywords
+_SECURITY_AND_INJECTION_KEYWORDS = (
+    "api key", "apikey", "api_key", "secret key", "secret token", "token bí mật",
+    "system prompt", "mật khẩu", "password", "bỏ qua hướng dẫn", "previous instructions",
+    "ignore instructions", "override instructions", "disregard instructions", "output keys",
+    "đưa cho tôi api", "cho tôi api", "lấy api key", "show api key", "your api key", "api key của bạn",
+    "cung cấp api key", "lộ key", "lộ api", "jailbreak", "prompt injection",
 )
 
 
@@ -146,7 +165,14 @@ class IntentClassification(NamedTuple):
 # === Helper functions ===
 
 def _match_any(text: str, keywords: tuple[str, ...]) -> bool:
-    return any(kw in text for kw in keywords)
+    for kw in keywords:
+        if len(kw) <= 3:
+            if re.search(rf"(?:\b|^|\s){re.escape(kw)}(?:\b|$|\s)", text):
+                return True
+        else:
+            if kw in text:
+                return True
+    return False
 
 
 def _extract_location(text: str) -> str | None:
@@ -188,7 +214,10 @@ def _is_chitchat_only(text: str) -> bool:
     if not _match_any(text_lower, _CHITCHAT_KEYWORDS):
         return False
     # If has recruitment-related terms, it's not pure chitchat
-    recruitment_kw = ("cv", "resume", "job", "việc", "tuyển", "ứng", "hồ sơ", "kỹ năng", "skill")
+    recruitment_kw = (
+        "cv", "resume", "job", "việc", "tuyển", "ứng", "hồ sơ", "kỹ năng", "skill",
+        "cải thiện", "đánh giá", "lộ trình", "học", "match",
+    )
     return not _match_any(text_lower, recruitment_kw)
 
 
@@ -213,12 +242,13 @@ def classify_intent(message: str) -> IntentClassification:
     Classify user intent with CV/DB usage flags.
 
     Priority order:
-    1. Chitchat (no recruitment context)
-    2. Skill gap (always CV-based)
-    3. Evaluate CV (deep evaluation)
-    4. List jobs / browse by filter (NO CV)
-    5. Use CV explicitly (CV-based matching)
-    6. Default: browse jobs
+    1. Security & Prompt Injection probe / Off-topic
+    2. Chitchat (no recruitment context)
+    3. Skill gap (always CV-based)
+    4. Evaluate CV (deep evaluation)
+    5. List jobs / browse by filter (NO CV)
+    6. Use CV explicitly (CV-based matching)
+    7. Default: browse jobs / recommend general
     """
     text = (message or "").strip().lower()
     if not text:
@@ -231,6 +261,19 @@ def classify_intent(message: str) -> IntentClassification:
             needs_vector_search=True,  # Default job search needs VS
             db_query_params={},
             kg_params={"entity_name": "target_job"},
+        )
+
+    # === 0. Security / Injection / Off-topic Check ===
+    if _match_any(text, _SECURITY_AND_INJECTION_KEYWORDS) or check_off_topic(text):
+        return IntentClassification(
+            intent=IntentType.OUT_OF_SCOPE,
+            needs_db=False,
+            needs_cv=False,
+            dispatch_target=None,
+            requires_user_cv=False,
+            needs_vector_search=False,
+            db_query_params={},
+            kg_params={},
         )
 
     # === 1. Chitchat ===

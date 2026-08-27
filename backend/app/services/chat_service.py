@@ -18,6 +18,11 @@ CHITCHAT_RESPONSE = (
     "Bạn có thể nhờ mình gợi ý việc làm phù hợp với CV, "
     "tìm việc theo lĩnh vực/công ty, đánh giá CV, hoặc gợi ý lộ trình bổ sung kỹ năng."
 )
+RECRUITER_CHITCHAT_RESPONSE = (
+    "Chào bạn! Tôi là trợ lý AI hỗ trợ tuyển dụng. "
+    "Bạn có thể yêu cầu tôi gợi ý danh sách ứng viên phù hợp nhất với vị trí này, "
+    "hoặc tìm kiếm ứng viên theo kỹ năng, số năm kinh nghiệm cụ thể."
+)
 INVALID_RESPONSE = "Nội dung không hợp lệ. Vui lòng mô tả yêu cầu rõ hơn."
 
 logger = get_logger(__name__)
@@ -136,10 +141,15 @@ class ChatService:
         # Determine session_id
         session_id = request.session_id or (uuid4() if actor_id is not None else None)
 
-        # Short-circuit: pure chitchat — no CV load, no LLM call
-        if request.job_id is None and classification.intent == IntentType.CHITCHAT:
-            response = ChatResponse(response=CHITCHAT_RESPONSE, session_id=session_id)
-        # Short-circuit: invalid/off-topic input
+        # Validate job access for recruiter flow if job_id is provided
+        if request.job_id is not None and actor_id is not None and self._assert_job_access is not None:
+            await self._assert_job_access(actor_id, request.job_id)
+
+        # Short-circuit: pure chitchat — no candidate/job matching, no LLM call
+        if classification.intent == IntentType.CHITCHAT:
+            greeting = RECRUITER_CHITCHAT_RESPONSE if request.job_id is not None else CHITCHAT_RESPONSE
+            response = ChatResponse(response=greeting, session_id=session_id)
+        # Short-circuit: invalid/off-topic/security probe input
         elif classification.intent in (
             IntentType.OUT_OF_SCOPE,
             IntentType.CONTENT_TOO_SHORT,

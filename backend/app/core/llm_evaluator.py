@@ -11,7 +11,6 @@ import html
 import json
 import logging
 import re
-from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from pydantic import BaseModel, Field
@@ -249,7 +248,7 @@ class RepoEvaluator:
         )
 
         for path, content in files[: self.max_files]:
-            escaped = self._escape_file_content(content)
+            escaped = self._escape_file_content(content, self.max_file_size)
             parts.append(f'<file path="{html.escape(path)}">\n{escaped}\n</file>\n')
 
         return "".join(parts)
@@ -286,7 +285,7 @@ class RepoEvaluator:
     # --- Internal Helpers ---
 
     @staticmethod
-    def _escape_file_content(content: str) -> str:
+    def _escape_file_content(content: str, max_size: int) -> str:
         """Escape content to prevent breaking XML-like file tags.
 
         Replaces literal `</file>` and `<file` inside content so they cannot
@@ -295,7 +294,7 @@ class RepoEvaluator:
         if not content:
             return ""
         # Truncate first
-        truncated = content[:50_000]
+        truncated = content[:max_size]
         # Replace closing tag
         escaped = truncated.replace("</file>", "&lt;/file&gt;")
         # Replace opening tag

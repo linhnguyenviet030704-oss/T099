@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -51,7 +52,7 @@ def make_advice_node(
         )
 
         try:
-            advice_response = _complete(prompt)
+            advice_response = await asyncio.to_thread(_complete, prompt)
         except Exception:
             advice_response = (
                 "Để ứng tuyển vị trí này, bạn nên tập trung bổ sung các kỹ năng cốt lõi còn thiếu "

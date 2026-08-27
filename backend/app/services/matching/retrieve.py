@@ -319,7 +319,7 @@ async def retrieve_for_job(
     dense_q = expand_query(query_text, extracted=jd_skills_extracted)
     bm25_skills = _bm25_skill_ids(job, constraints, confirmed=confirmed, jd_skills=jd_skills_extracted)
     bm25_q = bm25_query(str(job.get("title") or ""), bm25_skills)
-    query_embedding = embed_text(dense_q, encode=encode, api_key=api_key, base_url=base_url)
+    query_embedding = await asyncio.to_thread(embed_text, dense_q, encode=encode, api_key=api_key, base_url=base_url)
 
     resume_ids = [str(row.get("resume_id") or "") for row in all_candidate_rows if row.get("resume_id")]
     embedded_by_id = await asyncio.to_thread(_embedded_batch, client, resume_ids)

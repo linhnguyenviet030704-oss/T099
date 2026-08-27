@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from backend.app.agents.evaluation.state import EvaluationState
@@ -58,7 +59,7 @@ async def generate_report_node(
                 parsed_jd,
                 recommendations,
             )
-            response = brain.chat(prompt, temperature=0.7)
+            response = await asyncio.to_thread(brain.chat, prompt, temperature=0.7)
         except Exception:
             pass
 

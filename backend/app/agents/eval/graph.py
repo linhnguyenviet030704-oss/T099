@@ -10,6 +10,7 @@ from typing import Any, Callable
 from langgraph.graph import END, StateGraph
 
 from backend.app.agents.eval.state import Agent1State
+from backend.app.config.env import settings
 from backend.app.core.github_client import FileType, GitHubAPIError, GitHubClient, GitHubFile
 from backend.app.core.key_file_selector import select_key_files
 from backend.app.core.llm_evaluator import (
@@ -148,7 +149,17 @@ def build_agent1_graph(
             return {"error": "Missing repository name", "status": "failed"}
 
         owner, repo = repo_full_name.split("/", 1)
-        gh = github_client_provider() if github_client_provider else GitHubClient(token=os.getenv("GITHUB_TOKEN", ""))
+        gh = (
+            github_client_provider()
+            if github_client_provider
+            else GitHubClient(
+                token=settings.github_token
+                or settings.github_api_key
+                or os.getenv("GITHUB_API_KEY")
+                or os.getenv("GITHUB_TOKEN")
+                or ""
+            )
+        )
 
         try:
             try:
@@ -230,17 +241,27 @@ def build_agent1_graph(
         owner, repo = repo_full_name.split("/", 1)
         selected_files = state.get("selected_files") or []
 
-        gh = github_client_provider() if github_client_provider else GitHubClient(token=os.getenv("GITHUB_TOKEN", ""))
+        gh = (
+            github_client_provider()
+            if github_client_provider
+            else GitHubClient(
+                token=settings.github_token
+                or settings.github_api_key
+                or os.getenv("GITHUB_API_KEY")
+                or os.getenv("GITHUB_TOKEN")
+                or ""
+            )
+        )
         file_contents: list[tuple[str, str]] = []
 
         try:
-            for s in selected_files:
-                path = s.get("path")
-                if not path:
-                    continue
-                content = await gh.get_text_file(owner, repo, path)
-                if content:
-                    file_contents.append((path, content))
+            targets = [s.get("path") for s in selected_files[:12] if s.get("path")]
+            tasks = [gh.get_text_file(owner, repo, p) for p in targets]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for p, res in zip(targets, results):
+                if isinstance(res, str) and res:
+                    file_contents.append((p, res))
 
             return {"file_contents": file_contents}
         finally:

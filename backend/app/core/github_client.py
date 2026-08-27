@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -188,7 +189,7 @@ class GitHubClient:
         api_url: str = DEFAULT_GITHUB_API_URL,
         timeout: float = DEFAULT_TIMEOUT,
     ) -> None:
-        self.token = token
+        self.token = token or os.getenv("GITHUB_API_KEY") or os.getenv("GITHUB_TOKEN") or ""
         self.api_url = api_url.rstrip("/")
         self.timeout = timeout
         self._client: httpx.AsyncClient | None = None
@@ -207,6 +208,7 @@ class GitHubClient:
             self._client = httpx.AsyncClient(
                 headers=self._get_headers(),
                 timeout=httpx.Timeout(self.timeout),
+                follow_redirects=True,
             )
         return self._client
 
@@ -294,6 +296,7 @@ class GitHubClient:
         owner: str,
         repo: str,
         recursive: bool = True,
+        branch: str | None = None,
     ) -> list[GitHubFile]:
         """Get repository file tree using GitHub Trees API.
 
@@ -301,10 +304,23 @@ class GitHubClient:
         Filters binary files automatically.
         Detects submodules via .gitmodules in tree.
         """
-        url = f"/repos/{owner}/{repo}/git/trees/{'master' if not self.token else 'HEAD'}"
+        if not branch:
+            try:
+                info = await self.get_repo_info(owner, repo)
+                branch = info.get("default_branch") or "main"
+            except Exception:
+                branch = "main"
+
+        url = f"/repos/{owner}/{repo}/git/trees/{branch}"
         params: dict[str, Any] = {"recursive": 1} if recursive else {}
 
-        tree_data = await self._get(url, params=params)
+        try:
+            tree_data = await self._get(url, params=params)
+        except GitHubNotFoundError:
+            # Fallback to alternate default branch
+            alt_branch = "master" if branch == "main" else "main"
+            url = f"/repos/{owner}/{repo}/git/trees/{alt_branch}"
+            tree_data = await self._get(url, params=params)
 
         files: list[GitHubFile] = []
         has_submodules = self._parse_gitmodules(tree_data)
@@ -336,6 +352,9 @@ class GitHubClient:
         url = f"/repos/{owner}/{repo}/contents/{path}"
         data = await self._get(url)
 
+        if not isinstance(data, dict):
+            return ""
+
         size = data.get("size")
         if size is not None and size > MAX_CONTENT_SIZE:
             return ""
@@ -344,7 +363,7 @@ class GitHubClient:
         if data.get("encoding") == "base64" and content:
             import base64
             return base64.b64decode(content).decode("utf-8", errors="replace")
-        return content
+        return content if isinstance(content, str) else ""
 
     async def repo_has_submodules(self, owner: str, repo: str) -> bool:
         """Check if repository contains submodules."""

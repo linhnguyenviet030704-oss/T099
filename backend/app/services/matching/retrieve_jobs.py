@@ -83,6 +83,24 @@ async def persist_recommend_job_rows(
     await asyncio.to_thread(_insert_run)
 
 
+def _cv_query_text(fields: dict[str, Any], fallback_text: str) -> str:
+    """Prefer a short, high-precision text for the BM25 query over the full
+    CV body. The JD->CV direction already scores against just the JD title
+    (see retrieve.py's bm25_query(job.get("title"), ...)); using the entire
+    CV markdown here made the query long and noisy, letting stray phrase
+    overlaps outrank the CV's actual target roles (see
+    eval/results/report2.md section 4.2). Falls back down the specificity
+    ladder only when a field is empty, ending at the full CV text so recall
+    never drops to zero."""
+    titles = [t for t in (fields.get("titles") or []) if t]
+    if titles:
+        return " ".join(titles)
+    summary = (fields.get("summary") or "").strip()
+    if summary:
+        return summary
+    return fallback_text
+
+
 async def retrieve_jobs_for_resume(
     client: Client,
     actor_id: UUID,
@@ -248,7 +266,7 @@ async def retrieve_jobs_for_resume(
             }
         )
 
-    bm25_q = bm25_query(cv_text, cv_skills) if (cv_text or cv_skills) else ""
+    bm25_q = bm25_query(_cv_query_text(metadata, cv_text), cv_skills) if (cv_text or cv_skills) else ""
     scores = bm25_scores(docs, bm25_q) if (docs and bm25_q) else [0.0] * len(docs)
     for row, score in zip(candidates, scores, strict=False):
         row["bm25_score"] = score

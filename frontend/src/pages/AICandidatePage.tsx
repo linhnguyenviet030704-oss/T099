@@ -33,6 +33,7 @@ type ChatCandidate = {
   resume_title: string | null;
   resume_storage_path: string | null;
   current_status: string;
+  is_public_candidate?: boolean;
   rrf_score: number;
   rerank_score: number | null;
   rerank_status: RerankStatus;
@@ -88,6 +89,8 @@ function CandidateCard({
       ? "text-amber-600 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300"
       : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
 
+  const isJobSeeking = candidate.current_status === "job_seeking" || Boolean(candidate.is_public_candidate);
+
   return (
     <div
       className={`bg-white dark:bg-slate-800 border rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-all ${
@@ -115,10 +118,18 @@ function CandidateCard({
             )}
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
           </div>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
-            {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
-          </span>
+          {isJobSeeking ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Đang tìm việc
+            </span>
+          ) : (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
+              {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
+            </span>
+          )}
         </div>
+
         <p className="font-semibold text-sm truncate">{candidate.full_name || "Ứng viên"}</p>
         <p className="text-xs text-slate-500 truncate">{candidate.email}</p>
         <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
@@ -173,6 +184,7 @@ export default function AICandidatePage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [rerank, setRerank] = useState<"qwen" | "agent">("qwen");
+  const [includePublicCandidates, setIncludePublicCandidates] = useState(true);
   const [history, setHistory] = useState<HistoryRun[]>([]);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [leftOpen, setLeftOpen] = useState(isDesktop);
@@ -183,6 +195,7 @@ export default function AICandidatePage() {
   const [messages, setMessages] = useState<Message[]>([
     { id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." },
   ]);
+
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id_candidate"));
   const [chatHistory, setChatHistory] = useState<SavedSession[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -366,7 +379,11 @@ export default function AICandidatePage() {
         method: "POST",
         body: JSON.stringify({ message: msgText, job_id: jobId, rerank, session_id: sessionId || undefined }),
       });
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, candidates: body.candidates || [] }]);
+      let candidateList = body.candidates || [];
+      if (!includePublicCandidates) {
+        candidateList = candidateList.filter((c) => c.current_status !== "job_seeking" && !c.is_public_candidate);
+      }
+      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, candidates: candidateList }]);
     } catch (err: unknown) {
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." }]);
     } finally {
@@ -468,6 +485,20 @@ export default function AICandidatePage() {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {/* Toggle Rà soát ứng viên đang tìm việc */}
+        <label className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-200 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          <input
+            type="checkbox"
+            checked={includePublicCandidates}
+            onChange={(e) => setIncludePublicCandidates(e.target.checked)}
+            className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4"
+          />
+          <div className="min-w-0">
+            <span className="font-semibold block text-slate-900 dark:text-white">Rà soát các ứng viên đang tìm việc</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Lấy cả CV công khai trên toàn hệ thống</span>
+          </div>
+        </label>
+
         <p className="text-[10px] font-medium uppercase tracking-wide text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300 px-2 py-1 rounded-lg">Mock — chưa áp dụng</p>
         {[
           { label: "Số ứng viên tối đa", value: "20" },
@@ -539,7 +570,7 @@ export default function AICandidatePage() {
               </div>
               <div className="min-w-0">
                 <h1 className="font-display text-lg font-bold text-slate-900 dark:text-white truncate">Gợi ý ứng viên AI</h1>
-                <p className="text-xs text-slate-500 hidden sm:block">Chỉ xét CV đã nộp vào vị trí đang chọn</p>
+                <p className="text-xs text-slate-500 hidden sm:block">Rà soát CV đã nộp và các CV công khai "Đang tìm việc"</p>
               </div>
             </div>
             <select
@@ -607,7 +638,7 @@ export default function AICandidatePage() {
 
             {/* Bottom Sticky Input Container */}
             <div className="sticky bottom-0 z-10 bg-white dark:bg-slate-800 rounded-b-2xl border-t border-slate-100 dark:border-slate-700 shadow-md">
-              <div className="px-4 py-2.5 flex gap-2 flex-wrap">
+              <div className="px-4 py-2.5 flex gap-2 flex-wrap items-center">
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   disabled={sending || !jobId}
@@ -615,6 +646,20 @@ export default function AICandidatePage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 text-xs font-semibold rounded-full border border-purple-200 dark:border-purple-800 disabled:opacity-50 transition-colors"
                 >
                   <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {QUICK_PROMPT}
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => setIncludePublicCandidates((v) => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
+                    includePublicCandidates
+                      ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shadow-sm"
+                      : "bg-slate-50 dark:bg-slate-700/60 text-slate-500 border-slate-200 dark:border-slate-600"
+                  }`}
+                  title="Bật/tắt rà soát các ứng viên đang mở CV tìm việc"
+                >
+                  <Check size={12} className={includePublicCandidates ? "opacity-100" : "opacity-0"} />
+                  <span>Rà soát các ứng viên đang tìm việc</span>
                 </motion.button>
                 {(["qwen", "agent"] as const).map((mode) => (
                   <motion.button
@@ -628,6 +673,7 @@ export default function AICandidatePage() {
                   </motion.button>
                 ))}
               </div>
+
               <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
                 <input
                   value={input}

@@ -38,6 +38,8 @@ class RecommendedCandidate(BaseModel):
     rerank_score: float | None = None
     rerank_status: Literal["success", "fallback", "not_requested"] = "not_requested"
     match_reason: str | None = None
+    is_public_candidate: bool = False
+
 
 
 class ChatResponse(BaseModel):

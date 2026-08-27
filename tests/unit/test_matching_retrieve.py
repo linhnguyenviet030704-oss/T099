@@ -205,3 +205,149 @@ async def test_persist_match_resume_rows_blocks_before_insert_when_unauthorized(
         )
 
     assert calls == [(client, actor_id, job_id)]
+
+
+class _FakeRetrieveTableQuery:
+    def __init__(self, data: list[dict] | dict | None):
+        self._data = data
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def in_(self, *_args, **_kwargs):
+        return self
+
+    def is_(self, *_args, **_kwargs):
+        return self
+
+    def order(self, *_args, **_kwargs):
+        return self
+
+    def maybe_single(self):
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=self._data)
+
+
+class _FakeRetrieveSupabaseClient:
+    def __init__(self, job: dict, submits: list[dict], public_resumes: list[dict], embedded: list[dict]):
+        self.job = job
+        self.submits = submits
+        self.public_resumes = public_resumes
+        self.embedded = embedded
+
+    def table(self, name: str):
+        if name == "job_posts":
+            return _FakeRetrieveTableQuery(self.job)
+        if name == "job_submits":
+            return _FakeRetrieveTableQuery(self.submits)
+        if name == "resumes":
+            return _FakeRetrieveTableQuery(self.public_resumes)
+        if name == "embedded_resumes":
+            return _FakeRetrieveTableQuery(self.embedded)
+        return _FakeRetrieveTableQuery([])
+
+
+@pytest.mark.asyncio
+async def test_retrieve_for_job_includes_public_resumes(monkeypatch):
+    actor_id = uuid4()
+    job_id = uuid4()
+
+    async def _allow(_client, _actor, _job):
+        pass
+
+    monkeypatch.setattr("backend.app.services.matching.retrieve.assert_recruiter_job_access", _allow)
+    monkeypatch.setattr("backend.app.services.matching.retrieve.embed_text", lambda *args, **kwargs: [0.1] * 2560)
+
+    app_id = str(uuid4())
+    applicant_1 = str(uuid4())
+    resume_1 = str(uuid4())
+
+    applicant_2 = str(uuid4())
+    resume_2 = str(uuid4())
+
+    job_data = {
+        "id": str(job_id),
+        "title": "Backend Python Engineer",
+        "description": "Looking for FastAPI and Python developer",
+        "requirements": "Python FastAPI",
+        "skill_constraints": None,
+        "skill_constraints_confirmed_at": None,
+    }
+
+    submits_data = [
+        {
+            "id": app_id,
+            "applicant_user_id": applicant_1,
+            "resume_id": resume_1,
+            "current_status": "screening",
+            "resume_title_snapshot": "CV_Ada.pdf",
+            "resume_storage_path_snapshot": "u/cv_ada.pdf",
+            "profiles": {"full_name": "Ada Lovelace", "email": "ada@example.com"},
+        }
+    ]
+
+    public_resumes_data = [
+        # Duplicate applicant (already submitted) -> should be deduplicated
+        {
+            "id": resume_1,
+            "user_id": applicant_1,
+            "title": "CV_Ada_Public.pdf",
+            "original_filename": "ada.pdf",
+            "storage_path": "u/cv_ada.pdf",
+            "profiles": {"full_name": "Ada Lovelace", "email": "ada@example.com"},
+        },
+        # New public applicant who hasn't submitted
+        {
+            "id": resume_2,
+            "user_id": applicant_2,
+            "title": "CV_Bob_JobSeeking.pdf",
+            "original_filename": "bob.pdf",
+            "storage_path": "u/cv_bob.pdf",
+            "profiles": {"full_name": "Bob Smith", "email": "bob@example.com"},
+        },
+    ]
+
+    embedded_data = [
+        {
+            "resume_id": resume_1,
+            "metadata": {"skills": ["Python", "FastAPI"]},
+            "markdown": "Python FastAPI developer",
+            "clean_markdown": "Python FastAPI developer",
+            "embedding": [0.1] * 2560,
+            "model": "text-embedding-v3",
+        },
+        {
+            "resume_id": resume_2,
+            "metadata": {"skills": ["Python", "Django"]},
+            "markdown": "Python Django backend engineer",
+            "clean_markdown": "Python Django backend engineer",
+            "embedding": [0.1] * 2560,
+            "model": "text-embedding-v3",
+        },
+    ]
+
+    client = _FakeRetrieveSupabaseClient(job_data, submits_data, public_resumes_data, embedded_data)
+
+    result = await retrieve_for_job(client, actor_id, job_id)
+    assert result["pool_size"] == 2
+    candidates = result["candidates"]
+    assert len(candidates) == 2
+
+    # Candidate 1 is the submitted candidate
+    c1 = next(c for c in candidates if c["applicant_user_id"] == applicant_1)
+    assert c1["application_id"] == app_id
+    assert c1["current_status"] == "screening"
+    assert c1["is_public_candidate"] is False
+
+    # Candidate 2 is the public candidate ("Đang tìm việc")
+    c2 = next(c for c in candidates if c["applicant_user_id"] == applicant_2)
+    assert c2["resume_id"] == resume_2
+    assert c2["current_status"] == "job_seeking"
+    assert c2["is_public_candidate"] is True
+    assert c2["full_name"] == "Bob Smith"
+

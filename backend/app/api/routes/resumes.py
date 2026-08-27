@@ -3,17 +3,25 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from backend.app.api.schemas.common import CvHeaderInfo, IngestResponse, ParsedCvLine
+from backend.app.api.schemas.common import (
+    CvHeaderInfo,
+    IngestResponse,
+    ParsedCvLine,
+    SetResumePublicRequest,
+    SetResumePublicResponse,
+)
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
 from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
+from backend.app.dependencies.auth import get_current_user
 from backend.app.guardrails.rate_limit import enforce_ingest_rate_limit
 from backend.app.services.matching.ingest import ingest_resume
 from backend.app.services.matching.store import SupabaseResumeStore
 from supabase import Client
 
 router = APIRouter()
+
 
 
 def extract_cv_lines_from_markdown(
@@ -149,3 +157,43 @@ async def ingest_own_resume(
             phone=header_info.get("phone"),
         ),
     )
+
+
+@router.patch("/resumes/{resume_id}/public", response_model=SetResumePublicResponse)
+async def set_resume_public(
+    resume_id: UUID,
+    payload: SetResumePublicRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    client: Client = Depends(get_supabase_client),
+) -> SetResumePublicResponse:
+    res = (
+        client.table("resumes")
+        .select("id, user_id, is_public, deleted_at")
+        .eq("id", str(resume_id))
+        .maybe_single()
+        .execute()
+    )
+    resume = res.data
+    if not resume or resume.get("deleted_at") is not None:
+        raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
+
+    if str(resume.get("user_id")) != str(current_user.id):
+        raise ForbiddenError("Bạn chỉ có quyền thay đổi CV do chính mình sở hữu")
+
+    if payload.is_public:
+        # Enforce exactly one public resume per candidate
+        # 1. Turn off public on any other resumes owned by this user
+        client.table("resumes").update({"is_public": False}).eq("user_id", str(current_user.id)).neq("id", str(resume_id)).execute()
+        # 2. Turn on public for this resume
+        client.table("resumes").update({"is_public": True}).eq("id", str(resume_id)).eq("user_id", str(current_user.id)).execute()
+        msg = "Đã đặt CV làm công khai (Đang tìm việc)."
+    else:
+        client.table("resumes").update({"is_public": False}).eq("id", str(resume_id)).eq("user_id", str(current_user.id)).execute()
+        msg = "Đã tắt trạng thái công khai của CV."
+
+    return SetResumePublicResponse(
+        id=str(resume_id),
+        is_public=payload.is_public,
+        message=msg,
+    )
+

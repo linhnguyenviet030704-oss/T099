@@ -243,8 +243,47 @@ async def retrieve_for_job(
         )
         return result.data or []
 
-    submits = await asyncio.to_thread(_submits)
-    resume_uuids = [UUID(str(row["resume_id"])) for row in submits if row.get("resume_id")]
+    def _public_resumes() -> list[dict[str, Any]]:
+        result = (
+            client.table("resumes")
+            .select(
+                "id, user_id, title, original_filename, storage_path, "
+                "profiles!user_id(full_name, email)"
+            )
+            .eq("is_public", True)
+            .is_("deleted_at", "null")
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return result.data or []
+
+    submits_task = asyncio.to_thread(_submits)
+    public_resumes_task = asyncio.to_thread(_public_resumes)
+    submits, public_resumes = await asyncio.gather(submits_task, public_resumes_task)
+
+    seen_applicant_ids = {str(row["applicant_user_id"]) for row in submits if row.get("applicant_user_id")}
+    seen_resume_ids = {str(row["resume_id"]) for row in submits if row.get("resume_id")}
+
+    all_candidate_rows = list(submits)
+    for pub in public_resumes:
+        user_id = str(pub.get("user_id") or "")
+        resume_id = str(pub.get("id") or "")
+        if not resume_id or user_id in seen_applicant_ids or resume_id in seen_resume_ids:
+            continue
+        all_candidate_rows.append(
+            {
+                "id": resume_id,
+                "applicant_user_id": user_id,
+                "resume_id": resume_id,
+                "current_status": "job_seeking",
+                "resume_title_snapshot": pub.get("title") or pub.get("original_filename") or "CV",
+                "resume_storage_path_snapshot": pub.get("storage_path"),
+                "profiles": pub.get("profiles"),
+                "is_public_candidate": True,
+            }
+        )
+
+    resume_uuids = [UUID(str(row["resume_id"])) for row in all_candidate_rows if row.get("resume_id")]
 
     ingest_semaphore = asyncio.Semaphore(INGEST_CONCURRENCY_LIMIT)
 
@@ -269,13 +308,13 @@ async def retrieve_for_job(
     bm25_q = bm25_query(str(job.get("title") or ""), bm25_skills)
     query_embedding = embed_text(dense_q, encode=encode, api_key=api_key, base_url=base_url)
 
-    resume_ids = [str(row.get("resume_id") or "") for row in submits if row.get("resume_id")]
+    resume_ids = [str(row.get("resume_id") or "") for row in all_candidate_rows if row.get("resume_id")]
     embedded_by_id = await asyncio.to_thread(_embedded_batch, client, resume_ids)
 
     candidates: list[dict[str, Any]] = []
     docs: list[str] = []
     mismatch = 0
-    for row in submits:
+    for row in all_candidate_rows:
         resume_id = str(row.get("resume_id") or "")
         parsed = embedded_by_id.get(resume_id)
         metadata = (parsed or {}).get("metadata") or {}
@@ -308,6 +347,7 @@ async def retrieve_for_job(
                 "resume_title": row.get("resume_title_snapshot"),
                 "resume_storage_path": row.get("resume_storage_path_snapshot"),
                 "current_status": row.get("current_status") or "pending",
+                "is_public_candidate": bool(row.get("is_public_candidate", False) or row.get("current_status") == "job_seeking"),
                 "skills": skills,
                 "verified_skills": verified,
                 "inferred_skills": inferred,
@@ -324,7 +364,8 @@ async def retrieve_for_job(
     for row, score in zip(candidates, scores, strict=False):
         row["bm25_score"] = score
 
-    pool_size = len(submits)
+    pool_size = len(all_candidate_rows)
+
     job_description = "\n".join(
         part.strip() for part in (job.get("title"), job.get("description"), job.get("requirements")) if part
     )

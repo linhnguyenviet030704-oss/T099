@@ -156,3 +156,70 @@ async def update_interview_session(
         logger.warning("Supabase update session error: %s", e)
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interview session not found")
+
+
+@router.get("/sessions")
+async def list_interview_sessions(
+    limit: int = 50,
+    candidate_id: str | None = None,
+    job_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Lấy danh sách các phiên phỏng vấn đã lưu."""
+    try:
+        db = get_supabase_client()
+        query = (
+            db.table("interview_sessions")
+            .select(
+                "id, candidate_id, job_id, status, question_distribution, total_questions, coverage_ratio, coverage_threshold, is_approved, reviewer_notes, created_at, profiles(full_name, email), job_posts(title)"
+            )
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        if candidate_id:
+            query = query.eq("candidate_id", candidate_id)
+        if job_id:
+            query = query.eq("job_id", job_id)
+
+        res = query.execute()
+        if res.data:
+            return res.data
+    except Exception as e:
+        logger.warning("Supabase list interview sessions error: %s", e)
+
+    # In-memory fallback
+    sessions: list[dict[str, Any]] = []
+    for s in _INTERVIEW_STATUS_STORE.values():
+        if candidate_id and s.get("candidate_id") != candidate_id:
+            continue
+        if job_id and s.get("job_id") != job_id:
+            continue
+        sessions.append(s)
+    return sessions
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_interview_session(session_id: str) -> dict[str, bool]:
+    """Xóa một phiên phỏng vấn."""
+    session_id_str = str(session_id)
+    if session_id_str in _INTERVIEW_STATUS_STORE:
+        del _INTERVIEW_STATUS_STORE[session_id_str]
+    try:
+        db = get_supabase_client()
+        db.table("interview_questions").delete().eq("session_id", session_id_str).execute()
+        db.table("interview_sessions").delete().eq("id", session_id_str).execute()
+    except Exception as e:
+        logger.warning("Supabase delete interview session error: %s", e)
+    return {"success": True}
+
+
+@router.delete("/sessions")
+async def clear_all_interview_sessions() -> dict[str, bool]:
+    """Xóa toàn bộ các phiên phỏng vấn."""
+    _INTERVIEW_STATUS_STORE.clear()
+    try:
+        db = get_supabase_client()
+        db.table("interview_questions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+        db.table("interview_sessions").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    except Exception as e:
+        logger.warning("Supabase clear all interview sessions error: %s", e)
+    return {"success": True}

@@ -88,3 +88,216 @@ async def test_ingest_is_rate_limited_per_user(api_client: AsyncClient):
     response = await api_client.post(f"/api/v1/resumes/{uuid4()}/ingest", headers=headers)
     assert response.status_code == 429
     assert response.json()["code"] == "RATE_LIMITED"
+
+
+@pytest.mark.asyncio
+async def test_set_resume_public_requires_auth(api_client: AsyncClient):
+    response = await api_client.patch(
+        f"/api/v1/resumes/{uuid4()}/public",
+        json={"is_public": True},
+    )
+    assert response.status_code == 401
+    assert response.json()["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
+async def test_set_resume_public_unknown_resume_returns_404(api_client: AsyncClient):
+    response = await api_client.patch(
+        f"/api/v1/resumes/{uuid4()}/public",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+        json={"is_public": True},
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "RESUME_NOT_FOUND"
+
+
+class _FakeResumeDbQuery:
+    def __init__(self, data: dict | None = None):
+        self._data = data
+        self.updates: list[dict] = []
+        self.deleted: bool = False
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def eq(self, *_args, **_kwargs):
+        return self
+
+    def neq(self, *_args, **_kwargs):
+        return self
+
+    def maybe_single(self):
+        return self
+
+    def update(self, values: dict):
+        self.updates.append(values)
+        return self
+
+    def delete(self):
+        self.deleted = True
+        return self
+
+    def execute(self):
+        return SimpleNamespace(data=self._data)
+
+
+class _FakeCustomSupabaseClient:
+    def __init__(self, resume_data: dict | None = None):
+        self.query_builder = _FakeResumeDbQuery(resume_data)
+
+    def table(self, _name: str):
+        return self.query_builder
+
+
+@pytest.mark.asyncio
+async def test_set_resume_public_forbidden_for_other_user():
+    user_id = str(uuid4())
+    other_user_id = str(uuid4())
+    resume_id = uuid4()
+
+    fake_client = _FakeCustomSupabaseClient({
+        "id": str(resume_id),
+        "user_id": other_user_id,
+        "is_public": False,
+        "deleted_at": None,
+    })
+    app.dependency_overrides[get_supabase_client] = lambda: fake_client
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.patch(
+            f"/api/v1/resumes/{resume_id}/public",
+            headers={"Authorization": f"Bearer {_make_token(sub=user_id)}"},
+            json={"is_public": True},
+        )
+    app.dependency_overrides.clear()
+    assert response.status_code == 403
+    assert response.json()["code"] == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_set_resume_public_success_for_owner():
+    user_id = str(uuid4())
+    resume_id = uuid4()
+
+    fake_client = _FakeCustomSupabaseClient({
+        "id": str(resume_id),
+        "user_id": user_id,
+        "is_public": False,
+        "deleted_at": None,
+    })
+    app.dependency_overrides[get_supabase_client] = lambda: fake_client
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.patch(
+            f"/api/v1/resumes/{resume_id}/public",
+            headers={"Authorization": f"Bearer {_make_token(sub=user_id)}"},
+            json={"is_public": True},
+        )
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == str(resume_id)
+    assert body["is_public"] is True
+    assert "Đang tìm việc" in body["message"]
+    # Check that update was called (first to disable previous public CVs, then to enable this CV)
+    assert len(fake_client.query_builder.updates) == 2
+    assert fake_client.query_builder.updates[0] == {"is_public": False}
+    assert fake_client.query_builder.updates[1] == {"is_public": True}
+
+
+@pytest.mark.asyncio
+async def test_delete_resume_requires_auth(api_client: AsyncClient):
+    response = await api_client.delete(f"/api/v1/resumes/{uuid4()}")
+    assert response.status_code == 401
+    assert response.json()["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
+async def test_delete_resume_unknown_returns_404(api_client: AsyncClient):
+    response = await api_client.delete(
+        f"/api/v1/resumes/{uuid4()}",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "RESUME_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_delete_resume_already_deleted_returns_404():
+    user_id = str(uuid4())
+    resume_id = uuid4()
+
+    fake_client = _FakeCustomSupabaseClient({
+        "id": str(resume_id),
+        "user_id": user_id,
+        "is_default": False,
+        "is_public": False,
+        "deleted_at": "2026-08-27T10:00:00Z",
+    })
+    app.dependency_overrides[get_supabase_client] = lambda: fake_client
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.delete(
+            f"/api/v1/resumes/{resume_id}",
+            headers={"Authorization": f"Bearer {_make_token(sub=user_id)}"},
+        )
+    app.dependency_overrides.clear()
+    assert response.status_code == 404
+    assert response.json()["code"] == "RESUME_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_delete_resume_forbidden_for_other_user():
+    user_id = str(uuid4())
+    other_user_id = str(uuid4())
+    resume_id = uuid4()
+
+    fake_client = _FakeCustomSupabaseClient({
+        "id": str(resume_id),
+        "user_id": other_user_id,
+        "is_default": False,
+        "is_public": False,
+        "deleted_at": None,
+    })
+    app.dependency_overrides[get_supabase_client] = lambda: fake_client
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.delete(
+            f"/api/v1/resumes/{resume_id}",
+            headers={"Authorization": f"Bearer {_make_token(sub=user_id)}"},
+        )
+    app.dependency_overrides.clear()
+    assert response.status_code == 403
+    assert response.json()["code"] == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_delete_resume_success_for_owner():
+    user_id = str(uuid4())
+    resume_id = uuid4()
+
+    fake_client = _FakeCustomSupabaseClient({
+        "id": str(resume_id),
+        "user_id": user_id,
+        "is_default": True,
+        "is_public": True,
+        "deleted_at": None,
+    })
+    app.dependency_overrides[get_supabase_client] = lambda: fake_client
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.delete(
+            f"/api/v1/resumes/{resume_id}",
+            headers={"Authorization": f"Bearer {_make_token(sub=user_id)}"},
+        )
+    app.dependency_overrides.clear()
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == str(resume_id)
+    assert body["deleted"] is True
+    assert "Đã xóa CV thành công" in body["message"]
+
+    # Check soft delete update
+    assert any("deleted_at" in upd and upd["is_public"] is False and upd["is_default"] is False for upd in fake_client.query_builder.updates)
+    # Check embedded_resumes delete was called
+    assert fake_client.query_builder.deleted is True

@@ -25,6 +25,11 @@ CHITCHAT_RESPONSE = (
     "Bạn có thể nhờ mình gợi ý việc làm phù hợp với CV, "
     "tìm việc theo lĩnh vực/công ty, đánh giá CV, hoặc gợi ý lộ trình bổ sung kỹ năng."
 )
+RECRUITER_CHITCHAT_RESPONSE = (
+    "Chào bạn! Tôi là trợ lý AI hỗ trợ tuyển dụng. "
+    "Bạn có thể yêu cầu tôi gợi ý danh sách ứng viên phù hợp nhất với vị trí này, "
+    "hoặc tìm kiếm ứng viên theo kỹ năng, số năm kinh nghiệm cụ thể."
+)
 INVALID_RESPONSE = "Nội dung không hợp lệ. Vui lòng mô tả yêu cầu rõ hơn."
 OUT_OF_SCOPE_RESPONSE = (
     "Nội dung này không thuộc phạm vi hỗ trợ. "
@@ -135,9 +140,10 @@ DispatchEvaluation = Callable[[UUID, str], Awaitable[ChatResponse]]
 ResolveIntent = Callable[[str], Awaitable[Any]]
 
 
-def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
+def chat_response_from_graph(result: dict[str, Any], max_results: int | None = None) -> ChatResponse:
     candidates: list[RecommendedCandidate] = []
-    for row in (result.get("candidates") or [])[:FINAL_CANDIDATE_K]:
+    limit = max_results or FINAL_CANDIDATE_K
+    for row in (result.get("candidates") or [])[:limit]:
         rerank_status = str(row.get("rerank_status") or "not_requested")
         rerank_score = row.get("rerank_score")
         reason_raw = row.get("match_reason")
@@ -155,14 +161,18 @@ def chat_response_from_graph(result: dict[str, Any]) -> ChatResponse:
                 rerank_score=None if rerank_score is None else float(rerank_score),
                 rerank_status=rerank_status,  # type: ignore[arg-type]
                 match_reason=reason_clean or None,
+                is_public_candidate=bool(row.get("is_public_candidate", False) or row.get("current_status") == "job_seeking"),
+                has_verified_skills=bool(row.get("has_verified_skills", False) or row.get("verified_skills")),
             )
         )
     return ChatResponse(response=str(result.get("response") or ""), candidates=candidates)
 
 
-def jobs_response_from_graph(result: dict[str, Any]) -> ChatResponse:
+
+def jobs_response_from_graph(result: dict[str, Any], max_results: int | None = None) -> ChatResponse:
     jobs: list[RecommendedJob] = []
-    for row in (result.get("candidates") or [])[:FINAL_CANDIDATE_K]:
+    limit = max_results or FINAL_CANDIDATE_K
+    for row in (result.get("candidates") or [])[:limit]:
         rerank_status = str(row.get("rerank_status") or "not_requested")
         rerank_score = row.get("rerank_score")
         reason_raw = row.get("match_reason")
@@ -230,13 +240,19 @@ class ChatService:
         session_id = request.session_id or (uuid4() if actor_id is not None else None)
         expected_output = "text"
 
-        # Short-circuit: pure chitchat — no CV load, no LLM call
-        if classification.intent == IntentType.CHITCHAT:
-            response = ChatResponse(response=CHITCHAT_RESPONSE, session_id=session_id)
-        elif classification.intent == IntentType.OUT_OF_SCOPE:
-            response = ChatResponse(response=OUT_OF_SCOPE_RESPONSE, session_id=session_id)
-        elif classification.intent == IntentType.UNSUPPORTED_LANGUAGE:
+        # Kiểm tra quyền truy cập công việc trước khi chạy luồng nhà tuyển dụng.
+        if request.job_id is not None and actor_id is not None and self._assert_job_access is not None:
+            await self._assert_job_access(actor_id, request.job_id)
+
+        # Dừng sớm các yêu cầu không cần gọi matching hoặc mô hình ngôn ngữ.
+        if classification.intent == IntentType.UNSUPPORTED_LANGUAGE:
             response = ChatResponse(response=UNSUPPORTED_LANGUAGE_RESPONSE, session_id=session_id)
+        elif classification.intent == IntentType.CHITCHAT:
+            greeting = RECRUITER_CHITCHAT_RESPONSE if request.job_id is not None else CHITCHAT_RESPONSE
+            response = ChatResponse(response=greeting, session_id=session_id)
+        elif classification.intent == IntentType.OUT_OF_SCOPE:
+            message = INVALID_RESPONSE if request.job_id is not None else OUT_OF_SCOPE_RESPONSE
+            response = ChatResponse(response=message, session_id=session_id)
         elif classification.intent == IntentType.UNKNOWN:
             response = ChatResponse(response=UNKNOWN_RESPONSE, session_id=session_id)
         elif classification.intent in (IntentType.CONTENT_TOO_SHORT, IntentType.INVALID_FORMAT):
@@ -288,7 +304,16 @@ class ChatService:
     async def _recommend_jobs(self, request: ChatRequest, actor_id: UUID | None) -> ChatResponse:
         if self._recommend_jobs_fn is not None and actor_id is not None:
             try:
-                return await self._recommend_jobs_fn(actor_id, request.message, request.rerank)
+                try:
+                    return await self._recommend_jobs_fn(
+                        actor_id,
+                        request.message,
+                        request.rerank,
+                        resume_id=request.resume_id,
+                        max_results=request.max_results,
+                    )
+                except TypeError:
+                    return await self._recommend_jobs_fn(actor_id, request.message, request.rerank)
             except AppError:
                 raise
             except Exception as exc:
@@ -302,10 +327,12 @@ class ChatService:
             raise AppError(502, "Không lấy được danh sách việc làm", "JOBS_UNAVAILABLE") from exc
 
         jobs = mock_recommend(rows)
+        if request.max_results:
+            jobs = jobs[:request.max_results]
         if not jobs:
             return ChatResponse(response="Hiện chưa có tin tuyển dụng đang mở.", jobs=[])
         return ChatResponse(
-            response=f"Gợi ý {len(jobs)} việc làm phù hợp (mock matching).",
+            response=f"Gợi ý {len(jobs)} việc làm phù hợp.",
             jobs=jobs,
         )
 
@@ -316,7 +343,18 @@ class ChatService:
         await self._assert_job_access(actor_id, job_id)
         if self._match_candidates is not None:
             try:
-                return await self._match_candidates(job_id, actor_id, request.message, request.rerank)
+                try:
+                    return await self._match_candidates(
+                        job_id,
+                        actor_id,
+                        request.message,
+                        request.rerank,
+                        include_public=request.include_public if request.include_public is not None else True,
+                        verified_only=bool(request.verified_only),
+                        max_results=request.max_results,
+                    )
+                except TypeError:
+                    return await self._match_candidates(job_id, actor_id, request.message, request.rerank)
             except AppError:
                 raise
             except Exception as exc:
@@ -332,9 +370,15 @@ class ChatService:
             raise AppError(502, "Không lấy được danh sách ứng viên", "CANDIDATES_UNAVAILABLE") from exc
 
         candidates = mock_recommend_candidates(rows)
+        if request.include_public is False:
+            candidates = [c for c in candidates if not c.is_public_candidate and c.current_status != "job_seeking"]
+        if request.verified_only:
+            candidates = [c for c in candidates if c.has_verified_skills]
+        if request.max_results:
+            candidates = candidates[:request.max_results]
         if not candidates:
             return ChatResponse(response="Chưa có CV nộp cho vị trí này.", candidates=[])
         return ChatResponse(
-            response=f"Gợi ý {len(candidates)} ứng viên phù hợp (mock matching).",
+            response=f"Gợi ý {len(candidates)} ứng viên phù hợp.",
             candidates=candidates,
         )

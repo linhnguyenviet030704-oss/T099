@@ -16,7 +16,7 @@ class SupabaseResumeStore:
         def _query() -> dict[str, Any] | None:
             result = (
                 self._client.table("embedded_resumes")
-                .select("resume_id, markdown, metadata, content_hash")
+                .select("resume_id, markdown, metadata, content_hash, storage_updated_at")
                 .eq("resume_id", str(resume_id))
                 .maybe_single()
                 .execute()
@@ -38,6 +38,37 @@ class SupabaseResumeStore:
 
         return await asyncio.to_thread(_query)
 
+    async def get_storage_updated_at(self, bucket_id: str, storage_path: str) -> str | None:
+        def _query() -> str | None:
+            # Fail closed on any error here (parsing, the list() call, or
+            # unexpected response shapes) — this is a best-effort freshness
+            # lookup, not a source of truth, and some callers (e.g. the
+            # resumes API route) invoke ingest_resume directly with no
+            # retry/absorb wrapper around it.
+            try:
+                parts = storage_path.rsplit("/", 1)
+                folder, filename = (parts[0], parts[1]) if len(parts) == 2 else ("", parts[0])
+                entries = self._client.storage.from_(bucket_id).list(folder, {"search": filename})
+                for entry in entries or []:
+                    if entry.get("name") == filename:
+                        updated_at = entry.get("updated_at")
+                        return str(updated_at) if updated_at else None
+                return None
+            except Exception:
+                return None
+
+        return await asyncio.to_thread(_query)
+
+    async def touch_storage_updated_at(self, resume_id: UUID, storage_updated_at: str) -> None:
+        rid = str(resume_id)
+
+        def _query() -> None:
+            self._client.table("embedded_resumes").update(
+                {"storage_updated_at": storage_updated_at}
+            ).eq("resume_id", rid).execute()
+
+        await asyncio.to_thread(_query)
+
     async def download(self, bucket_id: str, storage_path: str) -> bytes:
         def _query() -> bytes:
             data = self._client.storage.from_(bucket_id).download(storage_path)
@@ -53,6 +84,7 @@ class SupabaseResumeStore:
         parsed: dict[str, Any],
         content_hash: str,
         embedding: list[float],
+        storage_updated_at: str | None,
     ) -> None:
         rid = str(resume_id)
 
@@ -66,6 +98,7 @@ class SupabaseResumeStore:
                     "content_hash": content_hash,
                     "embedding": embedding,
                     "model": DEFAULT_EMBEDDING_MODEL,
+                    "storage_updated_at": storage_updated_at,
                 }
             ).execute()
 

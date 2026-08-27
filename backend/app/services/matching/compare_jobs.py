@@ -322,7 +322,7 @@ async def compare_jobs_for_candidate(
     try:
         if guarded_jd.action == "block" or not guarded_jd.value:
             raise ValueError("job context blocked by safety gate")
-        raw_output = fn(prompt, json_object=True, api_key=api_key, base_url=base_url)
+        raw_output = await asyncio.to_thread(fn, prompt, json_object=True, api_key=api_key, base_url=base_url)
         parsed_results = _parse_llm_response(raw_output)
     except Exception as exc:
         logger.warning("LLM job comparison failed, falling back to deterministic: %s", exc)

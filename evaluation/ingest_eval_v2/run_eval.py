@@ -34,9 +34,8 @@ from evaluation.ingest_eval_v2.pipeline import run_ingest_pipeline  # noqa: E402
 
 MANIFEST_PATH = Path(__file__).resolve().parent / "manifest.json"
 REPORT_PATH = Path(__file__).resolve().parent / "results" / "report.md"
-PROMPT_VERSION = "v3-skill-taxonomy-slugs"  # bumped: 25e5bd8 (2026-08-23) changed skill_graph.json
-# canonical IDs from display names ("AWS") to slugs ("aws"); the pre-bump runs_v2 cache holds
-# skills lists in the old format, which desyncs from a live extract_skills() call in metrics.py
+PROMPT_VERSION = "v4-2026-08-27-baseline"  # bumped: re-baseline after BM25 alias fix,
+# dead-node removal, pool_size/embedding_mismatch_count trace, ingest fast-path fixes
 
 
 def _run_pipeline_cached(cv_entry: dict) -> dict:

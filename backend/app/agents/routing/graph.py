@@ -21,17 +21,18 @@ from backend.app.agents.routing.intents import (
     check_off_topic,
     check_sensitive_content,
     classify_intent,
+    is_supported_language,
     validate_content,
 )
 from backend.app.shared_brain import AgentBrain
 
 
-async def routing_node(state: RoutingState, brain: AgentBrain | None = None) -> dict[str, Any]:
+def routing_node(state: RoutingState, brain: AgentBrain | None = None) -> dict[str, Any]:
     """
     Main routing node that classifies intent and validates input.
 
     Flow:
-    1. Validate content (length, format)
+    1. Validate content (length, format, language)
     2. Check for off-topic / sensitive content
     3. Classify intent with CV/DB usage flags
     4. Determine dispatch target
@@ -49,16 +50,35 @@ async def routing_node(state: RoutingState, brain: AgentBrain | None = None) -> 
             "validation_errors": ["Input is empty"],
         }
 
+    # === Step 0.5: Language check (reject non-English and non-Vietnamese) ===
+    is_supported, _ = is_supported_language(raw_input)
+    if not is_supported:
+        return {
+            "intent": IntentType.UNSUPPORTED_LANGUAGE,
+            "is_valid": False,
+            "rejection_reason": RejectionReason.UNSUPPORTED_LANGUAGE,
+            "dispatch_target": None,
+            "context": {},
+            "validation_errors": ["Ngôn ngữ không được hỗ trợ. Hệ thống chỉ hỗ trợ tiếng Việt và tiếng Anh."],
+        }
+
     # === Step 1: Validate content length ===
     is_valid, rejection_reason = validate_content(raw_input)
     if not is_valid:
+        if rejection_reason == RejectionReason.MINIMUM_CONTENT_NOT_MET:
+            intent = IntentType.CONTENT_TOO_SHORT
+        elif rejection_reason == RejectionReason.UNSUPPORTED_LANGUAGE:
+            intent = IntentType.UNSUPPORTED_LANGUAGE
+        else:
+            intent = IntentType.INVALID_FORMAT
+
         return {
-            "intent": IntentType.CONTENT_TOO_SHORT if rejection_reason == RejectionReason.MINIMUM_CONTENT_NOT_MET else IntentType.INVALID_FORMAT,
+            "intent": intent,
             "is_valid": False,
             "rejection_reason": rejection_reason,
             "dispatch_target": None,
             "context": {},
-            "validation_errors": [f"Content validation failed: {rejection_reason.value}"],
+            "validation_errors": [f"Content validation failed: {rejection_reason.value if rejection_reason else 'unknown'}"],
         }
 
     # === Step 2: Off-topic check ===
@@ -175,6 +195,10 @@ def _get_rejection_message(
         ),
         RejectionReason.MALFORMED_REQUEST: (
             "Yêu cầu không hợp lệ. Vui lòng thử lại."
+        ),
+        RejectionReason.UNSUPPORTED_LANGUAGE: (
+            "Hệ thống chỉ hỗ trợ tiếng Việt và tiếng Anh. "
+            "Vui lòng gửi yêu cầu bằng tiếng Việt hoặc tiếng Anh."
         ),
     }
 

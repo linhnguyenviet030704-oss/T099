@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from typing import Any
@@ -94,7 +95,7 @@ CV Text:
 Respond ONLY with valid JSON."""
 
             try:
-                response = brain.chat(prompt, json_object=True)
+                response = await asyncio.to_thread(brain.chat, prompt, json_object=True)
                 data = json.loads(response)
                 parsed_cv = ParsedProfile(
                     raw_text=cv_text,
@@ -144,7 +145,7 @@ JD Text:
 Respond ONLY with valid JSON."""
 
             try:
-                response = brain.chat(prompt, json_object=True)
+                response = await asyncio.to_thread(brain.chat, prompt, json_object=True)
                 data = json.loads(response)
                 parsed_jd = ParsedProfile(
                     raw_text=jd_text,

@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 
 from backend.app.agents.state import AgentState
@@ -41,7 +42,11 @@ def make_summarize_node(
         if context.action == "block" or not context.value:
             meta = {"summary": "", "titles": [], "body": "", "skills": []}
         else:
-            meta = summarize_resume(str(context.value), complete=_complete)
+            meta = await asyncio.to_thread(
+                summarize_resume,
+                str(context.value),
+                complete=_complete,
+            )
 
         guarded_body = validate_generated_text(
             str(meta.get("body") or ""),

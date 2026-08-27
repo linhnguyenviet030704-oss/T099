@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, MapPin, DollarSign, ExternalLink, Bot, User,
   PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, FileText,
-  Layers, Check, Plus, Trash2, Clock,
+  Layers, Check, Plus, Trash2, Clock, RotateCcw, ChevronDown, Star, CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -12,13 +12,18 @@ import { supabase } from "../lib/supabase";
 import { ENUM_LABELS, formatCurrency } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
 import Badge from "../components/Badge";
+import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
+import { useLang } from "../context/LangContext";
 import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
 import JobComparisonModal from "../components/candidate/JobComparisonModal";
 
+
 const QUICK_PROMPT = "Gợi ý việc phù hợp";
-const FIT_GOOD = 0.45;
-const FIT_OK = 0.3;
+const DEFAULT_FIT_GOOD = 45;
+const DEFAULT_FIT_OK = 30;
+const DEFAULT_MAX_JOBS = 10;
+const DEFAULT_SKILL_WEIGHT = 0.6;
 const LEFT_W = 256;
 const RIGHT_W = 288;
 const SIDE_T = { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const };
@@ -51,7 +56,14 @@ type ChatHistoryItem = {
   message_count?: number;
 };
 type FitKey = "good" | "ok" | "poor";
-type ResumeInfo = { id: string; title: string; filename: string; created_at: string };
+type ResumeInfo = {
+  id: string;
+  title: string;
+  filename: string;
+  created_at: string;
+  is_default?: boolean;
+  storage_path?: string;
+};
 
 function formatSessionDate(dateStr: string) {
   try {
@@ -80,15 +92,16 @@ const FIT_GROUPS: { key: FitKey; label: string; className: string }[] = [
 const displayScore = (job: ChatJob) =>
   job.rerank_status === "success" && job.rerank_score != null ? job.rerank_score : job.score;
 
-function fitBand(score: number): FitKey {
-  if (score >= FIT_GOOD) return "good";
-  if (score >= FIT_OK) return "ok";
+function getFitBand(score: number, goodPct: number, okPct: number): FitKey {
+  if (score >= goodPct / 100) return "good";
+  if (score >= okPct / 100) return "ok";
   return "poor";
 }
 
-function groupJobs(jobs: ChatJob[]) {
+function groupJobs(jobs: ChatJob[], goodPct: number, okPct: number, maxLimit?: number) {
+  const list = maxLimit ? jobs.slice(0, maxLimit) : jobs;
   const buckets: Record<FitKey, ChatJob[]> = { good: [], ok: [], poor: [] };
-  for (const j of jobs) buckets[fitBand(displayScore(j))].push(j);
+  for (const j of list) buckets[getFitBand(displayScore(j), goodPct, okPct)].push(j);
   return buckets;
 }
 
@@ -98,15 +111,19 @@ function JobRecommendationCard({
   selectedForCompare = false,
   compareLabel,
   onToggleCompare,
+  goodThreshold = DEFAULT_FIT_GOOD,
+  okThreshold = DEFAULT_FIT_OK,
 }: {
   job: ChatJob;
   onNavigate: (id: string) => void;
   selectedForCompare?: boolean;
   compareLabel?: string;
   onToggleCompare?: (job: ChatJob) => void;
+  goodThreshold?: number;
+  okThreshold?: number;
 }) {
   const score = displayScore(job);
-  const band = fitBand(score);
+  const band = getFitBand(score, goodThreshold, okThreshold);
   const pct = Math.round(score * 100);
   const badgeColor =
     band === "good"
@@ -184,22 +201,27 @@ function JobRecommendationCard({
     </div>
   );
 }
-
-
 export default function AISuggestionsPage() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
-  const { info, error: toastError } = useToast();
+  const { info, error: toastError, success } = useToast();
+  const { lang, t } = useLang();
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [rerank, setRerank] = useState<"qwen" | "agent">("qwen");
   const [defaultCv, setDefaultCv] = useState<ResumeInfo | null>(null);
 
+  // Algorithm configuration state
+  const [maxJobs, setMaxJobs] = useState<number>(DEFAULT_MAX_JOBS);
+  const [fitGoodThreshold, setFitGoodThreshold] = useState<number>(DEFAULT_FIT_GOOD);
+  const [fitOkThreshold, setFitOkThreshold] = useState<number>(DEFAULT_FIT_OK);
+  const [skillWeight, setSkillWeight] = useState<number>(DEFAULT_SKILL_WEIGHT);
+
   // Compare states
   const [selectedCompareJobs, setSelectedCompareJobs] = useState<ChatJob[]>([]);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
-  const [resumes, setResumes] = useState<CandidateResumeOption[]>([]);
+  const [resumes, setResumes] = useState<ResumeInfo[]>([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
 
   const [leftOpen, setLeftOpen] = useState(isDesktop);
@@ -211,7 +233,12 @@ export default function AISuggestionsPage() {
   ]);
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
+  const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
+  const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
+  const [isSettingDefaultCv, setIsSettingDefaultCv] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
 
   // Ensure session exists
   useEffect(() => {
@@ -306,10 +333,38 @@ export default function AISuggestionsPage() {
     }
   }, [session, loadSession]);
 
-  // Delete session
-  const handleDeleteSession = async (e: React.MouseEvent, sid: string) => {
+  // Delete session trigger
+  const handleDeleteSession = (e: React.MouseEvent, sid: string) => {
     e.stopPropagation();
-    if (!window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?")) return;
+    setIsClearAllConfirm(false);
+    setDeleteTargetSessionId(sid);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (isClearAllConfirm) {
+      setIsDeletingSession(true);
+      try {
+        if (session?.access_token) {
+          await apiJson("/chat/history", session.access_token, { method: "DELETE" });
+        } else if (supabase && user) {
+          await supabase.from("chat_messages").delete().eq("user_id", user.id);
+        }
+        setChatHistory([]);
+        startNewChat();
+        success(t.clearAllChatSuccess);
+        setIsClearAllConfirm(false);
+      } catch (err) {
+        console.error("Failed to clear chat history", err);
+        toastError(t.deleteChatFailed, "Không thể xóa toàn bộ lịch sử trò chuyện");
+      } finally {
+        setIsDeletingSession(false);
+      }
+      return;
+    }
+
+    if (!deleteTargetSessionId) return;
+    const sid = deleteTargetSessionId;
+    setIsDeletingSession(true);
     try {
       if (session?.access_token) {
         await apiJson(`/chat/sessions/${sid}`, session.access_token, { method: "DELETE" });
@@ -320,11 +375,16 @@ export default function AISuggestionsPage() {
       if (sessionId === sid) {
         startNewChat();
       }
+      success(t.deleteChatSuccess);
+      setDeleteTargetSessionId(null);
     } catch (err) {
       console.error("Failed to delete session", err);
-      toastError("Lỗi", "Không thể xóa cuộc trò chuyện");
+      toastError(t.deleteChatFailed, "Không thể xóa cuộc trò chuyện");
+    } finally {
+      setIsDeletingSession(false);
     }
   };
+
 
   // New chat
   const startNewChat = () => {
@@ -340,32 +400,65 @@ export default function AISuggestionsPage() {
     try {
       const { data: allResumes } = await supabase
         .from("resumes")
-        .select("id, title, is_default")
+        .select("id, title, storage_path, created_at, is_default, original_filename")
         .eq("user_id", user.id)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (allResumes && allResumes.length > 0) {
-        setResumes(allResumes);
-        const def = allResumes.find((r: any) => r.is_default);
-        setSelectedResumeId(def?.id || allResumes[0]?.id || null);
-      }
-
-      const { data } = await supabase
-        .from("resumes")
-        .select("id, title, storage_path, created_at")
-        .eq("user_id", user.id)
-        .eq("is_default", true)
-        .is("deleted_at", null)
-        .maybeSingle();
-      if (data) {
-        const filename = data.storage_path ? data.storage_path.split("/").pop() || "CV" : "CV.pdf";
-        setDefaultCv({ id: data.id, title: data.title || "CV mặc định", filename, created_at: data.created_at });
+        const formatted: ResumeInfo[] = allResumes.map((r: any) => {
+          const fn = r.original_filename || (r.storage_path ? r.storage_path.split("/").pop() : "CV.pdf");
+          return {
+            id: r.id,
+            title: r.title || "Hồ sơ CV",
+            filename: fn || "CV.pdf",
+            created_at: r.created_at,
+            is_default: Boolean(r.is_default),
+            storage_path: r.storage_path,
+          };
+        });
+        setResumes(formatted);
+        const def = formatted.find((r) => r.is_default) || formatted[0];
+        setDefaultCv(def || null);
+        setSelectedResumeId((prev) => prev || def?.id || null);
+      } else {
+        setResumes([]);
+        setDefaultCv(null);
+        setSelectedResumeId(null);
       }
     } catch (err) {
-      console.error("Failed to load default CV", err);
+      console.error("Failed to load CVs", err);
     }
   }, [user]);
+
+  // Set selected CV as default
+  const handleSetDefaultResume = async (resumeId: string) => {
+    if (!supabase || !user || isSettingDefaultCv) return;
+    setIsSettingDefaultCv(true);
+    try {
+      await supabase.from("resumes").update({ is_default: false }).eq("user_id", user.id);
+      const { error } = await supabase.from("resumes").update({ is_default: true }).eq("id", resumeId);
+      if (error) throw error;
+      success("Đã đặt làm CV mặc định cho hệ thống AI");
+      await loadDefaultCv();
+    } catch (err) {
+      console.error("Failed to set default CV", err);
+      toastError("Lỗi", "Không thể cập nhật CV mặc định");
+    } finally {
+      setIsSettingDefaultCv(false);
+    }
+  };
+
+  const handleResetDefaults = () => {
+    setMaxJobs(DEFAULT_MAX_JOBS);
+    setFitGoodThreshold(DEFAULT_FIT_GOOD);
+    setFitOkThreshold(DEFAULT_FIT_OK);
+    setSkillWeight(DEFAULT_SKILL_WEIGHT);
+    setRerank("qwen");
+    info("Đã khôi phục các thông số thuật toán về mặc định.");
+  };
+
+  const activeCv = resumes.find((r) => r.id === selectedResumeId) || defaultCv;
 
   const handleToggleCompare = (job: ChatJob) => {
     setSelectedCompareJobs((prev) => {
@@ -430,7 +523,15 @@ export default function AISuggestionsPage() {
     try {
       const body = await apiJson<{ response: string; jobs?: ChatJob[]; session_id?: string }>("/chat", session.access_token, {
         method: "POST",
-        body: JSON.stringify({ message: msgText, rerank, session_id: sid }),
+        body: JSON.stringify({
+          message: msgText,
+          rerank,
+          session_id: sid,
+          resume_id: selectedResumeId || defaultCv?.id,
+          max_results: maxJobs,
+          skill_weight: skillWeight,
+          experience_weight: Number((1 - skillWeight).toFixed(2)),
+        }),
       });
       if (body.session_id && body.session_id !== sessionId) {
         setSessionId(body.session_id);
@@ -479,9 +580,24 @@ export default function AISuggestionsPage() {
 
       {/* Sessions List */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-1 text-xs">
-        <div className="px-1 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
-          Danh sách phiên chat ({chatHistory.length})
+        <div className="px-1 py-1 flex items-center justify-between text-[10px] uppercase font-bold tracking-wider text-slate-400">
+          <span>Danh sách phiên chat ({chatHistory.length})</span>
+          {chatHistory.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteTargetSessionId(null);
+                setIsClearAllConfirm(true);
+              }}
+              className="text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 normal-case font-medium hover:underline flex items-center gap-1 cursor-pointer"
+              title={t.clearAllChat}
+            >
+              <Trash2 size={11} />
+              <span>{t.clearAllChat}</span>
+            </button>
+          )}
         </div>
+
 
         {chatHistory.length === 0 ? (
           <div className="px-3 py-6 text-center text-slate-400 space-y-1">
@@ -540,81 +656,259 @@ export default function AISuggestionsPage() {
   // Right Sidebar: CV Info & AI Matching Settings
   const paramsPane = (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 dark:border-slate-700">
-        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-          <SlidersHorizontal size={13} /> Thông tin CV & Cấu hình
+      <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+          <SlidersHorizontal size={14} className="text-indigo-600 dark:text-indigo-400" /> Thông tin CV & Cấu hình
         </p>
         <button type="button" onClick={() => setRightOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Ẩn thông số">
           <X size={14} />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 text-xs">
-        {/* CV Details */}
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-4 text-xs">
+        {/* CV Selector & Details */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-300 px-2 py-1 rounded-lg mb-2">
-            CV dùng để matching AI
-          </p>
-          {defaultCv ? (
-            <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600 space-y-1.5">
-              <div className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200">
-                <FileText size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span className="truncate">{defaultCv.title}</span>
-              </div>
-              <p className="text-[11px] text-slate-500 truncate">{defaultCv.filename}</p>
-              <p className="text-[10px] text-slate-400">Cập nhật: {new Date(defaultCv.created_at).toLocaleDateString("vi-VN")}</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 dark:text-indigo-300 px-2 py-0.5 rounded-md">
+              CV dùng để matching AI
+            </p>
+            {resumes.length > 1 && (
+              <span className="text-[10px] text-slate-400">{resumes.length} CV sẵn sàng</span>
+            )}
+          </div>
+
+          {resumes.length > 0 ? (
+            <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600 space-y-2.5">
+              {/* Selector dropdown if multiple resumes */}
+              {resumes.length > 1 && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Chọn CV phân tích:</label>
+                  <div className="relative">
+                    <select
+                      value={selectedResumeId || ""}
+                      onChange={(e) => setSelectedResumeId(e.target.value)}
+                      className="w-full appearance-none px-2.5 py-1.5 pr-7 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {resumes.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.title} {r.is_default ? "★ (Mặc định)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-2 top-2.5 pointer-events-none text-slate-400" />
+                  </div>
+                </div>
+              )}
+
+              {/* Active CV Info Card */}
+              {activeCv && (
+                <div className="space-y-1.5 pt-0.5">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 min-w-0">
+                      <FileText size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                      <span className="truncate" title={activeCv.title}>{activeCv.title}</span>
+                    </div>
+                    {activeCv.is_default && (
+                      <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800 flex items-center gap-0.5">
+                        <Star size={9} className="fill-amber-500 text-amber-500" /> Mặc định
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate" title={activeCv.filename}>{activeCv.filename}</p>
+                  <p className="text-[10px] text-slate-400">Cập nhật: {new Date(activeCv.created_at).toLocaleDateString("vi-VN")}</p>
+
+                  {/* Set default button if not default */}
+                  {!activeCv.is_default && (
+                    <button
+                      type="button"
+                      disabled={isSettingDefaultCv}
+                      onClick={() => void handleSetDefaultResume(activeCv.id)}
+                      className="w-full py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Star size={11} /> Đặt làm CV mặc định
+                    </button>
+                  )}
+                </div>
+              )}
+
               <button
+                type="button"
                 onClick={() => navigate("/cv-vault")}
-                className="mt-2 w-full py-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors flex items-center justify-center gap-1"
+                className="w-full py-1.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors flex items-center justify-center gap-1"
               >
-                Quản lý CV kho <ExternalLink size={10} />
+                Quản lý CV kho <ExternalLink size={11} />
               </button>
             </div>
           ) : (
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl text-amber-800 dark:text-amber-300 space-y-2">
-              <p className="text-[11px]">Bạn chưa chọn CV mặc định. AI sẽ gợi ý dựa trên CV gần nhất.</p>
+              <p className="text-[11px]">Bạn chưa tải CV lên kho. AI sẽ gợi ý dựa trên yêu cầu trò chuyện trực tiếp.</p>
               <button
+                type="button"
                 onClick={() => navigate("/cv-vault")}
-                className="w-full py-1 text-[11px] font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                className="w-full py-1.5 text-[11px] font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shadow-xs"
               >
-                Tải / Đặt CV mặc định
+                Tải CV lên kho ngay
               </button>
             </div>
           )}
         </div>
 
-        {/* Model & Parameter Config */}
+        {/* Model & Reranker Config */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Chế độ Rerank AI</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Chế độ Rerank AI</p>
           <div className="space-y-1.5">
             {(["qwen", "agent"] as const).map((mode) => (
               <button
+                type="button"
                 key={mode}
                 onClick={() => setRerank(mode)}
-                className={`w-full px-3 py-2 text-left rounded-xl border transition-all flex items-center justify-between ${rerank === mode ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-semibold" : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300"}`}
+                className={`w-full px-3 py-2 text-left rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                  rerank === mode
+                    ? "bg-indigo-50/90 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-semibold ring-1 ring-indigo-500/20"
+                    : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                }`}
               >
                 <div>
-                  <p className="capitalize">{mode === "qwen" ? "Qwen AI Reranker" : "RRF Fusion Match"}</p>
+                  <p className="capitalize text-xs">{mode === "qwen" ? "Qwen AI Reranker" : "RRF Fusion Match"}</p>
                   <p className="text-[10px] text-slate-400 font-normal">{mode === "qwen" ? "Dùng mô hình Deep Reranking" : "Trộn điểm vector + từ khóa BM25"}</p>
                 </div>
-                {rerank === mode && <Sparkles size={13} className="text-indigo-600 dark:text-indigo-400" />}
+                {rerank === mode ? (
+                  <CheckCircle2 size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
+                ) : (
+                  <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-500 shrink-0" />
+                )}
               </button>
             ))}
           </div>
         </div>
 
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Thông số thuật toán</p>
-          {[
-            { label: "Số việc làm hiển thị", value: "Top 10" },
-            { label: "Ngưỡng Phù hợp cao", value: `${Math.round(FIT_GOOD * 100)}%` },
-            { label: "Ngưỡng Bình thường", value: `${Math.round(FIT_OK * 100)}%` },
-            { label: "Kỹ năng & Tương đồng", value: "Qwen3.7 Embed (1536d)" },
-          ].map((row) => (
-            <label key={row.label} className="block mb-2">
-              <span className="text-[11px] text-slate-500">{row.label}</span>
-              <input disabled value={row.value} className="mt-0.5 w-full px-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-500 cursor-not-allowed" />
-            </label>
-          ))}
+        {/* Interactive Algorithm Settings */}
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Thông số thuật toán</p>
+            <button
+              type="button"
+              onClick={handleResetDefaults}
+              className="text-[10px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors cursor-pointer"
+              title="Đặt lại các thông số về mặc định"
+            >
+              <RotateCcw size={10} /> Đặt lại
+            </button>
+          </div>
+
+          {/* Max Jobs Displayed */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Số việc làm hiển thị</span>
+              <span className="font-bold text-indigo-600 dark:text-indigo-400">Top {maxJobs}</span>
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {[5, 10, 15, 20].map((num) => (
+                <button
+                  type="button"
+                  key={num}
+                  onClick={() => setMaxJobs(num)}
+                  className={`py-1 text-xs font-semibold rounded-lg border transition-all ${
+                    maxJobs === num
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                      : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* High Fit Threshold */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng Phù hợp cao</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{fitGoodThreshold}%</span>
+            </div>
+            <input
+              type="range"
+              min={20}
+              max={80}
+              step={5}
+              value={fitGoodThreshold}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setFitGoodThreshold(val);
+                if (val <= fitOkThreshold) {
+                  setFitOkThreshold(Math.max(5, val - 10));
+                }
+              }}
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+            />
+            <div className="flex justify-between text-[9px] text-slate-400">
+              <span>20%</span>
+              <span>Khuyến nghị: 45%</span>
+              <span>80%</span>
+            </div>
+          </div>
+
+          {/* Normal Fit Threshold */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng Bình thường</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{fitOkThreshold}%</span>
+            </div>
+            <input
+              type="range"
+              min={10}
+              max={60}
+              step={5}
+              value={fitOkThreshold}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setFitOkThreshold(val);
+                if (val >= fitGoodThreshold) {
+                  setFitGoodThreshold(Math.min(90, val + 10));
+                }
+              }}
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-600"
+            />
+            <div className="flex justify-between text-[9px] text-slate-400">
+              <span>10%</span>
+              <span>Khuyến nghị: 30%</span>
+              <span>60%</span>
+            </div>
+          </div>
+
+          {/* Skill vs Experience / Semantic Weight */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Trọng số kỹ năng vs Ngữ nghĩa</span>
+              <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                {Math.round(skillWeight * 100)}% / {Math.round((1 - skillWeight) * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.2}
+              max={0.8}
+              step={0.1}
+              value={skillWeight}
+              onChange={(e) => setSkillWeight(Number(e.target.value))}
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            />
+            <div className="flex justify-between text-[9px] text-slate-400">
+              <span>Thiên ngữ nghĩa</span>
+              <span>Cân bằng</span>
+              <span>Thiên từ khóa kỹ năng</span>
+            </div>
+          </div>
+
+          {/* Model info banner */}
+          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
+              <Sparkles size={11} className="text-indigo-500" />
+              <span>Mô hình & Không gian Vector</span>
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              Qwen3.7 Embed 1536d + BM25 Hybrid Reciprocal Rank Fusion.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -695,7 +989,7 @@ export default function AISuggestionsPage() {
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               <AnimatePresence initial={false}>
                 {messages.map((msg) => {
-                  const groups = msg.jobs?.length ? groupJobs(msg.jobs) : null;
+                  const groups = msg.jobs?.length ? groupJobs(msg.jobs, fitGoodThreshold, fitOkThreshold, maxJobs) : null;
                   return (
                     <motion.div
                       key={msg.id}
@@ -736,6 +1030,8 @@ export default function AISuggestionsPage() {
                                       selectedForCompare={isSelected}
                                       compareLabel={letterLabel}
                                       onToggleCompare={handleToggleCompare}
+                                      goodThreshold={fitGoodThreshold}
+                                      okThreshold={fitOkThreshold}
                                     />
                                   );
                                 })}
@@ -753,7 +1049,7 @@ export default function AISuggestionsPage() {
               {sending && (
                 <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 py-1">
                   <Loader2 size={14} className="animate-spin" />
-                  <span>AI đang phân tích và tìm kiếm Top 10 việc làm phù hợp...</span>
+                  <span>AI đang phân tích và tìm kiếm Top {maxJobs} việc làm phù hợp...</span>
                 </div>
               )}
               <div ref={bottomRef} />
@@ -901,7 +1197,21 @@ export default function AISuggestionsPage() {
         resumeId={selectedResumeId}
         resumes={resumes}
       />
+
+      {/* Confirmation Modal for Delete Chat Session / History */}
+      <ConfirmModal
+        open={Boolean(deleteTargetSessionId || isClearAllConfirm)}
+        title={isClearAllConfirm ? t.clearAllChatConfirmTitle : t.deleteChatConfirmTitle}
+        message={isClearAllConfirm ? t.clearAllChatConfirmDesc : t.deleteChatConfirmDesc}
+        confirmLabel={isDeletingSession ? (lang === "en" ? "Deleting..." : "Đang xóa...") : t.delete}
+        cancelLabel={t.cancel}
+        danger={true}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => {
+          setDeleteTargetSessionId(null);
+          setIsClearAllConfirm(false);
+        }}
+      />
     </AnimatedPage>
   );
 }
-

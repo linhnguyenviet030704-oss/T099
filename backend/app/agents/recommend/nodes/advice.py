@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -66,7 +67,7 @@ def make_advice_node(
             "so với yêu cầu tuyển dụng, đồng thời chuẩn bị thêm portfolio và dự án thực tế liên quan."
         )
         try:
-            advice_response = _complete(prompt)
+            advice_response = await asyncio.to_thread(_complete, prompt)
         except Exception:
             advice_response = fallback
 

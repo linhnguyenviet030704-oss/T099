@@ -5,6 +5,8 @@ import re
 from typing import Any
 from uuid import UUID
 
+from rapidfuzz import fuzz, process
+
 from backend.app.config.models import (
     DEFAULT_EMBED_MODEL,
     DEFAULT_RERANK_MODEL,
@@ -25,6 +27,34 @@ from backend.app.services.recommend import _company_name
 from supabase import Client
 
 JOB_POOL_LIMIT = 200
+
+# Fuzzy fallback only kicks in for query words long enough that a high
+# similarity ratio is meaningful — mirrors the convention in skills.py's
+# extract_skills() (_FUZZY_MIN_LEN / _FUZZY_SCORE_CUTOFF).
+_BOOST_FUZZY_MIN_LEN = 4
+_BOOST_FUZZY_SCORE_CUTOFF = 88
+
+_WORD_RE = re.compile(r"[^\W_]+")
+
+
+def _word_tokens(text: str) -> list[str]:
+    return _WORD_RE.findall(text.lower())
+
+
+def _word_matches(word: str, tokens: list[str]) -> bool:
+    """Whole-word membership check for search-query boost keywords, with a
+    bounded fuzzy fallback for near-miss spellings. Replaces a substring
+    scan (`word in blob`), which let short words like "ai" match inside
+    unrelated words ("maintain", "retail", "container") and inflate the
+    boost for jobs that had nothing to do with the query."""
+    if not tokens:
+        return False
+    if word in tokens:
+        return True
+    if len(word) < _BOOST_FUZZY_MIN_LEN:
+        return False
+    match = process.extractOne(word, tokens, scorer=fuzz.ratio, score_cutoff=_BOOST_FUZZY_SCORE_CUTOFF)
+    return match is not None
 
 
 async def persist_recommend_job_rows(
@@ -83,10 +113,29 @@ async def persist_recommend_job_rows(
     await asyncio.to_thread(_insert_run)
 
 
+def _cv_query_text(fields: dict[str, Any], fallback_text: str) -> str:
+    """Prefer a short, high-precision text for the BM25 query over the full
+    CV body. The JD->CV direction already scores against just the JD title
+    (see retrieve.py's bm25_query(job.get("title"), ...)); using the entire
+    CV markdown here made the query long and noisy, letting stray phrase
+    overlaps outrank the CV's actual target roles (see
+    eval/results/report2.md section 4.2). Falls back down the specificity
+    ladder only when a field is empty, ending at the full CV text so recall
+    never drops to zero."""
+    titles = [t for t in (fields.get("titles") or []) if t]
+    if titles:
+        return " ".join(titles)
+    summary = (fields.get("summary") or "").strip()
+    if summary:
+        return summary
+    return fallback_text
+
+
 async def retrieve_jobs_for_resume(
     client: Client,
     actor_id: UUID,
     *,
+    resume_id: UUID | None = None,
     query: str = "",
     encode=None,
     complete=None,
@@ -97,6 +146,19 @@ async def retrieve_jobs_for_resume(
     resume_store = store or SupabaseResumeStore(client)
 
     def _default_resume() -> dict[str, Any] | None:
+        if resume_id is not None:
+            res = (
+                client.table("resumes")
+                .select("id")
+                .eq("id", str(resume_id))
+                .eq("user_id", str(actor_id))
+                .is_("deleted_at", "null")
+                .maybe_single()
+                .execute()
+            )
+            if res and res.data and res.data.get("id"):
+                return res.data
+
         # Try to find explicitly marked default resume first
         result = (
             client.table("resumes")
@@ -248,7 +310,7 @@ async def retrieve_jobs_for_resume(
             }
         )
 
-    bm25_q = bm25_query(cv_text, cv_skills) if (cv_text or cv_skills) else ""
+    bm25_q = bm25_query(_cv_query_text(metadata, cv_text), cv_skills) if (cv_text or cv_skills) else ""
     scores = bm25_scores(docs, bm25_q) if (docs and bm25_q) else [0.0] * len(docs)
     for row, score in zip(candidates, scores, strict=False):
         row["bm25_score"] = score
@@ -274,6 +336,11 @@ async def retrieve_jobs_for_resume(
             company = (candidate.get("company_name") or "").lower()
             body = (candidate.get("markdown") or "").lower()
             job_skills_str = " ".join(candidate.get("skills") or []).lower()
+            title_tokens = _word_tokens(title)
+            job_skills_tokens = _word_tokens(job_skills_str)
+            company_tokens = _word_tokens(company)
+            body_tokens = _word_tokens(body)
+            location_tokens = _word_tokens(location)
 
             if target_num and (f"#{target_num}" in title or f"#{target_num}" in (candidate.get("job_id") or "")):
                 boost += 5.0  # Dominant boost for exact job number match like #4 or #2
@@ -282,15 +349,15 @@ async def retrieve_jobs_for_resume(
                 boost += float(direct_scores[idx]) * 2.0
 
             for clean_word in words:
-                if clean_word in title:
+                if _word_matches(clean_word, title_tokens):
                     boost += 2.0
-                if clean_word in job_skills_str:
+                if _word_matches(clean_word, job_skills_tokens):
                     boost += 1.5
-                if clean_word in company:
+                if _word_matches(clean_word, company_tokens):
                     boost += 1.2
-                if clean_word in body:
+                if _word_matches(clean_word, body_tokens):
                     boost += 1.0
-                if clean_word in location:
+                if _word_matches(clean_word, location_tokens):
                     boost += 0.5
 
             if boost > 0:

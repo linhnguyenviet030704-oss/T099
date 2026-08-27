@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, Bot, User, FileText, ExternalLink,
   PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, Check, Plus,
+  Trash2, Clock, RotateCcw, CheckCircle2, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
@@ -12,13 +13,18 @@ import { ENUM_LABELS } from "../lib/format";
 import { APP_STATUS_COLORS } from "../lib/ui";
 import type { JobPost } from "../types";
 import AnimatedPage from "../components/AnimatedPage";
+import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
+import { useLang } from "../context/LangContext";
 import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
 import CVComparisonModal from "../components/candidate/CVComparisonModal";
 
+
 const QUICK_PROMPT = "Gợi ý ứng viên phù hợp";
-const FIT_GOOD = 0.45;
-const FIT_OK = 0.3;
+const DEFAULT_FIT_GOOD = 45;
+const DEFAULT_FIT_OK = 30;
+const DEFAULT_MAX_CANDIDATES = 20;
+const DEFAULT_SKILL_WEIGHT = 0.6;
 const LEFT_W = 256;
 const RIGHT_W = 288;
 const SIDE_T = { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const };
@@ -33,6 +39,8 @@ type ChatCandidate = {
   resume_title: string | null;
   resume_storage_path: string | null;
   current_status: string;
+  is_public_candidate?: boolean;
+  has_verified_skills?: boolean;
   rrf_score: number;
   rerank_score: number | null;
   rerank_status: RerankStatus;
@@ -53,15 +61,34 @@ const FIT_GROUPS: { key: FitKey; label: string; className: string }[] = [
 const displayScore = (c: ChatCandidate) =>
   c.rerank_status === "success" && c.rerank_score != null ? c.rerank_score : c.rrf_score;
 
-function fitBand(score: number): FitKey {
-  if (score >= FIT_GOOD) return "good";
-  if (score >= FIT_OK) return "ok";
+function getFitBand(score: number, goodPct: number, okPct: number): FitKey {
+  if (score >= goodPct / 100) return "good";
+  if (score >= okPct / 100) return "ok";
   return "poor";
 }
 
-function groupCandidates(candidates: ChatCandidate[]) {
+function groupCandidates(
+  candidates: ChatCandidate[],
+  goodPct: number,
+  okPct: number,
+  includePublic: boolean,
+  verifiedOnly: boolean,
+  maxLimit?: number
+) {
+  let list = candidates.filter((c) => {
+    if (!includePublic && (c.current_status === "job_seeking" || c.is_public_candidate)) {
+      return false;
+    }
+    if (verifiedOnly && !c.has_verified_skills) {
+      return false;
+    }
+    return true;
+  });
+  if (maxLimit) {
+    list = list.slice(0, maxLimit);
+  }
   const buckets: Record<FitKey, ChatCandidate[]> = { good: [], ok: [], poor: [] };
-  for (const c of candidates) buckets[fitBand(displayScore(c))].push(c);
+  for (const c of list) buckets[getFitBand(displayScore(c), goodPct, okPct)].push(c);
   return buckets;
 }
 
@@ -71,15 +98,19 @@ function CandidateCard({
   onOpen,
   isCompareSelected,
   onToggleCompare,
+  goodThreshold = DEFAULT_FIT_GOOD,
+  okThreshold = DEFAULT_FIT_OK,
 }: {
   candidate: ChatCandidate;
   opening: boolean;
   onOpen: () => void;
   isCompareSelected?: boolean;
   onToggleCompare?: () => void;
+  goodThreshold?: number;
+  okThreshold?: number;
 }) {
   const score = displayScore(candidate);
-  const band = fitBand(score);
+  const band = getFitBand(score, goodThreshold, okThreshold);
   const pct = Math.round(score * 100);
   const badgeColor =
     band === "good"
@@ -87,6 +118,8 @@ function CandidateCard({
       : band === "ok"
       ? "text-amber-600 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300"
       : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
+
+  const isJobSeeking = candidate.current_status === "job_seeking" || Boolean(candidate.is_public_candidate);
 
   return (
     <div
@@ -97,7 +130,7 @@ function CandidateCard({
       }`}
     >
       <div>
-        <div className="flex items-center justify-between mb-2 gap-2">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
             {onToggleCompare && (
               <button
@@ -115,10 +148,26 @@ function CandidateCard({
             )}
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
           </div>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
-            {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
-          </span>
+
+          <div className="flex items-center gap-1">
+            {candidate.has_verified_skills && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium flex items-center gap-0.5" title="Kỹ năng đã được xác minh">
+                <CheckCircle2 size={10} className="text-blue-500" /> Xác minh
+              </span>
+            )}
+            {isJobSeeking ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Đang tìm việc
+              </span>
+            ) : (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
+                {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
+              </span>
+            )}
+          </div>
         </div>
+
         <p className="font-semibold text-sm truncate">{candidate.full_name || "Ứng viên"}</p>
         <p className="text-xs text-slate-500 truncate">{candidate.email}</p>
         <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
@@ -163,16 +212,25 @@ function CandidateCard({
     </div>
   );
 }
-
 export default function AICandidatePage() {
   const { user, session } = useAuth();
-  const { error: toastError } = useToast();
+  const { error: toastError, success, info } = useToast();
+  const { lang, t } = useLang();
   const [jobs, setJobs] = useState<JobOption[]>([]);
   const [jobId, setJobId] = useState("");
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [rerank, setRerank] = useState<"qwen" | "agent">("qwen");
+  const [includePublicCandidates, setIncludePublicCandidates] = useState(true);
+
+  // Custom Algorithm Configuration State (no longer mock)
+  const [maxCandidates, setMaxCandidates] = useState<number>(DEFAULT_MAX_CANDIDATES);
+  const [fitGoodThreshold, setFitGoodThreshold] = useState<number>(DEFAULT_FIT_GOOD);
+  const [fitOkThreshold, setFitOkThreshold] = useState<number>(DEFAULT_FIT_OK);
+  const [skillWeight, setSkillWeight] = useState<number>(DEFAULT_SKILL_WEIGHT);
+  const [verifiedOnly, setVerifiedOnly] = useState<boolean>(false);
+
   const [history, setHistory] = useState<HistoryRun[]>([]);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [leftOpen, setLeftOpen] = useState(isDesktop);
@@ -181,11 +239,26 @@ export default function AICandidatePage() {
   const [selectedCompareCandidates, setSelectedCompareCandidates] = useState<SelectedCandidateItem[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." },
+    { id: "welcome", role: "system", text: "Chọn một vị trí tuyển dụng, rồi bấm “Gợi ý ứng viên phù hợp” hoặc nhập yêu cầu cụ thể." },
   ]);
+
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id_candidate"));
   const [chatHistory, setChatHistory] = useState<SavedSession[]>([]);
+  const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
+  const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const handleResetDefaults = () => {
+    setMaxCandidates(DEFAULT_MAX_CANDIDATES);
+    setFitGoodThreshold(DEFAULT_FIT_GOOD);
+    setFitOkThreshold(DEFAULT_FIT_OK);
+    setSkillWeight(DEFAULT_SKILL_WEIGHT);
+    setVerifiedOnly(false);
+    setIncludePublicCandidates(true);
+    setRerank("qwen");
+    info("Đã khôi phục các tham số tùy chỉnh về mặc định.");
+  };
 
   const handleToggleCompare = (cand: ChatCandidate) => {
     setSelectedCompareCandidates((prev) => {
@@ -313,8 +386,54 @@ export default function AICandidatePage() {
     const newId = crypto.randomUUID();
     setSessionId(newId);
     localStorage.setItem("chat_session_id_candidate", newId);
-    setMessages([{ id: "welcome", role: "system", text: "Chọn một vị trí, rồi bấm “Gợi ý ứng viên phù hợp”." }]);
+    setMessages([{ id: "welcome", role: "system", text: "Chọn một vị trí tuyển dụng, rồi bấm “Gợi ý ứng viên phù hợp”." }]);
   };
+
+  const handleConfirmDelete = async () => {
+    if (isClearAllConfirm) {
+      setIsDeletingSession(true);
+      try {
+        if (session?.access_token) {
+          await apiJson("/chat/history", session.access_token, { method: "DELETE" });
+        } else if (supabase && user) {
+          await supabase.from("chat_messages").delete().eq("user_id", user.id);
+        }
+        setChatHistory([]);
+        startNewChat();
+        success(t.clearAllChatSuccess);
+        setIsClearAllConfirm(false);
+      } catch (err) {
+        console.error("Failed to clear chat history", err);
+        toastError(t.deleteChatFailed, "Không thể xóa toàn bộ lịch sử trò chuyện");
+      } finally {
+        setIsDeletingSession(false);
+      }
+      return;
+    }
+
+    if (!deleteTargetSessionId) return;
+    const sid = deleteTargetSessionId;
+    setIsDeletingSession(true);
+    try {
+      if (session?.access_token) {
+        await apiJson(`/chat/sessions/${sid}`, session.access_token, { method: "DELETE" });
+      } else if (supabase && user) {
+        await supabase.from("chat_messages").delete().eq("user_id", user.id).eq("session_id", sid);
+      }
+      setChatHistory((prev) => prev.filter((s) => s.id !== sid));
+      if (sessionId === sid) {
+        startNewChat();
+      }
+      success(t.deleteChatSuccess);
+      setDeleteTargetSessionId(null);
+    } catch (err) {
+      console.error("Failed to delete session", err);
+      toastError(t.deleteChatFailed, "Không thể xóa cuộc trò chuyện");
+    } finally {
+      setIsDeletingSession(false);
+    }
+  };
+
 
   const handleSelectJob = async (nextId: string) => {
     setJobId(nextId);
@@ -364,9 +483,26 @@ export default function AICandidatePage() {
     try {
       const body = await apiJson<{ response: string; candidates?: ChatCandidate[] }>("/chat", session.access_token, {
         method: "POST",
-        body: JSON.stringify({ message: msgText, job_id: jobId, rerank, session_id: sessionId || undefined }),
+        body: JSON.stringify({
+          message: msgText,
+          job_id: jobId,
+          rerank,
+          session_id: sessionId || undefined,
+          include_public: includePublicCandidates,
+          verified_only: verifiedOnly,
+          max_results: maxCandidates,
+          skill_weight: skillWeight,
+          experience_weight: Number((1 - skillWeight).toFixed(2)),
+        }),
       });
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, candidates: body.candidates || [] }]);
+      let candidateList = body.candidates || [];
+      if (!includePublicCandidates) {
+        candidateList = candidateList.filter((c) => c.current_status !== "job_seeking" && !c.is_public_candidate);
+      }
+      if (verifiedOnly) {
+        candidateList = candidateList.filter((c) => c.has_verified_skills);
+      }
+      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, candidates: candidateList }]);
     } catch (err: unknown) {
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." }]);
     } finally {
@@ -414,7 +550,23 @@ export default function AICandidatePage() {
 
         {/* Saved Sessions */}
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Phiên đã lưu</p>
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">
+            <span>Phiên đã lưu ({chatHistory.length})</span>
+            {chatHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTargetSessionId(null);
+                  setIsClearAllConfirm(true);
+                }}
+                className="text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 normal-case font-medium hover:underline flex items-center gap-1 cursor-pointer"
+                title={t.clearAllChat}
+              >
+                <Trash2 size={11} />
+                <span>{t.clearAllChat}</span>
+              </button>
+            )}
+          </div>
           {chatHistory.length === 0 ? (
             <p className="text-slate-400">Chưa có phiên nào được lưu.</p>
           ) : (
@@ -423,7 +575,7 @@ export default function AICandidatePage() {
                 <li
                   key={sess.id}
                   onClick={() => void loadSession(sess.id)}
-                  className={`rounded-lg px-2 py-1.5 cursor-pointer transition-colors ${
+                  className={`group relative rounded-lg px-2 py-1.5 cursor-pointer transition-colors pr-7 ${
                     sessionId === sess.id
                       ? "bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200"
                       : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600"
@@ -431,11 +583,25 @@ export default function AICandidatePage() {
                 >
                   <p className="truncate line-clamp-1">{sess.first_message}</p>
                   <p className="text-[10px] text-slate-400">{new Date(sess.created_at).toLocaleString("vi-VN")}</p>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsClearAllConfirm(false);
+                      setDeleteTargetSessionId(sess.id);
+                    }}
+                    className="absolute right-1.5 top-2 p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title={t.deleteChatSession}
+                    aria-label={t.deleteChatSession}
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </div>
+
 
         {/* Lượt gợi ý */}
         <div>
@@ -459,32 +625,206 @@ export default function AICandidatePage() {
 
   const paramsPane = (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 dark:border-slate-700">
-        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-          <SlidersHorizontal size={13} /> Tham số tùy chỉnh
+      <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100 dark:border-slate-700">
+        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+          <SlidersHorizontal size={14} className="text-purple-600 dark:text-purple-400" /> Tham số tùy chỉnh AI
         </p>
         <button type="button" onClick={() => setRightOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Ẩn tham số">
           <X size={14} />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-300 px-2 py-1 rounded-lg">Mock — chưa áp dụng</p>
-        {[
-          { label: "Số ứng viên tối đa", value: "20" },
-          { label: "Ngưỡng phù hợp", value: `${Math.round(FIT_GOOD * 100)}%` },
-          { label: "Ngưỡng bình thường", value: `${Math.round(FIT_OK * 100)}%` },
-          { label: "Trọng số kỹ năng", value: "0.6" },
-          { label: "Trọng số kinh nghiệm", value: "0.4" },
-        ].map((row) => (
-          <label key={row.label} className="block">
-            <span className="text-[11px] text-slate-500">{row.label}</span>
-            <input disabled value={row.value} className="mt-1 w-full px-2.5 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 text-slate-500 cursor-not-allowed" />
-          </label>
-        ))}
-        <label className="flex items-center gap-2 text-[11px] text-slate-500">
-          <input type="checkbox" disabled className="rounded" />
-          Chỉ CV đã xác minh
+
+      <div className="flex-1 overflow-y-auto p-3.5 space-y-4 text-xs">
+        {/* Toggle Rà soát ứng viên đang tìm việc */}
+        <label className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-200 p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/40 transition-colors">
+          <input
+            type="checkbox"
+            checked={includePublicCandidates}
+            onChange={(e) => setIncludePublicCandidates(e.target.checked)}
+            className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4 mt-0.5"
+          />
+          <div className="min-w-0">
+            <span className="font-bold block text-slate-900 dark:text-white text-xs">Rà soát ứng viên đang tìm việc</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 block leading-tight mt-0.5">
+              Tự động quét cả CV công khai trên toàn hệ thống chưa nộp đơn trực tiếp
+            </span>
+          </div>
         </label>
+
+        {/* Chế độ Rerank AI */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Chế độ Rerank AI</p>
+          <div className="space-y-1.5">
+            {(["qwen", "agent"] as const).map((mode) => (
+              <button
+                type="button"
+                key={mode}
+                onClick={() => setRerank(mode)}
+                className={`w-full px-3 py-2 text-left rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                  rerank === mode
+                    ? "bg-purple-50/90 dark:bg-purple-950/60 border-purple-500 text-purple-700 dark:text-purple-300 font-semibold ring-1 ring-purple-500/20"
+                    : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                <div>
+                  <p className="capitalize text-xs">{mode === "qwen" ? "Qwen AI Reranker" : "RRF Fusion Match"}</p>
+                  <p className="text-[10px] text-slate-400 font-normal">{mode === "qwen" ? "Mô hình Deep Reranking chấm điểm sâu" : "Kết hợp điểm vector và từ khóa BM25"}</p>
+                </div>
+                {rerank === mode ? (
+                  <CheckCircle2 size={14} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                ) : (
+                  <div className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-500 shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Algorithm Parameters */}
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tham số thuật toán</p>
+            <button
+              type="button"
+              onClick={handleResetDefaults}
+              className="text-[10px] font-medium text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 transition-colors cursor-pointer"
+              title="Đặt lại các tham số về mặc định"
+            >
+              <RotateCcw size={10} /> Đặt lại
+            </button>
+          </div>
+
+          {/* Max Candidates */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Số ứng viên tối đa</span>
+              <span className="font-bold text-purple-600 dark:text-purple-400">Top {maxCandidates}</span>
+            </div>
+            <div className="grid grid-cols-5 gap-1">
+              {[5, 10, 15, 20, 30].map((num) => (
+                <button
+                  type="button"
+                  key={num}
+                  onClick={() => setMaxCandidates(num)}
+                  className={`py-1 text-xs font-semibold rounded-lg border transition-all ${
+                    maxCandidates === num
+                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                      : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* High Fit Threshold */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng phù hợp cao</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{fitGoodThreshold}%</span>
+            </div>
+            <input
+              type="range"
+              min={20}
+              max={80}
+              step={5}
+              value={fitGoodThreshold}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setFitGoodThreshold(val);
+                if (val <= fitOkThreshold) {
+                  setFitOkThreshold(Math.max(5, val - 10));
+                }
+              }}
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+            />
+            <div className="flex justify-between text-[9px] text-slate-400">
+              <span>20%</span>
+              <span>Khuyến nghị: 45%</span>
+              <span>80%</span>
+            </div>
+          </div>
+
+          {/* Normal Fit Threshold */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng bình thường</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{fitOkThreshold}%</span>
+            </div>
+            <input
+              type="range"
+              min={10}
+              max={60}
+              step={5}
+              value={fitOkThreshold}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setFitOkThreshold(val);
+                if (val >= fitGoodThreshold) {
+                  setFitGoodThreshold(Math.min(90, val + 10));
+                }
+              }}
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-600"
+            />
+            <div className="flex justify-between text-[9px] text-slate-400">
+              <span>10%</span>
+              <span>Khuyến nghị: 30%</span>
+              <span>60%</span>
+            </div>
+          </div>
+
+          {/* Skill vs Experience Weights */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-slate-600 dark:text-slate-300 font-medium">Trọng số Kỹ năng / Kinh nghiệm</span>
+              <span className="font-bold text-purple-600 dark:text-purple-400">
+                {Math.round(skillWeight * 100)}% / {Math.round((1 - skillWeight) * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0.1}
+              max={0.9}
+              step={0.1}
+              value={skillWeight}
+              onChange={(e) => setSkillWeight(Number(e.target.value))}
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+            />
+            <div className="flex justify-between text-[9px] text-slate-400">
+              <span>Thiên kinh nghiệm</span>
+              <span>Cân bằng</span>
+              <span>Thiên kỹ năng</span>
+            </div>
+          </div>
+
+          {/* Verified Only Checkbox */}
+          <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            <input
+              type="checkbox"
+              checked={verifiedOnly}
+              onChange={(e) => setVerifiedOnly(e.target.checked)}
+              className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4"
+            />
+            <div className="min-w-0">
+              <span className="font-semibold block text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1">
+                <ShieldCheck size={13} className="text-blue-500" /> Chỉ CV có kỹ năng đã xác minh
+              </span>
+              <span className="text-[10px] text-slate-400 block">Lọc bỏ các CV chỉ có kỹ năng suy đoán</span>
+            </div>
+          </label>
+
+          {/* Model info banner */}
+          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
+              <Sparkles size={11} className="text-purple-500" />
+              <span>Mô hình AI Matching</span>
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              Qwen3.7 Embed (1536d) + Skill Taxonomy Verification & Deep Reranker.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -539,25 +879,44 @@ export default function AICandidatePage() {
               </div>
               <div className="min-w-0">
                 <h1 className="font-display text-lg font-bold text-slate-900 dark:text-white truncate">Gợi ý ứng viên AI</h1>
-                <p className="text-xs text-slate-500 hidden sm:block">Chỉ xét CV đã nộp vào vị trí đang chọn</p>
+                <p className="text-xs text-slate-500 hidden sm:block">Rà soát CV đã nộp và các CV công khai "Đang tìm việc"</p>
               </div>
             </div>
-            <select
-              value={jobId}
-              onChange={(e) => void handleSelectJob(e.target.value)}
-              className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm max-w-full sm:max-w-xs"
-            >
-              <option value="">-- Chọn tin tuyển dụng --</option>
-              {jobs.map((j) => <option key={j.id} value={j.id}>{j.company_name ? `${j.company_name} — ${j.title}` : j.title}</option>)}
-            </select>
+            <div className="flex items-center gap-2 flex-wrap">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => setIncludePublicCandidates((v) => !v)}
+                className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                  includePublicCandidates
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
+                    : "bg-white text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:bg-slate-50"
+                }`}
+                title="Bật/tắt rà soát các ứng viên đang mở CV tìm việc"
+              >
+                <Check size={14} className={includePublicCandidates ? "opacity-100 text-emerald-600" : "opacity-0"} />
+                <span>Rà soát ứng viên đang tìm việc</span>
+              </motion.button>
+              <select
+                value={jobId}
+                onChange={(e) => void handleSelectJob(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm max-w-full sm:max-w-xs cursor-pointer shadow-sm"
+              >
+                <option value="">-- Chọn tin tuyển dụng --</option>
+                {jobs.map((j) => <option key={j.id} value={j.id}>{j.company_name ? `${j.company_name} — ${j.title}` : j.title}</option>)}
+              </select>
+            </div>
           </div>
+
           {jobsError && <p className="text-xs text-red-500">{jobsError}</p>}
 
           <section className="flex-1 min-w-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col relative" style={{ minHeight: "60vh" }}>
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
               <AnimatePresence initial={false}>
                 {messages.map((msg) => {
-                  const groups = msg.candidates?.length ? groupCandidates(msg.candidates) : null;
+                  const groups = msg.candidates?.length
+                    ? groupCandidates(msg.candidates, fitGoodThreshold, fitOkThreshold, includePublicCandidates, verifiedOnly, maxCandidates)
+                    : null;
                   return (
                     <motion.div key={msg.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                       <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${msg.role === "system" ? "bg-gradient-to-br from-purple-500 to-pink-600" : "bg-gradient-to-br from-orange-400 to-pink-500"}`}>
@@ -585,6 +944,8 @@ export default function AICandidatePage() {
                                     onOpen={() => void openCv(cand)}
                                     isCompareSelected={selectedCompareCandidates.some((c) => c.id === cand.application_id)}
                                     onToggleCompare={() => handleToggleCompare(cand)}
+                                    goodThreshold={fitGoodThreshold}
+                                    okThreshold={fitOkThreshold}
                                   />
                                 ))}
                               </div>
@@ -599,7 +960,7 @@ export default function AICandidatePage() {
               {sending && (
                 <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 py-1">
                   <Loader2 size={14} className="animate-spin" />
-                  <span>AI đang phân tích và gợi ý ứng viên...</span>
+                  <span>AI đang phân tích và tìm kiếm Top {maxCandidates} ứng viên phù hợp...</span>
                 </div>
               )}
               <div ref={bottomRef} />
@@ -607,7 +968,7 @@ export default function AICandidatePage() {
 
             {/* Bottom Sticky Input Container */}
             <div className="sticky bottom-0 z-10 bg-white dark:bg-slate-800 rounded-b-2xl border-t border-slate-100 dark:border-slate-700 shadow-md">
-              <div className="px-4 py-2.5 flex gap-2 flex-wrap">
+              <div className="px-4 py-2.5 flex gap-2 flex-wrap items-center">
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   disabled={sending || !jobId}
@@ -615,6 +976,20 @@ export default function AICandidatePage() {
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300 text-xs font-semibold rounded-full border border-purple-200 dark:border-purple-800 disabled:opacity-50 transition-colors"
                 >
                   <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {QUICK_PROMPT}
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  onClick={() => setIncludePublicCandidates((v) => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${
+                    includePublicCandidates
+                      ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shadow-sm"
+                      : "bg-slate-50 dark:bg-slate-700/60 text-slate-500 border-slate-200 dark:border-slate-600"
+                  }`}
+                  title="Bật/tắt rà soát các ứng viên đang mở CV tìm việc"
+                >
+                  <Check size={12} className={includePublicCandidates ? "opacity-100" : "opacity-0"} />
+                  <span>Rà soát các ứng viên đang tìm việc</span>
                 </motion.button>
                 {(["qwen", "agent"] as const).map((mode) => (
                   <motion.button
@@ -628,6 +1003,7 @@ export default function AICandidatePage() {
                   </motion.button>
                 ))}
               </div>
+
               <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
                 <input
                   value={input}
@@ -735,6 +1111,21 @@ export default function AICandidatePage() {
         jobId={jobId}
         jobTitle={jobs.find((j) => j.id === jobId)?.title || ""}
         applicationIds={selectedCompareCandidates.map((c) => c.id)}
+      />
+
+      {/* Confirmation Modal for Delete Chat Session / History */}
+      <ConfirmModal
+        open={Boolean(deleteTargetSessionId || isClearAllConfirm)}
+        title={isClearAllConfirm ? t.clearAllChatConfirmTitle : t.deleteChatConfirmTitle}
+        message={isClearAllConfirm ? t.clearAllChatConfirmDesc : t.deleteChatConfirmDesc}
+        confirmLabel={isDeletingSession ? (lang === "en" ? "Deleting..." : "Đang xóa...") : t.delete}
+        cancelLabel={t.cancel}
+        danger={true}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => {
+          setDeleteTargetSessionId(null);
+          setIsClearAllConfirm(false);
+        }}
       />
     </AnimatedPage>
   );

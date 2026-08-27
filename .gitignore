@@ -97,3 +97,5 @@ supabase/.temp/
 
 # Project agent instructions/config are intentional source files.
 # Keep AGENTS.md, .agents/ and the tracked .codex/.cursor hooks in Git.
+# Subagent-driven-development scratch workspace (ledgers, briefs, reports)
+.superpowers/

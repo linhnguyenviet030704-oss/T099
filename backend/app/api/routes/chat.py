@@ -9,11 +9,15 @@ from backend.app.api.schemas.chat import (
     ChatResponse,
     ChatSessionsResponse,
     ChatSessionSummary,
+    ClearChatHistoryResponse,
+    DeleteChatMessageResponse,
+    DeleteChatSessionResponse,
     RecommendationItem,
 )
 from backend.app.clients.supabase import get_supabase_client
-from backend.app.core.exceptions import ForbiddenError
+from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
+
 from backend.app.dependencies.auth import get_current_user
 from backend.app.dependencies.services import get_chat_service, get_profile_service
 from backend.app.guardrails.rate_limit import enforce_chat_rate_limit
@@ -93,15 +97,83 @@ async def list_chat_sessions(
     return ChatSessionsResponse(sessions=sorted_sessions)
 
 
-@router.delete("/chat/sessions/{session_id}")
+@router.delete("/chat/sessions/{session_id}", response_model=DeleteChatSessionResponse)
 async def delete_chat_session(
     session_id: str,
     _user: AuthenticatedUser = Depends(get_current_user),
     client: Client = Depends(get_supabase_client),
-) -> dict:
-    sid = UUID(session_id)
-    client.table("chat_messages").delete().eq("user_id", _user.id).eq("session_id", sid).execute()
-    return {"deleted": True, "session_id": str(sid)}
+) -> DeleteChatSessionResponse:
+    try:
+        sid = UUID(session_id)
+    except (ValueError, TypeError):
+        raise NotFoundError("Chat session not found", code="CHAT_SESSION_NOT_FOUND")
+
+    # 1. Fetch messages in this session
+    res = (
+        client.table("chat_messages")
+        .select("id, user_id, session_id")
+        .eq("session_id", str(sid))
+        .execute()
+    )
+    if not res.data:
+        raise NotFoundError("Chat session not found", code="CHAT_SESSION_NOT_FOUND")
+
+    # 2. Strict ownership check
+    if any(str(m.get("user_id")) != str(_user.id) for m in res.data):
+        raise ForbiddenError("Bạn chỉ có quyền xóa cuộc trò chuyện do chính mình tạo ra")
+
+    # 3. Delete session messages
+    client.table("chat_messages").delete().eq("user_id", _user.id).eq("session_id", str(sid)).execute()
+    return DeleteChatSessionResponse(
+        session_id=sid,
+        deleted=True,
+        message="Đã xóa cuộc trò chuyện thành công.",
+    )
+
+
+@router.delete("/chat/history", response_model=ClearChatHistoryResponse)
+async def clear_all_chat_history(
+    _user: AuthenticatedUser = Depends(get_current_user),
+    client: Client = Depends(get_supabase_client),
+) -> ClearChatHistoryResponse:
+    client.table("chat_messages").delete().eq("user_id", _user.id).execute()
+    return ClearChatHistoryResponse(
+        deleted=True,
+        message="Đã xóa toàn bộ lịch sử trò chuyện.",
+    )
+
+
+@router.delete("/chat/messages/{message_id}", response_model=DeleteChatMessageResponse)
+async def delete_chat_message(
+    message_id: str,
+    _user: AuthenticatedUser = Depends(get_current_user),
+    client: Client = Depends(get_supabase_client),
+) -> DeleteChatMessageResponse:
+    try:
+        mid = UUID(message_id)
+    except (ValueError, TypeError):
+        raise NotFoundError("Chat message not found", code="CHAT_MESSAGE_NOT_FOUND")
+
+    res = (
+        client.table("chat_messages")
+        .select("id, user_id, session_id")
+        .eq("id", str(mid))
+        .maybe_single()
+        .execute()
+    )
+    msg = res.data if res else None
+    if not msg:
+        raise NotFoundError("Chat message not found", code="CHAT_MESSAGE_NOT_FOUND")
+
+    if str(msg.get("user_id")) != str(_user.id):
+        raise ForbiddenError("Bạn chỉ có quyền xóa tin nhắn do chính mình tạo ra")
+
+    client.table("chat_messages").delete().eq("id", str(mid)).eq("user_id", _user.id).execute()
+    return DeleteChatMessageResponse(
+        message_id=mid,
+        deleted=True,
+        message="Đã xóa tin nhắn thành công.",
+    )
 
 
 @router.get("/chat/history/{session_id}", response_model=ChatHistoryResponse)
@@ -110,15 +182,24 @@ async def get_chat_history(
     _user: AuthenticatedUser = Depends(get_current_user),
     client: Client = Depends(get_supabase_client),
 ) -> ChatHistoryResponse:
-    sid = UUID(session_id)
+    try:
+        sid = UUID(session_id)
+    except (ValueError, TypeError):
+        raise NotFoundError("Chat session not found", code="CHAT_SESSION_NOT_FOUND")
+
     result = (
         client.table("chat_messages")
         .select("*")
-        .eq("user_id", _user.id)
-        .eq("session_id", sid)
+        .eq("session_id", str(sid))
         .order("created_at")
         .execute()
     )
+    if not result.data:
+        raise NotFoundError("Chat session not found", code="CHAT_SESSION_NOT_FOUND")
+
+    if any(str(m.get("user_id")) != str(_user.id) for m in result.data):
+        raise ForbiddenError("Bạn chỉ có quyền xem cuộc trò chuyện do chính mình sở hữu")
+
     messages = []
     for m in result.data:
         raw_recs = m.get("recommendations")
@@ -149,5 +230,4 @@ async def get_chat_history(
             )
         )
     return ChatHistoryResponse(session_id=sid, messages=messages)
-
 

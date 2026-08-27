@@ -16,8 +16,6 @@ from backend.app.agents.nodes.guardrails import (
     make_ranked_output_guard_node,
     snapshot_candidates_node,
 )
-from backend.app.agents.nodes.retrieval import kg_retrieval_node
-from backend.app.agents.nodes.router import router_node
 from backend.app.agents.state import AgentState
 from backend.app.services.matching.rerank import RerankFn
 from backend.app.shared_brain import AgentBrain
@@ -53,12 +51,15 @@ def build_matching_graph(
             "constraints_confirmed": bool(payload.get("constraints_confirmed")),
             "allowed_result_ids": guarded["allowed_result_ids"],
             "guardrail_codes": guarded["guardrail_codes"],
+            "pool_size": int(payload.get("pool_size") or 0),
+            "pool_truncated": bool(payload.get("pool_truncated") or False),
+            "dropped_count": int(payload.get("dropped_count") or 0),
+            "pool_latency_warn": bool(payload.get("pool_latency_warn") or False),
+            "embedding_mismatch_count": int(payload.get("embedding_mismatch_count") or 0),
         }
 
     graph = StateGraph(AgentState)
-    graph.add_node("router", router_node)
     graph.add_node("retrieve", retrieve_node)
-    graph.add_node("kg_retrieval", kg_retrieval_node)
     graph.add_node("skill", skill_node)
     graph.add_node("rrf", rrf_node)
     graph.add_node("snapshot", snapshot_candidates_node)
@@ -78,10 +79,8 @@ def build_matching_graph(
         make_ranked_output_guard_node(mode="recruiter", enforce_constraints=True),
     )
 
-    graph.set_entry_point("router")
-    graph.add_edge("router", "retrieve")
-    graph.add_edge("retrieve", "kg_retrieval")
-    graph.add_edge("kg_retrieval", "skill")
+    graph.set_entry_point("retrieve")
+    graph.add_edge("retrieve", "skill")
     graph.add_edge("skill", "rrf")
     graph.add_edge("rrf", "rerank")
     graph.add_edge("rerank", "snapshot")

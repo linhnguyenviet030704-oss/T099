@@ -23,6 +23,8 @@ import RecruiterRegisterPage from "./pages/RecruiterRegisterPage";
 import RecruitmentDashboardPage from "./pages/RecruitmentDashboardPage";
 import AICandidatePage from "./pages/AICandidatePage";
 import AdminRecruiterPage from "./pages/AdminRecruiterPage";
+import RepoEvaluationPage from "./pages/RepoEvaluationPage";
+import AIInterviewPage from "./pages/AIInterviewPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 import { ToastProvider } from "./context/ToastContext";
@@ -111,7 +113,15 @@ function AnimatedRoutes() {
             </RoleRoute>
           }
         />
-        <Route path="/match_candidates" element={<Navigate to="/ai-candidates" replace />} />
+        <Route path="/repo-evaluation" element={<RepoEvaluationPage />} />
+        <Route
+          path="/ai-interview"
+          element={
+            <RoleRoute allowedRoles={["recruiter"]}>
+              <AIInterviewPage />
+            </RoleRoute>
+          }
+        />
         <Route
           path="/admin"
           element={

@@ -50,7 +50,7 @@ async def test_chat_returns_mock_jobs():
     assert len(result.jobs) == 1
     assert result.jobs[0].id == job_id
     assert result.jobs[0].score == 0.95
-    assert result.response == "Gợi ý 1 việc làm phù hợp (mock matching)."
+    assert result.response == "Gợi ý 1 việc làm phù hợp."
 
 
 @pytest.mark.asyncio
@@ -111,7 +111,7 @@ async def test_chat_returns_mock_candidates_for_job():
     assert result.jobs == []
     assert len(result.candidates) == 1
     assert result.candidates[0].application_id == app_id
-    assert result.response == "Gợi ý 1 ứng viên phù hợp (mock matching)."
+    assert result.response == "Gợi ý 1 ứng viên phù hợp."
 
 
 @pytest.mark.asyncio
@@ -128,7 +128,7 @@ async def test_chat_candidates_empty_pool():
         return None
 
     result = await ChatService(fetch_jobs, fetch_candidates, allow).chat(
-        ChatRequest(message="hello", job_id=job_id),
+        ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
         uuid4(),
     )
     assert result.candidates == []
@@ -150,7 +150,7 @@ async def test_chat_candidates_forbidden():
 
     with pytest.raises(ForbiddenError):
         await ChatService(fetch_jobs, fetch_candidates, deny).chat(
-            ChatRequest(message="hello", job_id=job_id),
+            ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
             uuid4(),
         )
 

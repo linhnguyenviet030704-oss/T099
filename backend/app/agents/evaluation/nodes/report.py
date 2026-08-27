@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from backend.app.agents.evaluation.state import EvaluationState
@@ -59,7 +60,7 @@ async def generate_report_node(
                 parsed_jd,
                 recommendations,
             )
-            raw_response = brain.chat(prompt, temperature=0.7)
+            raw_response = await asyncio.to_thread(brain.chat, prompt, temperature=0.7)
             evidence = [*skill_analysis.matched_skills, *skill_analysis.missing_critical]
             response = validate_generated_text(
                 raw_response,

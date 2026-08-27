@@ -54,9 +54,10 @@ def test_bm25_query_and_document_append_skill_ids():
 
 
 def test_protect_aliases_patterns_are_cached():
-    from backend.app.services.matching.bm25 import _alias_patterns
+    from backend.app.services.matching.bm25 import _combined_alias_matcher
 
-    first = _alias_patterns()
-    second = _alias_patterns()
-    assert first is second
-    assert len(first) > 0
+    first_pattern, first_lookup = _combined_alias_matcher()
+    second_pattern, second_lookup = _combined_alias_matcher()
+    assert first_pattern is second_pattern
+    assert first_lookup is second_lookup
+    assert len(first_lookup) > 0

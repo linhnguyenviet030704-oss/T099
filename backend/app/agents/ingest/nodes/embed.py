@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable, Sequence
 
 from backend.app.agents.state import AgentState
@@ -31,7 +32,8 @@ def make_embed_node(
         if context.action == "block" or not context.value:
             code = context.codes[0] if context.codes else "DATA_LOW_CONTENT"
             raise BadRequestError("Nội dung CV không an toàn để embedding", code=code)
-        vector = embed_text(
+        vector = await asyncio.to_thread(
+            embed_text,
             str(context.value),
             encode=encode,
             api_key=api_key,

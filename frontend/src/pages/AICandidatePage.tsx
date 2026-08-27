@@ -573,15 +573,32 @@ export default function AICandidatePage() {
                 <p className="text-xs text-slate-500 hidden sm:block">Rà soát CV đã nộp và các CV công khai "Đang tìm việc"</p>
               </div>
             </div>
-            <select
-              value={jobId}
-              onChange={(e) => void handleSelectJob(e.target.value)}
-              className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm max-w-full sm:max-w-xs"
-            >
-              <option value="">-- Chọn tin tuyển dụng --</option>
-              {jobs.map((j) => <option key={j.id} value={j.id}>{j.company_name ? `${j.company_name} — ${j.title}` : j.title}</option>)}
-            </select>
+            <div className="flex items-center gap-2 flex-wrap">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => setIncludePublicCandidates((v) => !v)}
+                className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                  includePublicCandidates
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700"
+                    : "bg-white text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700 hover:bg-slate-50"
+                }`}
+                title="Bật/tắt rà soát các ứng viên đang mở CV tìm việc"
+              >
+                <Check size={14} className={includePublicCandidates ? "opacity-100 text-emerald-600" : "opacity-0"} />
+                <span>Rà soát ứng viên đang tìm việc</span>
+              </motion.button>
+              <select
+                value={jobId}
+                onChange={(e) => void handleSelectJob(e.target.value)}
+                className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm max-w-full sm:max-w-xs cursor-pointer shadow-sm"
+              >
+                <option value="">-- Chọn tin tuyển dụng --</option>
+                {jobs.map((j) => <option key={j.id} value={j.id}>{j.company_name ? `${j.company_name} — ${j.title}` : j.title}</option>)}
+              </select>
+            </div>
           </div>
+
           {jobsError && <p className="text-xs text-red-500">{jobsError}</p>}
 
           <section className="flex-1 min-w-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col relative" style={{ minHeight: "60vh" }}>

@@ -160,8 +160,6 @@ def match_public_repos_with_cv_projects(
         repo_name = repo.get("name", "")
         repo_slug = _slugify(repo_name)
         repo_desc = (repo.get("description") or "").lower()
-        repo_topics = [t.lower() for t in repo.get("topics", [])]
-        repo_lang = (repo.get("language") or "").lower()
         repo_url = repo.get("html_url") or f"https://github.com/{owner}/{repo_name}"
 
         is_match = False

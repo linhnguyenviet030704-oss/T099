@@ -1,5 +1,8 @@
 """Tests for GitHub API client."""
 
+import base64
+import time
+
 import httpx
 import pytest
 import respx
@@ -157,9 +160,6 @@ class TestGitHubClient:
 
     @pytest.mark.asyncio
     async def test_get_text_file_decodes_base64(self, respx_mock):
-        import httpx
-        import base64
-
         client = GitHubClient(token="test")
         client._client = httpx.AsyncClient(
             headers=client._get_headers(),
@@ -349,9 +349,6 @@ class TestGitHubClientRepoMethods:
 
     @pytest.mark.asyncio
     async def test_get_readme_success(self, respx_mock):
-        import httpx
-        import base64
-
         client = GitHubClient(token="test")
         client._client = httpx.AsyncClient(
             headers=client._get_headers(),
@@ -573,9 +570,6 @@ class TestBinaryFiltering:
 
     @pytest.mark.asyncio
     async def test_get_text_file_allows_text_file(self, respx_mock):
-        import httpx
-        import base64
-
         client = GitHubClient(token="test")
         client._client = httpx.AsyncClient(
             headers=client._get_headers(),
@@ -600,9 +594,6 @@ class TestCircuitBreakerFastFail:
     @pytest.mark.asyncio
     async def test_circuit_breaker_open_fails_fast_without_retry(self, respx_mock):
         """When circuit is OPEN, request should fail immediately without entering retry loop."""
-        import httpx
-        import time
-
         client = GitHubClient(token="test")
         client._client = httpx.AsyncClient(
             headers=client._get_headers(),

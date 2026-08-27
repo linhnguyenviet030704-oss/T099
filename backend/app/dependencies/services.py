@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from uuid import UUID
 
 from fastapi import Depends
 
 from backend.app.agents.evaluation import EvaluationAgent
 from backend.app.agents.evaluation.types import EvaluationType, IntentType
-from backend.app.agents.routing.intents import classify_intent
-from backend.app.agents.routing.semantic import classify_intent_semantically
 from backend.app.agents.matching.graph import build_matching_graph
 from backend.app.agents.recommend.graph import build_recommend_graph
+from backend.app.agents.routing.intents import classify_intent
+from backend.app.agents.routing.semantic import classify_intent_semantically
 from backend.app.api.schemas.chat import ChatResponse
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings

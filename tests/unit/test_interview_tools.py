@@ -1,9 +1,6 @@
 """Unit tests for Interview Tools."""
 
 import uuid
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from backend.app.agents.interview.tools.validation_tools import (
     persist_interview_session,

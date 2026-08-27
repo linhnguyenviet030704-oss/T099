@@ -8,11 +8,13 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 BINARY_EXTENSIONS = frozenset({
     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg",
@@ -113,7 +115,7 @@ class CircuitBreaker:
             return False
         return False
 
-    async def execute[T](self, fn: Any) -> T:
+    async def execute(self, fn: Any) -> T:
         """Execute async function with circuit breaker protection."""
         if not self._can_execute():
             raise GitHubAPIError("Circuit breaker is OPEN, request blocked")
@@ -124,7 +126,7 @@ class CircuitBreaker:
             elif self._state == _CB_STATE_CLOSED and self._failures > 0:
                 self._record_success()
             return result
-        except Exception as exc:
+        except Exception:
             self._record_failure()
             raise
 

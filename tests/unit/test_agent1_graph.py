@@ -1,6 +1,7 @@
 """Tests for Agent 1 LangGraph State Machine."""
 
 from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
 from backend.app.agents.eval.graph import _compute_tier1_metrics, build_agent1_graph

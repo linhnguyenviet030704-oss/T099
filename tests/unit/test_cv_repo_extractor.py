@@ -1,12 +1,14 @@
 """Unit tests for CV Project & GitHub Repository Extractor."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from backend.app.services.eval.cv_repo_extractor import (
-    extract_github_urls_from_text,
     extract_cv_project_items,
-    match_public_repos_with_cv_projects,
     extract_cv_repos_and_projects,
+    extract_github_urls_from_text,
+    match_public_repos_with_cv_projects,
 )
 
 

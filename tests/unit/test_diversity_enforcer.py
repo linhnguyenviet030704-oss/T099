@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.app.agents.interview.diversity import DiversityViolation, enforce_diversity
+from backend.app.agents.interview.diversity import DiversityError, enforce_diversity
 
 
 class TestDiversityEnforcer:
@@ -29,7 +29,7 @@ class TestDiversityEnforcer:
             {"text": "Q2", "category": "technical", "difficulty": "hard"},
             {"text": "Q3", "category": "behavioral", "difficulty": "easy"},
         ]
-        with pytest.raises(DiversityViolation) as exc_info:
+        with pytest.raises(DiversityError) as exc_info:
             enforce_diversity(questions, min_categories=3)
         assert "need at least 3" in str(exc_info.value)
 

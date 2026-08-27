@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from langgraph.graph import END, StateGraph
 
@@ -13,12 +14,7 @@ from backend.app.agents.eval.state import Agent1State
 from backend.app.config.env import settings
 from backend.app.core.github_client import FileType, GitHubAPIError, GitHubClient, GitHubFile
 from backend.app.core.key_file_selector import select_key_files
-from backend.app.core.llm_evaluator import (
-    RepoEvaluationResult,
-    RepoEvaluator,
-    RepoMetadata,
-    _heuristic_result,
-)
+from backend.app.core.llm_evaluator import RepoEvaluator, RepoMetadata, _heuristic_result
 from backend.app.services.eval.github_parser import parse_github_url
 
 logger = logging.getLogger(__name__)

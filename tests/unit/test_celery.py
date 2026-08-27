@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_celery_app_exists():
     from backend.app.core.celery_app import celery_app
 

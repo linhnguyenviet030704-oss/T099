@@ -34,8 +34,10 @@ import {
   Check,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase } from "../lib/supabase";
 import { apiJson } from "../lib/api";
+import { canBrowseJobApplications } from "../lib/roleGuard";
 import AnimatedPage from "../components/AnimatedPage";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
@@ -248,14 +250,20 @@ type StatusPhase = "idle" | "starting" | "evaluating" | "complete" | "no_repos" 
 
 export default function RepoEvaluationPage() {
   const { session, user } = useAuth();
+  const { profile } = useCurrentProfile();
   const { success, error: toastError, info } = useToast();
   const { lang } = useLang();
+  const canBrowse = canBrowseJobApplications(profile?.role);
 
   // Mode Selection: "cv" vs "url"
   const [activeTab, setActiveTab] = useState<"cv" | "url">("cv");
 
   // CV Input Mode: "job_applications" (Recruiter workflow) | "vault" | "text" | "upload"
-  const [cvInputType, setCvInputType] = useState<"job_applications" | "vault" | "text" | "upload">("job_applications");
+  // Default = "job_applications" for recruiters, "vault" for candidates (who cannot
+  // see other applicants' CV submissions).
+  const [cvInputType, setCvInputType] = useState<"job_applications" | "vault" | "text" | "upload">(
+    canBrowse ? "job_applications" : "vault",
+  );
 
   // Recruiter Job & Application State
   const [recruiterJobs, setRecruiterJobs] = useState<RecruiterJobOption[]>([]);
@@ -415,17 +423,20 @@ export default function RepoEvaluationPage() {
     }
   }, []);
 
-  // Load recruiter jobs on mount
+  // Load recruiter jobs on mount — only for recruiter/admin; candidates
+  // must not see other applicants' CV submissions.
   useEffect(() => {
-    void loadRecruiterJobs();
-  }, [loadRecruiterJobs]);
+    if (canBrowse) {
+      void loadRecruiterJobs();
+    }
+  }, [loadRecruiterJobs, canBrowse]);
 
-  // Load applications whenever selected job changes
+  // Load applications whenever selected job changes — same role guard.
   useEffect(() => {
-    if (selectedJobId) {
+    if (canBrowse && selectedJobId) {
       void loadJobApplications(selectedJobId);
     }
-  }, [selectedJobId, loadJobApplications]);
+  }, [selectedJobId, loadJobApplications, canBrowse]);
 
   // Load user resumes from Supabase for personal vault tab
   useEffect(() => {
@@ -601,6 +612,16 @@ export default function RepoEvaluationPage() {
 
     // 1. Recruiter Job Application flow (Selected Job -> Submitted CV)
     if (cvInputType === "job_applications") {
+      if (!canBrowse) {
+        // ponytail: defense-in-depth — even if a candidate forces the tab via devtools,
+        // the picker is unreachable for them. Reject with the user-facing policy message.
+        setStatusPhase("idle");
+        toastError(
+          "Không có quyền truy cập",
+          "Tính năng này chỉ dành cho nhà tuyển dụng — vui lòng liên hệ support nếu bạn là nhà tuyển dụng",
+        );
+        return;
+      }
       const selectedApp = jobApplications.find((a) => a.id === selectedApplicationId);
       const selectedJob = recruiterJobs.find((j) => j.id === selectedJobId);
 
@@ -909,18 +930,20 @@ export default function RepoEvaluationPage() {
 
             {/* Sub-inputs: Recruiter Job Application (Default) vs Saved Vault vs Direct Text vs Upload */}
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-3 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => setCvInputType("job_applications")}
-                className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  cvInputType === "job_applications"
-                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-                }`}
-              >
-                <Briefcase size={15} />
-                <span>1. Ứng viên nộp vào Job đã đăng ({recruiterJobs.length} Job)</span>
-              </button>
+              {canBrowse && (
+                <button
+                  type="button"
+                  onClick={() => setCvInputType("job_applications")}
+                  className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    cvInputType === "job_applications"
+                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <Briefcase size={15} />
+                  <span>1. Ứng viên nộp vào Job đã đăng ({recruiterJobs.length} Job)</span>
+                </button>
+              )}
 
               {userResumes.length > 0 && (
                 <button

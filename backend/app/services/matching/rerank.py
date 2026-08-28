@@ -74,6 +74,31 @@ def _annotate(rows: list[dict[str, Any]], *, score: float | None, status: str) -
     return [{**row, "rerank_score": score, "rerank_status": status} for row in rows]
 
 
+def calibrate_rerank_score(
+    raw_score: float,
+    *,
+    has_skills: bool = True,
+    skill_cov: float = 1.0,
+    has_jd_skills: bool = True,
+    baseline: float = 0.0,
+) -> float:
+    """Hiệu chuẩn điểm số của mô hình AI Reranker (Cross-Encoder).
+    Khi hồ sơ ứng viên rỗng hoặc không có kỹ năng phù hợp so với yêu cầu JD,
+    áp dụng ngưỡng phạt (penalty clamp <= 0.08 / <= 0.15) để loại trừ điểm nền ảo
+    của văn bản tiếng Việt ngoài phân phối (ví dụ 0.68)."""
+    score = float(raw_score)
+    if baseline > 0.0:
+        if score <= baseline:
+            score = 0.0
+        else:
+            score = min(1.0, max(0.0, (score - baseline) / (1.0 - baseline)))
+    if has_jd_skills and not has_skills:
+        score = min(score * 0.1, 0.08)
+    elif has_jd_skills and skill_cov == 0.0:
+        score = min(score * 0.2, 0.15)
+    return round(score, 4)
+
+
 def apply_rerank(
     rows: list[dict[str, Any]],
     *,
@@ -117,10 +142,38 @@ def apply_rerank(
     if len(by_index) != len(window):
         return _annotate(window, score=None, status="fallback") + _annotate(rest, score=None, status="fallback")
 
-    scored = [
-        {**row, "rerank_score": by_index[i], "rerank_status": "success"}
-        for i, row in enumerate(window)
-    ]
+    wanted_skills = set(extract_skills(jd_query))
+    has_wanted = bool(wanted_skills)
+
+    scored: list[dict[str, Any]] = []
+    for i, row in enumerate(window):
+        raw_val = by_index[i]
+        if "skills" in row or "verified_skills" in row:
+            row_skills = list(row.get("skills") or row.get("verified_skills") or [])
+            has_skills = bool(row_skills)
+        else:
+            row_skills = None
+            has_skills = True
+
+        skill_score_val = row.get("skill_score")
+        if skill_score_val is not None:
+            skill_cov = float(skill_score_val)
+        elif has_wanted and row_skills is not None:
+            matched = [s for s in row_skills if s in wanted_skills]
+            skill_cov = len(matched) / len(wanted_skills) if wanted_skills else 1.0
+        else:
+            skill_cov = 1.0
+
+        calibrated_score = calibrate_rerank_score(
+            raw_val,
+            has_skills=has_skills,
+            skill_cov=skill_cov,
+            has_jd_skills=has_wanted,
+        )
+        scored.append(
+            {**row, "rerank_score": calibrated_score, "rerank_status": "success"}
+        )
+
     grouped: dict[str, list[dict[str, Any]]] = {key: [] for key in _GROUP_ORDER}
     for row in scored:
         grouped[_status(row)].append(row)

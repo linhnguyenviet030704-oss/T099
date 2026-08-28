@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './env';
+import { dispatchSseJson } from './sse';
 
 export async function apiJson<T>(
   path: string,
@@ -135,12 +136,9 @@ export async function apiStream<T = any>(
           currentEvent = trimmed.slice(6).trim();
         } else if (trimmed.startsWith('data:')) {
           const rawData = trimmed.slice(5).trim();
-          try {
-            const parsed = JSON.parse(rawData);
-            onEvent({ event: currentEvent as any, data: parsed });
-          } catch {
-            // Dữ liệu không ở dạng JSON hợp lệ
-          }
+          dispatchSseJson(currentEvent, rawData, (event) => {
+            onEvent(event as StreamEvent<T>);
+          });
         }
       }
     }

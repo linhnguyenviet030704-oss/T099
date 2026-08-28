@@ -19,6 +19,16 @@ _PROTECTED_DISCLOSURE_RE = re.compile(
     r"thông điệp developer|cấu hình công cụ|prompt he thong|prompt cua ban|"
     r"chi dan he thong|thong diep developer|cau hinh cong cu)\b"
 )
+_INTERNAL_ARCHITECTURE_DISCLOSURE_RE = re.compile(
+    r"(?ix)"
+    r"(?:"
+    r"\b(?:database|db)\s+schema\s*:\s*[a-z_][\w.]*\s*\([^)]*\)"
+    r"|\binternal\s+tables?\s*:\s*[a-z_][\w.,\s-]*"
+    r"|\bdatabase[_\s-]*url\s*[:=]\s*\S+"
+    r"|\b(?:supabase\s+)?service[\s_-]*role[\s_-]*key\b"
+    r"|\b(?:internal|private|production)\s+(?:database|db)\s+(?:schema|structure)\b"
+    r")"
+)
 _STACK_TRACE_RE = re.compile(
     r"(?i)(?:traceback \(most recent call last\)|(?:file|module) [\"'][^\"']+\.py[\"'].*line \d+|"
     r"(?:exception|error):\s+.*(?:backend/app|backend\\app))"
@@ -33,7 +43,11 @@ class GuardedOutput:
 
 
 def contains_protected_disclosure(text: str) -> bool:
-    return bool(_PROTECTED_DISCLOSURE_RE.search(str(text or "")))
+    value = str(text or "")
+    return bool(
+        _PROTECTED_DISCLOSURE_RE.search(value)
+        or _INTERNAL_ARCHITECTURE_DISCLOSURE_RE.search(value)
+    )
 
 
 def contains_configured_secret(text: str) -> bool:

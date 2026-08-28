@@ -73,7 +73,7 @@ async def chat_stream(
                 data = item.get("data", {})
                 yield f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
         except AppError as exc:
-            yield f"event: error\ndata: {json.dumps({'error': exc.message, 'code': exc.code}, ensure_ascii=False)}\n\n"
+            yield f"event: error\ndata: {json.dumps({'error': exc.detail, 'code': exc.code}, ensure_ascii=False)}\n\n"
         except Exception:
             logger.exception("chat_stream error")
             yield f"event: error\ndata: {json.dumps({'error': 'Lỗi xử lý luồng gợi ý', 'code': 'STREAM_ERROR'}, ensure_ascii=False)}\n\n"

@@ -380,14 +380,12 @@ def _extract_domain(text: str) -> str | None:
     text_folded = fold_text(text_lower)
     for dom in KNOWN_DOMAINS:
         dom_folded = fold_text(dom)
-        if len(dom) <= 3:
-            if re.search(rf"\b{re.escape(dom.casefold())}\b", text_lower) or re.search(
-                rf"\b{re.escape(dom_folded)}\b", text_folded
-            ):
-                return dom
-        else:
-            if dom.casefold() in text_lower or dom_folded in text_folded:
-                return dom
+        # Luôn khớp theo ranh giới từ để "data" không khớp nhầm
+        # bên trong "database", "metadata" hoặc các từ dài khác.
+        if re.search(rf"(?<!\w){re.escape(dom.casefold())}(?!\w)", text_lower) or re.search(
+            rf"(?<!\w){re.escape(dom_folded)}(?!\w)", text_folded
+        ):
+            return dom
     return None
 
 

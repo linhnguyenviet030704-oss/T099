@@ -387,8 +387,9 @@ class ChatService:
             candidates = candidates[:request.max_results]
         if not candidates:
             return ChatResponse(response="Chưa có CV nộp cho vị trí này.", candidates=[])
+        # Thông báo số lượng hồ sơ đã quét được
         return ChatResponse(
-            response=f"Gợi ý {len(candidates)} ứng viên phù hợp.",
+            response=f"Đã quét hồ sơ của {len(candidates)} ứng viên.",
             candidates=candidates,
         )
 

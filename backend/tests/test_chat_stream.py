@@ -1,4 +1,4 @@
-﻿"""Tests for ChatService streaming and status reporting.
+"""Tests for ChatService streaming and status reporting.
 
 Kiểm tra cơ chế stream_chat phát ra đúng các sự kiện status, token và complete
 cho cả ứng viên và nhà tuyển dụng.
@@ -143,7 +143,7 @@ class TestChatStreaming:
             }
             yield {
                 "event": "_final_response",
-                "data": ChatResponse(response="Gợi ý 1 ứng viên phù hợp.", candidates=[cand_item]),
+                "data": ChatResponse(response="Đã quét hồ sơ của 1 ứng viên.", candidates=[cand_item]),
             }
 
         service = ChatService(

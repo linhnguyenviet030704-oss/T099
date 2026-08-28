@@ -65,7 +65,8 @@ async def test_matching_graph_ranks_then_responds():
     result = await graph.ainvoke(
         {"job_id": str(uuid4()), "query": "Gợi ý ứng viên", "rerank_mode": "agent"}
     )
-    assert result["response"] == "Gợi ý 2 ứng viên phù hợp."
+    # Kiểm tra phản hồi thông báo đã quét số lượng ứng viên
+    assert result["response"] == "Đã quét hồ sơ của 2 ứng viên."
     assert result["candidates"][0]["application_id"] == app_id
     assert result["candidates"][0]["rrf_score"] > result["candidates"][1]["rrf_score"]
     assert result["candidates"][0]["rerank_status"] == "not_requested"

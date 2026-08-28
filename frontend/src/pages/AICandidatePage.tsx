@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, Bot, User, FileText, ExternalLink,
   PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, Check, Plus,
-  Trash2, Clock, RotateCcw, CheckCircle2, ShieldCheck,
+  Trash2, Clock, RotateCcw, CheckCircle2, ShieldCheck, Mail,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson, apiStream, type StreamEvent } from "../lib/api";
@@ -93,11 +93,13 @@ function groupCandidates(
   return buckets;
 }
 
+// Component thẻ hiển thị ứng viên tối ưu UI/UX
 function CandidateCard({
   candidate,
   opening,
   onOpen,
   isCompareSelected,
+  compareLabel,
   onToggleCompare,
   goodThreshold = DEFAULT_FIT_GOOD,
   okThreshold = DEFAULT_FIT_OK,
@@ -106,6 +108,7 @@ function CandidateCard({
   opening: boolean;
   onOpen: () => void;
   isCompareSelected?: boolean;
+  compareLabel?: string;
   onToggleCompare?: () => void;
   goodThreshold?: number;
   okThreshold?: number;
@@ -113,47 +116,53 @@ function CandidateCard({
   const score = displayScore(candidate);
   const band = getFitBand(score, goodThreshold, okThreshold);
   const pct = Math.round(score * 100);
+
+  // Phân loại màu sắc theo độ phù hợp
   const badgeColor =
     band === "good"
-      ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300"
+      ? "text-emerald-700 bg-emerald-50 border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
       : band === "ok"
-      ? "text-amber-600 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300"
-      : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
+      ? "text-amber-700 bg-amber-50 border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800"
+      : "text-rose-700 bg-rose-50 border-rose-200/80 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800";
+
+  const reasonBgColor =
+    band === "good"
+      ? "bg-gradient-to-br from-emerald-50/60 to-teal-50/40 border-emerald-200/70 dark:from-emerald-950/20 dark:to-teal-950/20 dark:border-emerald-900/40"
+      : band === "ok"
+      ? "bg-gradient-to-br from-amber-50/60 to-orange-50/40 border-amber-200/70 dark:from-amber-950/20 dark:to-orange-950/20 dark:border-amber-900/40"
+      : "bg-slate-50 dark:bg-slate-700/50 border-slate-200/80 dark:border-slate-700/60";
+
+  const reasonTitleColor =
+    band === "good"
+      ? "text-emerald-800 dark:text-emerald-300"
+      : band === "ok"
+      ? "text-amber-800 dark:text-amber-300"
+      : "text-slate-700 dark:text-slate-300";
 
   const isJobSeeking = candidate.current_status === "job_seeking" || Boolean(candidate.is_public_candidate);
 
   return (
     <div
-      className={`bg-white dark:bg-slate-800 border rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-all ${
+      className={`bg-white dark:bg-slate-800 border rounded-2xl p-4 w-full flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200 ${
         isCompareSelected
           ? "border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-700 bg-indigo-50/20 dark:bg-indigo-950/20"
-          : "border-slate-200 dark:border-slate-600"
+          : "border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
       }`}
     >
       <div>
-        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        {/* Hàng badge trên cùng */}
+        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
-            {onToggleCompare && (
-              <button
-                type="button"
-                onClick={onToggleCompare}
-                className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                  isCompareSelected
-                    ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
-                    : "border-slate-300 dark:border-slate-600 hover:border-indigo-400 bg-white dark:bg-slate-800"
-                }`}
-                title={isCompareSelected ? "Bỏ chọn so sánh" : "Chọn để so sánh trực quan (2-5 ứng viên)"}
-              >
-                {isCompareSelected && <Check size={10} strokeWidth={3} />}
-              </button>
-            )}
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badgeColor} flex items-center gap-1`}>
+              <Sparkles size={11} className={band === "good" ? "text-emerald-600 dark:text-emerald-400" : band === "ok" ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"} />
+              {pct}% phù hợp
+            </span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {candidate.has_verified_skills && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium flex items-center gap-0.5" title="Kỹ năng đã được xác minh">
-                <CheckCircle2 size={10} className="text-blue-500" /> Xác minh
+              <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium flex items-center gap-1" title="Kỹ năng đã được AI xác minh">
+                <ShieldCheck size={11} className="text-blue-500" /> Xác minh
               </span>
             )}
             {isJobSeeking ? (
@@ -162,51 +171,67 @@ function CandidateCard({
                 Đang tìm việc
               </span>
             ) : (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 border ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}>
                 {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
               </span>
             )}
           </div>
         </div>
 
-        <p className="font-semibold text-sm truncate">{candidate.full_name || "Ứng viên"}</p>
-        <p className="text-xs text-slate-500 truncate">{candidate.email}</p>
-        <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
-          <FileText size={11} />
-          <span className="truncate">{candidate.resume_title || "CV"}</span>
+        {/* Thông tin ứng viên */}
+        <p className="font-bold text-sm text-slate-900 dark:text-white truncate" title={candidate.full_name || "Ứng viên"}>
+          {candidate.full_name || "Ứng viên"}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5 mt-0.5" title={candidate.email || undefined}>
+          <Mail size={11} className="shrink-0 text-slate-400" />
+          <span className="truncate">{candidate.email || "Chưa có email"}</span>
+        </p>
+        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-600 dark:text-slate-300">
+          <FileText size={12} className="shrink-0 text-purple-500" />
+          <span className="truncate font-medium">{candidate.resume_title || "Hồ sơ CV"}</span>
         </div>
 
-        {/* Dynamic AI Match Reason / Score Explanation */}
-        <div className="mt-3 p-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl text-xs space-y-1">
-          <div className="flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300 text-[11px]">
-            <Sparkles size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
+        {/* Khối giải thích điểm tương thích AI */}
+        <div className={`mt-3 p-3 rounded-xl border text-xs space-y-1 transition-colors ${reasonBgColor}`}>
+          <div className={`flex items-center gap-1.5 font-semibold text-[11px] ${reasonTitleColor}`}>
+            <Sparkles size={12} className="shrink-0" />
             <span>Giải thích điểm phù hợp ({pct}%):</span>
           </div>
-          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
-            {candidate.match_reason || `Được AI đánh giá ${pct}% phù hợp JD dựa trên phân tích kỹ năng và kinh nghiệm trong CV.`}
+          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal line-clamp-3 hover:line-clamp-none transition-all" title={candidate.match_reason || undefined}>
+            {candidate.match_reason || `Được AI đánh giá ${pct}% phù hợp với yêu cầu vị trí tuyển dụng dựa trên phân tích kỹ năng và kinh nghiệm.`}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-3">
+      {/* Nút hành động */}
+      <div className="flex items-center gap-2 mt-3.5 pt-1">
         <button
           onClick={onOpen}
           disabled={opening}
-          className="flex-1 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-center gap-1 disabled:opacity-50 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"
+          className="flex-1 py-2 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50/60 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 rounded-xl flex items-center justify-center gap-1.5 disabled:opacity-50 hover:bg-purple-100/70 dark:hover:bg-purple-900/50 active:scale-[0.98] transition-all cursor-pointer"
         >
-          <ExternalLink size={11} /> Xem CV
+          {opening ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+          <span>Xem CV</span>
         </button>
         {onToggleCompare && (
           <button
             type="button"
             onClick={onToggleCompare}
-            className={`px-3 py-1.5 text-xs font-medium rounded-xl border flex items-center gap-1 transition-colors ${
+            className={`px-3 py-2 text-xs font-semibold rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
               isCompareSelected
-                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                : "text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                : "text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30"
             }`}
+            title={isCompareSelected ? "Bỏ chọn so sánh" : "Thêm vào danh sách so sánh"}
           >
-            {isCompareSelected ? "Đã chọn" : "So sánh"}
+            {isCompareSelected ? (
+              <>
+                <Check size={12} className="stroke-[3]" />
+                <span>{compareLabel || "Đã chọn"}</span>
+              </>
+            ) : (
+              <span>So sánh</span>
+            )}
           </button>
         )}
       </div>
@@ -442,20 +467,40 @@ export default function AICandidatePage() {
   };
 
 
+  // Tải danh sách các lượt quét gợi ý ứng viên đã lưu
+  const loadHistory = useCallback(async (jobPostId: string) => {
+    if (!jobPostId || !supabase) {
+      setHistory([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("match_resume")
+        .select("id, created_at, rerank_mode, rerank_status, recruiter_message")
+        .eq("job_post_id", jobPostId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      setHistory((data || []) as HistoryRun[]);
+    } catch (err) {
+      console.error("Không thể tải lịch sử chạy gợi ý ứng viên", err);
+    }
+  }, []);
+
   const handleSelectJob = async (nextId: string) => {
     setJobId(nextId);
     setSelectedCompareCandidates([]);
     const job = jobs.find((j) => j.id === nextId);
-    setMessages([{ id: `welcome-${nextId}`, role: "system", text: nextId ? `Đã chọn tin: ${job?.title}` : "Chọn một vị trí tuyển dụng." }]);
-    setHistory([]);
-    if (!nextId || !supabase) return;
-    const { data } = await supabase
-      .from("match_resume")
-      .select("id, created_at, rerank_mode, rerank_status, recruiter_message")
-      .eq("job_post_id", nextId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    setHistory((data || []) as HistoryRun[]);
+    setMessages([
+      {
+        id: `welcome-${nextId}`,
+        role: "system",
+        text: nextId
+          ? `Đã chọn tin tuyển dụng: ${job?.title || ""}\nBấm “Gợi ý ứng viên phù hợp” hoặc nhập yêu cầu tuyển dụng để AI quét và đề xuất ứng viên tốt nhất.`
+          : "Chọn một vị trí tuyển dụng để bắt đầu.",
+      },
+    ]);
+    void loadHistory(nextId);
   };
 
   const openCv = async (candidate: ChatCandidate) => {
@@ -547,7 +592,7 @@ export default function AICandidatePage() {
         {
           id: crypto.randomUUID(),
           role: "system",
-          text: accumulatedText || "Đã tìm thấy các ứng viên phù hợp:",
+          text: accumulatedText || `Đã quét hồ sơ của ${candidateList.length} ứng viên.`,
           candidates: candidateList,
         },
       ]);
@@ -991,19 +1036,25 @@ export default function AICandidatePage() {
                                   {list.length}
                                 </span>
                               </h2>
-                              <div className="flex flex-row flex-wrap gap-3">
-                                {list.map((cand) => (
-                                  <CandidateCard
-                                    key={cand.application_id}
-                                    candidate={cand}
-                                    opening={openingId === cand.application_id}
-                                    onOpen={() => void openCv(cand)}
-                                    isCompareSelected={selectedCompareCandidates.some((c) => c.id === cand.application_id)}
-                                    onToggleCompare={() => handleToggleCompare(cand)}
-                                    goodThreshold={fitGoodThreshold}
-                                    okThreshold={fitOkThreshold}
-                                  />
-                                ))}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                                {list.map((cand) => {
+                                  const compareIdx = selectedCompareCandidates.findIndex((c) => c.id === cand.application_id);
+                                  const isSelected = compareIdx !== -1;
+                                  const letterLabel = isSelected ? String.fromCharCode(65 + compareIdx) : undefined;
+                                  return (
+                                    <CandidateCard
+                                      key={cand.application_id}
+                                      candidate={cand}
+                                      opening={openingId === cand.application_id}
+                                      onOpen={() => void openCv(cand)}
+                                      isCompareSelected={isSelected}
+                                      compareLabel={letterLabel}
+                                      onToggleCompare={() => handleToggleCompare(cand)}
+                                      goodThreshold={fitGoodThreshold}
+                                      okThreshold={fitOkThreshold}
+                                    />
+                                  );
+                                })}
                               </div>
                             </div>
                           );

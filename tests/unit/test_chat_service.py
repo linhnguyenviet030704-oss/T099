@@ -111,7 +111,7 @@ async def test_chat_returns_mock_candidates_for_job():
     assert result.jobs == []
     assert len(result.candidates) == 1
     assert result.candidates[0].application_id == app_id
-    assert result.response == "Gợi ý 1 ứng viên phù hợp."
+    assert result.response == "Đã quét hồ sơ của 1 ứng viên."
 
 
 @pytest.mark.asyncio
@@ -177,7 +177,7 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
         assert message == "Gợi ý ứng viên phù hợp"
         assert rerank == "qwen"
         return ChatResponse(
-            response="Gợi ý 1 ứng viên phù hợp.",
+            response="Đã quét hồ sơ của 1 ứng viên.",
             candidates=[
                 RecommendedCandidate(
                     application_id=app_id,
@@ -198,7 +198,7 @@ async def test_chat_job_id_uses_matching_runner_not_mock():
         ChatRequest(message="Gợi ý ứng viên phù hợp", job_id=job_id),
         actor_id,
     )
-    assert result.response == "Gợi ý 1 ứng viên phù hợp."
+    assert result.response == "Đã quét hồ sơ của 1 ứng viên."
     assert result.candidates[0].rrf_score == 0.81
     assert result.candidates[0].rerank_score is None
     assert "mock matching" not in result.response

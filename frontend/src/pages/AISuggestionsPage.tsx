@@ -7,7 +7,7 @@ import {
   Layers, Check, Plus, Trash2, Clock, RotateCcw, ChevronDown, Star, CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiJson } from "../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { ENUM_LABELS, formatCurrency } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
@@ -15,6 +15,7 @@ import Badge from "../components/Badge";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
+import SuggestionStatusIndicator, { type StatusStep } from "../components/SuggestionStatusIndicator";
 import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
 import JobComparisonModal from "../components/candidate/JobComparisonModal";
 
@@ -237,6 +238,12 @@ export default function AISuggestionsPage() {
   const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
   const [isSettingDefaultCv, setIsSettingDefaultCv] = useState(false);
+
+  // Trạng thái streaming tiến trình và văn bản thời gian thực
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
+  const [streamingText, setStreamingText] = useState<string>("");
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
 
@@ -513,6 +520,10 @@ export default function AISuggestionsPage() {
     if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
+    setStreamingSteps([]);
+    setCurrentStatusLabel("Đang khởi tạo gợi ý việc làm...");
+    setStreamingText("");
+
     let sid = sessionId;
     if (!sid) {
       sid = crypto.randomUUID();
@@ -521,9 +532,14 @@ export default function AISuggestionsPage() {
     }
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);
     try {
-      const body = await apiJson<{ response: string; jobs?: ChatJob[]; session_id?: string }>("/chat", session.access_token, {
-        method: "POST",
-        body: JSON.stringify({
+      let accumulatedText = "";
+      let finalJobs: ChatJob[] = [];
+      let finalSessionId = sid;
+
+      await apiStream(
+        "/chat/stream",
+        session.access_token,
+        {
           message: msgText,
           rerank,
           session_id: sid,
@@ -531,19 +547,53 @@ export default function AISuggestionsPage() {
           max_results: maxJobs,
           skill_weight: skillWeight,
           experience_weight: Number((1 - skillWeight).toFixed(2)),
-        }),
-      });
-      if (body.session_id && body.session_id !== sessionId) {
-        setSessionId(body.session_id);
-        localStorage.setItem("chat_session_id", body.session_id);
-      }
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, jobs: body.jobs || [] }]);
-      // Refresh chat sessions in sidebar
+        },
+        (event: StreamEvent) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "token") {
+            accumulatedText += event.data.delta;
+            setStreamingText(accumulatedText);
+          } else if (event.event === "complete") {
+            finalJobs = (event.data.jobs || []) as ChatJob[];
+            accumulatedText = event.data.response || accumulatedText;
+            if (event.data.session_id && event.data.session_id !== sid) {
+              finalSessionId = event.data.session_id;
+              setSessionId(finalSessionId);
+              localStorage.setItem("chat_session_id", finalSessionId);
+            }
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Lỗi xử lý luồng gợi ý");
+          }
+        }
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          text: accumulatedText || "Đã tìm thấy các công việc phù hợp:",
+          jobs: finalJobs,
+        },
+      ]);
+      // Cập nhật lại lịch sử chat bên thanh sidebar
       void loadChatHistory();
     } catch (err: unknown) {
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." },
+      ]);
     } finally {
       setSending(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
+      setStreamingText("");
     }
   };
 
@@ -1047,10 +1097,29 @@ export default function AISuggestionsPage() {
               </AnimatePresence>
 
               {sending && (
-                <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 py-1">
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>AI đang phân tích và tìm kiếm Top {maxJobs} việc làm phù hợp...</span>
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3"
+                >
+                  <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white bg-gradient-to-br from-indigo-500 to-purple-600">
+                    <Bot size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0 max-w-[85%] flex flex-col gap-2">
+                    <SuggestionStatusIndicator
+                      currentLabel={currentStatusLabel}
+                      steps={streamingSteps}
+                      isGenerating={sending}
+                      theme="candidate"
+                    />
+                    {streamingText && (
+                      <div className="rounded-2xl px-4 py-3 text-sm whitespace-pre-line w-fit max-w-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                        {streamingText}
+                        <span className="inline-block w-1.5 h-3.5 ml-1 bg-indigo-600 animate-pulse align-middle" />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
               <div ref={bottomRef} />
             </div>

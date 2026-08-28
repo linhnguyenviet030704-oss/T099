@@ -2,6 +2,7 @@ import json
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from backend.app.api.schemas.chat import (
     ChatHistoryResponse,
@@ -16,14 +17,17 @@ from backend.app.api.schemas.chat import (
     RecommendationItem,
 )
 from backend.app.clients.supabase import get_supabase_client
-from backend.app.core.exceptions import ForbiddenError, NotFoundError
+from backend.app.core.exceptions import AppError, ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
 from backend.app.dependencies.auth import get_current_user
 from backend.app.dependencies.services import get_chat_service, get_profile_service
 from backend.app.guardrails.rate_limit import enforce_chat_rate_limit
+from backend.app.observability.logger import get_logger
 from backend.app.services.chat_service import ChatService
 from backend.app.services.profile_service import ProfileService
 from supabase import Client
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -44,6 +48,45 @@ async def chat(
             raise ForbiddenError("Chỉ Nhà tuyển dụng mới có quyền dùng chức năng gợi ý ứng viên")
 
     return await service.chat(request, _user.id)
+
+
+@router.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    _user: AuthenticatedUser = Depends(enforce_chat_rate_limit),
+    service: ChatService = Depends(get_chat_service),
+    profile_service: ProfileService = Depends(get_profile_service),
+):
+    """Endpoint phát luồng Server-Sent Events (SSE) cho trạng thái tiến trình và tin nhắn gợi ý AI."""
+    profile = await profile_service.get_own_profile(_user.id)
+    if request.job_id is None:
+        if profile.role != "candidate":
+            raise ForbiddenError("Chỉ ứng viên mới có quyền dùng chức năng gợi ý công việc")
+    else:
+        if profile.role != "recruiter":
+            raise ForbiddenError("Chỉ Nhà tuyển dụng mới có quyền dùng chức năng gợi ý ứng viên")
+
+    async def event_generator():
+        try:
+            async for item in service.stream_chat(request, _user.id):
+                event_name = item.get("event", "message")
+                data = item.get("data", {})
+                yield f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+        except AppError as exc:
+            yield f"event: error\ndata: {json.dumps({'error': exc.message, 'code': exc.code}, ensure_ascii=False)}\n\n"
+        except Exception:
+            logger.exception("chat_stream error")
+            yield f"event: error\ndata: {json.dumps({'error': 'Lỗi xử lý luồng gợi ý', 'code': 'STREAM_ERROR'}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/chat/sessions", response_model=ChatSessionsResponse)

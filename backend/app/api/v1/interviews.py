@@ -107,7 +107,12 @@ async def get_interview_session(session_id: str) -> dict[str, Any]:
     # Kiểm tra trong bảng Supabase
     try:
         db = get_supabase_client()
-        session_resp = db.table("interview_sessions").select("*").eq("id", session_id_str).execute()
+        session_resp = (
+            db.table("interview_sessions")
+            .select("*, profiles(full_name, email), job_posts(title)")
+            .eq("id", session_id_str)
+            .execute()
+        )
         if session_resp.data and len(session_resp.data) > 0:
             session = session_resp.data[0]
             questions_resp = (
@@ -117,7 +122,28 @@ async def get_interview_session(session_id: str) -> dict[str, Any]:
                 .order("question_order", desc=False)
                 .execute()
             )
-            return {**session, "questions": questions_resp.data or []}
+            prof = session.get("profiles")
+            prof_name = (
+                (prof[0].get("full_name") or prof[0].get("email"))
+                if isinstance(prof, list) and prof
+                else (prof.get("full_name") or prof.get("email"))
+                if isinstance(prof, dict)
+                else None
+            )
+            job = session.get("job_posts")
+            job_title = (
+                job[0].get("title")
+                if isinstance(job, list) and job
+                else job.get("title")
+                if isinstance(job, dict)
+                else None
+            )
+            return {
+                **session,
+                "candidate_name": prof_name or session.get("candidate_name"),
+                "job_title": job_title or session.get("job_title"),
+                "questions": questions_resp.data or [],
+            }
     except Exception as e:
         logger.warning("Supabase interview session fetch error: %s", e)
 

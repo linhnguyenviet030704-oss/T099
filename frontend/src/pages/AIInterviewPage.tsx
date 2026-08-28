@@ -177,11 +177,12 @@ export default function AIInterviewPage() {
     info("Đã khôi phục các tham số tùy chỉnh về mặc định.");
   };
 
-  // Load Candidates & Jobs list
+  // Nạp danh sách ứng viên và tin tuyển dụng khởi tạo
   useEffect(() => {
     async function loadInitialData() {
       if (!supabase) return;
       try {
+        // Nạp danh sách ứng viên từ bảng profiles
         const { data: profilesData } = await supabase
           .from("profiles")
           .select("id, full_name, email, role")
@@ -204,11 +205,28 @@ export default function AIInterviewPage() {
           if (!selectedCandidateId) setSelectedCandidateId("00000000-0000-0000-0000-000000000001");
         }
 
-        const { data: jobsData } = await supabase
+        // Nạp danh sách tin tuyển dụng theo quyền công ty của nhà tuyển dụng
+        let jobsQuery = supabase
           .from("job_posts")
           .select("id, title, seniority_level, company_id, companies(name)")
           .order("created_at", { ascending: false })
           .limit(50);
+
+        if (user) {
+          const { data: memberData } = await supabase
+            .from("company_members")
+            .select("company_id")
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .in("role", ["owner", "recruiter"]);
+
+          if (memberData && memberData.length > 0) {
+            const cIds = memberData.map((m: any) => m.company_id);
+            jobsQuery = jobsQuery.in("company_id", cIds);
+          }
+        }
+
+        const { data: jobsData } = await jobsQuery;
 
         if (jobsData && jobsData.length > 0) {
           const jobs = jobsData.map((j: any) => {
@@ -230,11 +248,11 @@ export default function AIInterviewPage() {
           if (!selectedJobId) setSelectedJobId("00000000-0000-0000-0000-000000000011");
         }
       } catch (e) {
-        console.error("Error loading candidate/job list:", e);
+        console.error("Lỗi khi tải danh sách ứng viên / tin tuyển dụng:", e);
       }
     }
     void loadInitialData();
-  }, []);
+  }, [user]);
 
   // Helper to persist session cache to local storage
   const syncLocalStorageSessions = (sessions: SavedInterviewSession[]) => {

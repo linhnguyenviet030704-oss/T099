@@ -6,7 +6,7 @@ import {
   Trash2, Clock, RotateCcw, CheckCircle2, ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiJson } from "../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../lib/api";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { getResumeSignedUrl } from "../lib/storage";
 import { ENUM_LABELS } from "../lib/format";
@@ -16,6 +16,7 @@ import AnimatedPage from "../components/AnimatedPage";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
+import SuggestionStatusIndicator, { type StatusStep } from "../components/SuggestionStatusIndicator";
 import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
 import CVComparisonModal from "../components/candidate/CVComparisonModal";
 
@@ -247,6 +248,12 @@ export default function AICandidatePage() {
   const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
   const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
+
+  // Trạng thái streaming tiến trình và văn bản thời gian thực
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
+  const [streamingText, setStreamingText] = useState<string>("");
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const handleResetDefaults = () => {
@@ -479,11 +486,20 @@ export default function AICandidatePage() {
     if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
+    setStreamingSteps([]);
+    setCurrentStatusLabel("Đang khởi tạo gợi ý ứng viên...");
+    setStreamingText("");
+
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);
     try {
-      const body = await apiJson<{ response: string; candidates?: ChatCandidate[] }>("/chat", session.access_token, {
-        method: "POST",
-        body: JSON.stringify({
+      let accumulatedText = "";
+      let rawCandidateList: ChatCandidate[] = [];
+      let finalSessionId = sessionId;
+
+      await apiStream(
+        "/chat/stream",
+        session.access_token,
+        {
           message: msgText,
           job_id: jobId,
           rerank,
@@ -493,20 +509,60 @@ export default function AICandidatePage() {
           max_results: maxCandidates,
           skill_weight: skillWeight,
           experience_weight: Number((1 - skillWeight).toFixed(2)),
-        }),
-      });
-      let candidateList = body.candidates || [];
+        },
+        (event: StreamEvent) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "token") {
+            accumulatedText += event.data.delta;
+            setStreamingText(accumulatedText);
+          } else if (event.event === "complete") {
+            rawCandidateList = (event.data.candidates || []) as ChatCandidate[];
+            accumulatedText = event.data.response || accumulatedText;
+            if (event.data.session_id && event.data.session_id !== sessionId) {
+              finalSessionId = event.data.session_id;
+              setSessionId(finalSessionId);
+              localStorage.setItem("chat_session_id_candidate", finalSessionId);
+            }
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Lỗi xử lý luồng gợi ý");
+          }
+        }
+      );
+
+      let candidateList = rawCandidateList;
       if (!includePublicCandidates) {
         candidateList = candidateList.filter((c) => c.current_status !== "job_seeking" && !c.is_public_candidate);
       }
       if (verifiedOnly) {
         candidateList = candidateList.filter((c) => c.has_verified_skills);
       }
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, candidates: candidateList }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          text: accumulatedText || "Đã tìm thấy các ứng viên phù hợp:",
+          candidates: candidateList,
+        },
+      ]);
+      void loadHistory(jobId);
+      void loadChatHistory();
     } catch (err: unknown) {
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." },
+      ]);
     } finally {
       setSending(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
+      setStreamingText("");
     }
   };
 
@@ -958,10 +1014,29 @@ export default function AICandidatePage() {
                 })}
               </AnimatePresence>
               {sending && (
-                <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 py-1">
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>AI đang phân tích và tìm kiếm Top {maxCandidates} ứng viên phù hợp...</span>
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3"
+                >
+                  <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white bg-gradient-to-br from-purple-500 to-pink-600">
+                    <Bot size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0 max-w-[85%] flex flex-col gap-2">
+                    <SuggestionStatusIndicator
+                      currentLabel={currentStatusLabel}
+                      steps={streamingSteps}
+                      isGenerating={sending}
+                      theme="recruiter"
+                    />
+                    {streamingText && (
+                      <div className="rounded-2xl px-4 py-3 text-sm whitespace-pre-line w-fit max-w-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                        {streamingText}
+                        <span className="inline-block w-1.5 h-3.5 ml-1 bg-purple-600 animate-pulse align-middle" />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
               <div ref={bottomRef} />
             </div>

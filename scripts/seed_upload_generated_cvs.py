@@ -60,27 +60,35 @@ def main() -> None:
     client = create_client(settings.supabase_url, settings.supabase_service_role_key)
 
     uploaded = 0
+    failed = 0
     for entry in manifest:
-        md_path = ASSETS_DIR / f"{entry['cv_id']}.md"
-        md_text = md_path.read_text(encoding="utf-8")
-        _metadata, body = parse_front_matter(md_text)
-        pdf_bytes = render_markdown_to_pdf(body)
+        try:
+            md_path = ASSETS_DIR / f"{entry['cv_id']}.md"
+            md_text = md_path.read_text(encoding="utf-8")
+            _metadata, body = parse_front_matter(md_text)
+            pdf_bytes = render_markdown_to_pdf(body)
 
-        client.storage.from_("resumes").upload(
-            entry["storage_path"],
-            pdf_bytes,
-            {"content-type": "application/pdf", "upsert": "true"},
-        )
-        uploaded += 1
-        print(entry["storage_path"])
+            client.storage.from_("resumes").upload(
+                entry["storage_path"],
+                pdf_bytes,
+                {"content-type": "application/pdf", "upsert": "true"},
+            )
+            uploaded += 1
+            print(entry["storage_path"])
 
-        if settings.qwen_api_key:
-            _ingest(client, entry["resume_id"], pdf_bytes)
-            print(f"  ingested {entry['title']}")
-        else:
-            print("  skip ingest (QWEN_API_KEY empty)")
+            if settings.qwen_api_key:
+                _ingest(client, entry["resume_id"], pdf_bytes)
+                print(f"  ingested {entry['title']}")
+            else:
+                print("  skip ingest (QWEN_API_KEY empty)")
+        except Exception as e:
+            failed += 1
+            print(f"FAILED {entry['cv_id']}: {e}")
+            continue
 
-    print(f"uploaded {uploaded}")
+    print(f"uploaded {uploaded}, failed {failed}")
+    if failed > 0:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

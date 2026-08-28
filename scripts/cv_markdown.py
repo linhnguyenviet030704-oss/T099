@@ -3,8 +3,8 @@
 Used by scripts/seed_generated_cvs.py (to compute an accurate resumes.size_bytes
 at seed.sql-generation time) and scripts/seed_upload_generated_cvs.py (to
 actually render the PDF bytes it uploads to Supabase Storage). Both need to
-render byte-identical output from the same markdown source, which is why this
-lives in one shared module instead of being duplicated.
+render the same markdown source into a PDF of approximately the same size,
+which is why this lives in one shared module instead of being duplicated.
 """
 
 from __future__ import annotations
@@ -115,6 +115,7 @@ def render_markdown_to_pdf(body: str, fontsize: float = 9.5) -> bytes:
             page.insert_textbox(_PAGE_RECT, text, fontsize=fontsize, fontname="uni")
         else:
             page.insert_textbox(_PAGE_RECT, text, fontsize=fontsize)
+    doc.subset_fonts()
     data = doc.tobytes(garbage=3, deflate=True)
     doc.close()
     return data

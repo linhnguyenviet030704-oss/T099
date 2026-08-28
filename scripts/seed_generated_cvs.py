@@ -47,6 +47,7 @@ import json
 import re
 import shutil
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -109,7 +110,9 @@ def load_job_ids_by_group(seed_text: str) -> dict[int, list[str]]:
 
 
 def build_block(
-    rows: list[dict], job_ids_by_group: dict[int, list[str]]
+    rows: list[dict],
+    job_ids_by_group: dict[int, list[str]],
+    assets_dir: Path | None = None,
 ) -> tuple[list[str], list[dict], int]:
     lines = [
         BEGIN_MARKER,
@@ -131,9 +134,12 @@ def build_block(
     skipped_no_jobs = 0
     skipped_group_full = 0
 
-    if ASSETS_DIR.exists():
-        shutil.rmtree(ASSETS_DIR)
-    ASSETS_DIR.mkdir(parents=True)
+    # Written into a caller-supplied (normally scratch/temp) directory so a
+    # run that seeds zero rows never touches the real ASSETS_DIR -- see
+    # main(), which only promotes this directory over the tracked one once
+    # build_block has actually produced at least one seeded row.
+    target_dir = ASSETS_DIR if assets_dir is None else Path(assets_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     for row in rows:
         cv_id = row["cv_id"]
@@ -169,7 +175,7 @@ def build_block(
         _metadata, body = parse_front_matter(md_text)
         pdf_bytes = render_markdown_to_pdf(body)
         size_bytes = len(pdf_bytes)
-        shutil.copyfile(md_path, ASSETS_DIR / f"{cv_id}.md")
+        shutil.copyfile(md_path, target_dir / f"{cv_id}.md")
 
         lines.append(f"-- {cv_id} (group {gid} {row['group_name']} / {row['subgroup']}): {title}")
         lines.append("insert into auth.users (")
@@ -284,22 +290,45 @@ def main() -> None:
     if args.limit:
         rows = rows[: args.limit]
 
-    lines, manifest, seeded = build_block(rows, job_ids_by_group)
-    block = "\n".join(lines) + "\n"
+    # Build into a scratch directory first so a run that seeds zero rows (e.g.
+    # a partially-restored local dataset where the CSV exists but its .md
+    # targets are missing) never touches the real, git-tracked ASSETS_DIR.
+    tmp_dir = Path(tempfile.mkdtemp(prefix="seed_generated_cvs_"))
+    try:
+        lines, manifest, seeded = build_block(rows, job_ids_by_group, assets_dir=tmp_dir)
+        if seeded == 0:
+            raise SystemExit(
+                "no CVs were seeded -- refusing to touch "
+                f"{ASSETS_DIR} (check {METADATA_CSV} and the VIETJOBS-IT-SEED job ids in {SEED_PATH})"
+            )
 
-    marker_re = re.compile(re.escape(BEGIN_MARKER) + r".*?" + re.escape(END_MARKER) + r"\n?", re.DOTALL)
-    if marker_re.search(seed_text):
-        seed_text = marker_re.sub(block, seed_text)
-    else:
-        seed_text = seed_text.rstrip("\n") + "\n\n" + block
+        block = "\n".join(lines) + "\n"
+        marker_re = re.compile(
+            re.escape(BEGIN_MARKER) + r".*?" + re.escape(END_MARKER) + r"\n?", re.DOTALL
+        )
+        if marker_re.search(seed_text):
+            seed_text = marker_re.sub(block, seed_text)
+        else:
+            seed_text = seed_text.rstrip("\n") + "\n\n" + block
 
-    SEED_PATH.write_text(seed_text, encoding="utf-8")
+        # Only now, with at least one seeded row confirmed, replace the real
+        # ASSETS_DIR with the freshly-built one.
+        if ASSETS_DIR.exists():
+            shutil.rmtree(ASSETS_DIR)
+        ASSETS_DIR.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(tmp_dir), str(ASSETS_DIR))
+        tmp_dir = None  # moved into place; nothing left to clean up
 
-    manifest_path = ASSETS_DIR / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        SEED_PATH.write_text(seed_text, encoding="utf-8")
 
-    print(f"merged into {SEED_PATH} ({seeded} resumes + job_submits)")
-    print(f"wrote {len(manifest)} markdown CVs + manifest to {ASSETS_DIR}")
+        manifest_path = ASSETS_DIR / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+        print(f"merged into {SEED_PATH} ({seeded} resumes + job_submits)")
+        print(f"wrote {len(manifest)} markdown CVs + manifest to {ASSETS_DIR}")
+    finally:
+        if tmp_dir is not None and tmp_dir.exists():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

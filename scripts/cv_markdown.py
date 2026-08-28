@@ -81,9 +81,8 @@ def _split_long_paragraph(para: str, max_chars: int) -> list[str]:
 
 def render_markdown_to_pdf(body: str, fontsize: float = 9.5) -> bytes:
     """Render CV body text into a paginated PDF, packing paragraphs greedily
-    so each page stays under CHARS_PER_PAGE — a plain-text render (no markdown
-    formatting), same minimal approach scripts/seed_mock_cvs.py used, just
-    extended to span multiple pages for longer real CVs.
+    so each page stays under CHARS_PER_PAGE — a simple plain-text render (no markdown
+    formatting), extended to span multiple pages for longer real CVs.
 
     Any single paragraph exceeding CHARS_PER_PAGE is hard-wrapped on whitespace
     to prevent silent truncation by insert_textbox.

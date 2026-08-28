@@ -177,7 +177,7 @@ Tài khoản seed (mật khẩu `password123`):
 SQL seed tạo row CV nhưng **chưa** upload file PDF lên Storage. Để có file CV mock (và ingest embedding nếu đã có `QWEN_API_KEY`):
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\seed_mock_cvs.py
+.\.venv\Scripts\python.exe scripts\seed_upload_generated_cvs.py
 ```
 
 API chính (`/api/v1`, Bearer JWT trừ health):

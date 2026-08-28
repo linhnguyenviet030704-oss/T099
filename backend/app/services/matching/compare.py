@@ -4,7 +4,7 @@ import asyncio
 import json
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -394,3 +394,54 @@ async def compare_candidates_for_job(
         top_candidate_id=top_candidate_id,
         summary=summary,
     )
+
+
+async def stream_compare_candidates_for_job(
+    client: Client,
+    actor_id: UUID,
+    job_id: UUID,
+    application_ids: list[UUID],
+    *,
+    complete: CompleteFn | None = None,
+    store: SupabaseResumeStore | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Phát luồng tiến trình so sánh CV các ứng viên với JD."""
+    yield {
+        "event": "status",
+        "data": {"step": "fetch_data", "label": "Đang tải hồ sơ ứng viên và mô tả công việc (JD)..."},
+    }
+
+    await asyncio.sleep(0.05)
+
+    yield {
+        "event": "status",
+        "data": {"step": "anonymize", "label": "Đang ẩn danh hóa CV (PII Redaction) để bảo mật thông tin..."},
+    }
+
+    yield {
+        "event": "status",
+        "data": {"step": "ai_evaluate", "label": "Chuyên gia AI đang phân tích và chấm điểm khách quan 4 tiêu chí..."},
+    }
+
+    res = await compare_candidates_for_job(
+        client=client,
+        actor_id=actor_id,
+        job_id=job_id,
+        application_ids=application_ids,
+        complete=complete,
+        store=store,
+        api_key=api_key,
+        base_url=base_url,
+    )
+
+    yield {
+        "event": "status",
+        "data": {"step": "synthesis", "label": "Đang tổng hợp biểu đồ so sánh trực quan đa chiều..."},
+    }
+
+    yield {
+        "event": "complete",
+        "data": res.model_dump(mode="json"),
+    }

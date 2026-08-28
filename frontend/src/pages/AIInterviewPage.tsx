@@ -31,10 +31,11 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiJson } from "../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import AnimatedPage from "../components/AnimatedPage";
 import ConfirmModal from "../components/ConfirmModal";
+import SuggestionStatusIndicator, { type StatusStep } from "../components/SuggestionStatusIndicator";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
 
@@ -150,6 +151,10 @@ export default function AIInterviewPage() {
   const [reviewerNotes, setReviewerNotes] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+
+  // Tiến trình streaming thời gian thực
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
 
   // Delete modals
   const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
@@ -468,188 +473,107 @@ export default function AIInterviewPage() {
 
     setIsGenerating(true);
     setSessionResult(null);
+    setStreamingSteps([]);
+    setCurrentStatusLabel("Khởi tạo tiến trình tạo câu hỏi phỏng vấn...");
 
     const candObj = candidatesList.find((c) => c.id === selectedCandidateId);
     const jobObj = jobsList.find((j) => j.id === selectedJobId);
 
     try {
       const token = session?.access_token || "";
-      const resp = await apiJson<{
-        session_id: string;
-        status: string;
-        poll_url: string;
-      }>("/interviews/generate", token, {
-        method: "POST",
-        body: JSON.stringify({
+      let completedSession: any = null;
+
+      await apiStream(
+        "/interviews/generate/stream",
+        token,
+        {
           candidate_id: selectedCandidateId,
           job_id: selectedJobId,
           question_count_range: [5, questionCount],
           coverage_threshold: coverageThreshold / 100,
           include_project_refs: includeProjectRefs,
-        }),
-      });
-
-      const currentSid = resp.session_id || sessionId || crypto.randomUUID();
-
-      let attempts = 0;
-      const maxAttempts = 25;
-      const pollInterval = setInterval(async () => {
-        attempts += 1;
-        try {
-          const statusResp = await apiJson<any>(`/interviews/sessions/${currentSid}`, token);
-          if (statusResp && (statusResp.status === "generated" || attempts >= maxAttempts)) {
-            clearInterval(pollInterval);
-            setIsGenerating(false);
-
-            const questions: GeneratedQuestion[] =
-              statusResp.questions && statusResp.questions.length > 0
-                ? statusResp.questions
-                : [
-                    {
-                      id: "q1",
-                      text: "Hãy trình bày cách bạn thiết kế và triển khai kiến trúc microservices với FastAPI và PostgreSQL để chịu tải cao.",
-                      category: "system_design",
-                      difficulty: "hard",
-                      project_reference: "fastapi/fastapi",
-                      jd_requirement_mapped: "Microservices Architecture",
-                      skills_tested: ["FastAPI", "PostgreSQL", "Scalability"],
-                      expected_answer_outline:
-                        "Trình bày về horizontal scaling, caching Redis, asynchronous DB connection pooling, rate limiting và circuit breaker.",
-                      rubric: {
-                        excellent: "Đưa ra kiến trúc rõ ràng, tính toán bottleneck cụ thể và có giải pháp failover toàn diện.",
-                        acceptable: "Hiểu nguyên lý microservices và nêu được các thành phần chính.",
-                        poor: "Mô tả sơ sài, không có giải pháp chịu tải.",
-                      },
-                      follow_ups: [
-                        {
-                          text: "Nếu database bị deadlock trong giờ cao điểm, bạn sẽ điều tra và khắc phục như thế nào?",
-                          difficulty: "hard",
-                          purpose: "Kiểm tra kỹ năng troubleshooting database",
-                        },
-                      ],
-                    },
-                    {
-                      id: "q2",
-                      text: "Trong dự án git gần đây của bạn, bạn đã áp dụng nguyên tắc Clean Code và kiểm thử tự động (Unit / Integration Test) như thế nào?",
-                      category: "project_deep_dive",
-                      difficulty: "medium",
-                      project_reference: "candidate/project-repo",
-                      jd_requirement_mapped: "Testing & Code Quality",
-                      skills_tested: ["Pytest", "TDD", "Clean Code"],
-                      expected_answer_outline:
-                        "Nêu rõ coverage mục tiêu, mocking external dependencies, tách lớp domain service và repository.",
-                      rubric: {
-                        excellent: "Chia sẻ kinh nghiệm thực tế với mocking, fixture, CI/CD pipeline và chiến lược test pyramid.",
-                        acceptable: "Nêu được các loại test cơ bản đã viết.",
-                        poor: "Ít viết test hoặc không giải thích được lý do chọn phương pháp.",
-                      },
-                      follow_ups: [],
-                    },
-                    {
-                      id: "q3",
-                      text: "Kể về một tình huống bạn và Tech Lead bất đồng quan điểm về giải pháp kỹ thuật. Bạn đã xử lý và đạt được sự đồng thuận ra sao?",
-                      category: "behavioral",
-                      difficulty: "easy",
-                      project_reference: null,
-                      jd_requirement_mapped: "Team Collaboration & Communication",
-                      skills_tested: ["Communication", "Conflict Resolution"],
-                      expected_answer_outline:
-                        "Áp dụng mô hình STAR: Situation, Task, Action, Result. Thể hiện sự tôn trọng dữ liệu và lợi ích chung.",
-                      rubric: {
-                        excellent: "Tư duy xây dựng, dùng benchmark/POC để chứng minh thay vì tranh luận cảm tính.",
-                        acceptable: "Giải quyết được vấn đề một cách hòa nhã.",
-                        poor: "Đổ lỗi hoặc né tránh xung đột.",
-                      },
-                      follow_ups: [],
-                    },
-                    {
-                      id: "q4",
-                      text: "Khi xử lý hàng đợi background job với Redis và Celery, làm thế nào để đảm bảo tính Idempotency và tránh mất dữ liệu khi worker gặp sự cố?",
-                      category: "technical",
-                      difficulty: "hard",
-                      project_reference: null,
-                      jd_requirement_mapped: "Async Processing & Celery",
-                      skills_tested: ["Celery", "Redis", "Distributed Systems"],
-                      expected_answer_outline:
-                        "Dùng task_acks_late=True, atomic state updates với idempotency key, dead letter queue (DLQ) và exponential backoff retry.",
-                      rubric: {
-                        excellent:
-                          "Nắm vững cơ chế message acknowledgment, retry backoff và phân loại transient vs non-transient errors.",
-                        acceptable: "Biết dùng Redis và Celery retry cơ bản.",
-                        poor: "Không hiểu cơ chế hoạt động của queue acknowledgment.",
-                      },
-                      follow_ups: [],
-                    },
-                  ];
-
-            const newSessionData: SessionData = {
-              id: currentSid,
-              candidate_id: selectedCandidateId,
-              candidate_name: candObj?.name,
-              candidate_email: candObj?.email,
-              job_id: selectedJobId,
-              job_title: jobObj?.title,
-              status: "generated",
-              total_questions: questions.length,
-              coverage_ratio: statusResp.coverage_ratio || 0.85,
-              coverage_threshold: coverageThreshold / 100,
-              question_distribution: statusResp.question_distribution || {
-                system_design: 1,
-                project_deep_dive: 1,
-                behavioral: 1,
-                technical: 1,
-              },
-              questions,
-              is_approved: false,
-              created_at: new Date().toISOString(),
-            };
-
-            setSessionResult(newSessionData);
-            setSessionId(currentSid);
-            localStorage.setItem(LOCAL_STORAGE_ACTIVE_SESSION_KEY, currentSid);
-
-            try {
-              localStorage.setItem(`ai_interview_full_${currentSid}`, JSON.stringify(newSessionData));
-            } catch {}
-
-            setSavedSessions((prev) => {
-              const newEntry: SavedInterviewSession = {
-                id: currentSid,
-                created_at: new Date().toISOString(),
-                candidate_id: selectedCandidateId,
-                candidate_name: candObj?.name,
-                job_id: selectedJobId,
-                job_title: jobObj?.title,
-                question_count: questions.length,
-                coverage_ratio: newSessionData.coverage_ratio || 0.85,
-                is_approved: false,
-              };
-              const filtered = prev.filter((s) => s.id !== currentSid);
-              const updated = [newEntry, ...filtered];
-              syncLocalStorageSessions(updated);
-              return updated;
+        },
+        (event: StreamEvent) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
             });
-
-            if (questions.length > 0) {
-              setExpandedQuestions({ [questions[0].id]: true });
-            }
-
-            success("Thành công", "Sinh bộ câu hỏi phỏng vấn thành công!");
-          } else if (statusResp && statusResp.status === "failed") {
-            clearInterval(pollInterval);
-            setIsGenerating(false);
-            toastError("Lỗi sinh câu hỏi", statusResp.error || "Không thể tạo câu hỏi phỏng vấn.");
-          }
-        } catch {
-          if (attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            setIsGenerating(false);
+          } else if (event.event === "complete") {
+            completedSession = event.data;
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Lỗi khi sinh câu hỏi phỏng vấn");
           }
         }
-      }, 1500);
+      );
+
+      const currentSid = completedSession?.id || sessionId || crypto.randomUUID();
+      const questions: GeneratedQuestion[] =
+        completedSession?.questions && completedSession.questions.length > 0
+          ? completedSession.questions
+          : [];
+
+      const newSessionData: SessionData = {
+        id: currentSid,
+        candidate_id: selectedCandidateId,
+        candidate_name: completedSession?.candidate_name || candObj?.name,
+        candidate_email: candObj?.email,
+        job_id: selectedJobId,
+        job_title: completedSession?.job_title || jobObj?.title,
+        status: "generated",
+        total_questions: questions.length,
+        coverage_ratio: completedSession?.coverage_ratio || 0.85,
+        coverage_threshold: coverageThreshold / 100,
+        question_distribution: completedSession?.distribution || {
+          system_design: 1,
+          project_deep_dive: 1,
+          behavioral: 1,
+          technical: 1,
+        },
+        questions,
+        is_approved: false,
+        created_at: new Date().toISOString(),
+      };
+
+      setSessionResult(newSessionData);
+      setSessionId(currentSid);
+      localStorage.setItem(LOCAL_STORAGE_ACTIVE_SESSION_KEY, currentSid);
+
+      try {
+        localStorage.setItem(`ai_interview_full_${currentSid}`, JSON.stringify(newSessionData));
+      } catch {}
+
+      setSavedSessions((prev) => {
+        const newEntry: SavedInterviewSession = {
+          id: currentSid,
+          created_at: new Date().toISOString(),
+          candidate_id: selectedCandidateId,
+          candidate_name: newSessionData.candidate_name,
+          job_id: selectedJobId,
+          job_title: newSessionData.job_title,
+          question_count: questions.length,
+          coverage_ratio: newSessionData.coverage_ratio || 0.85,
+          is_approved: false,
+        };
+        const filtered = prev.filter((s) => s.id !== currentSid);
+        const updated = [newEntry, ...filtered];
+        syncLocalStorageSessions(updated);
+        return updated;
+      });
+
+      if (questions.length > 0) {
+        setExpandedQuestions({ [questions[0].id]: true });
+      }
+
+      success("Thành công", "Sinh bộ câu hỏi phỏng vấn thành công!");
     } catch (err: any) {
-      setIsGenerating(false);
       toastError("Lỗi", err.message || "Lỗi khi sinh câu hỏi phỏng vấn");
+    } finally {
+      setIsGenerating(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
     }
   };
 
@@ -1247,9 +1171,14 @@ export default function AIInterviewPage() {
             style={{ minHeight: "50vh" }}
           >
             {isGenerating && (
-              <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-purple-50 dark:bg-purple-950/50 flex items-center justify-center text-purple-600 dark:text-purple-400">
-                  <Loader2 size={32} className="animate-spin" />
+              <div className="flex flex-col items-center justify-center py-12 space-y-4 max-w-xl mx-auto w-full">
+                <div className="w-full">
+                  <SuggestionStatusIndicator
+                    currentLabel={currentStatusLabel || "AI đang phân tích và thiết kế câu hỏi phỏng vấn..."}
+                    steps={streamingSteps}
+                    isGenerating={true}
+                    theme="recruiter"
+                  />
                 </div>
                 <div className="text-center space-y-1">
                   <h3 className="font-bold text-base text-slate-900 dark:text-white">

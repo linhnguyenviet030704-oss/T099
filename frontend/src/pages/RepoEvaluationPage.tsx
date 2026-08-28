@@ -36,9 +36,10 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase } from "../lib/supabase";
-import { apiJson } from "../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../lib/api";
 import { canBrowseJobApplications } from "../lib/roleGuard";
 import AnimatedPage from "../components/AnimatedPage";
+import SuggestionStatusIndicator, { type StatusStep } from "../components/SuggestionStatusIndicator";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
 
@@ -288,6 +289,10 @@ export default function RepoEvaluationPage() {
   const [extractedRepos, setExtractedRepos] = useState<ExtractedRepoItem[]>([]);
   const [currentRepoIndex, setCurrentRepoIndex] = useState<number>(0);
   const [noReposReport, setNoReposReport] = useState<string | null>(null);
+
+  // Tiến trình streaming thời gian thực theo từng repo
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
 
   // Results state: appended in real-time as each repo finishes
   const [evaluatedResults, setEvaluatedResults] = useState<EvaluationResultData[]>([]);
@@ -707,27 +712,56 @@ export default function RepoEvaluationPage() {
       for (let i = 0; i < total; i++) {
         const repoItem = reposList[i];
         setCurrentRepoIndex(i + 1);
+        setStreamingSteps([]);
+        setCurrentStatusLabel(`Đang khởi tạo đánh giá: ${repoItem.repo_full_name}...`);
         setStatusMessage(
           `Đang tìm kiếm & Đánh giá (${i + 1}/${total}): ${repoItem.repo_full_name} (${repoItem.project_name})...`
         );
 
         try {
-          const evalResp = await apiJson<EvaluationResultData>(
-            "/evaluations/evaluate-single",
+          let evalResp: EvaluationResultData | null = null;
+          await apiStream(
+            "/evaluations/evaluate-single/stream",
             token,
             {
-              method: "POST",
-              body: JSON.stringify({
-                candidate_id: candidateId,
-                repo_url: repoItem.repo_url,
-                project_name: repoItem.project_name,
-              }),
+              candidate_id: candidateId,
+              repo_url: repoItem.repo_url,
+              project_name: repoItem.project_name,
+            },
+            (event: StreamEvent) => {
+              if (event.event === "status") {
+                setCurrentStatusLabel(event.data.label);
+                setStreamingSteps((prev) => {
+                  const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+                  if (exists) return prev;
+                  return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+                });
+              } else if (event.event === "complete") {
+                evalResp = event.data as EvaluationResultData;
+              } else if (event.event === "error") {
+                throw new Error(event.data.error || "Lỗi xử lý đánh giá repository");
+              }
             }
           );
 
+          if (!evalResp) {
+            evalResp = await apiJson<EvaluationResultData>(
+              "/evaluations/evaluate-single",
+              token,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  candidate_id: candidateId,
+                  repo_url: repoItem.repo_url,
+                  project_name: repoItem.project_name,
+                }),
+              }
+            );
+          }
+
           completedResults.push(evalResp);
           // IMMEDIATELY append this result to the list so user sees it right away!
-          setEvaluatedResults((prev) => [...prev, evalResp]);
+          setEvaluatedResults((prev) => [...prev, evalResp!]);
           success("Hoàn thành đánh giá", repoItem.repo_name);
         } catch (err: any) {
           console.error(`Lỗi khi đánh giá repo ${repoItem.repo_url}:`, err);
@@ -792,23 +826,51 @@ export default function RepoEvaluationPage() {
     setNoReposReport(null);
     setSelectedResultIndex(0);
     setStatusPhase("evaluating");
+    setStreamingSteps([]);
+    setCurrentStatusLabel(`Đang kết nối repository: ${directRepoUrl}...`);
     setStatusMessage(`Đang tìm kiếm & Đánh giá repository: ${directRepoUrl}...`);
 
     const token = session?.access_token || "";
     const candidateId = user?.id || "00000000-0000-0000-0000-000000000000";
 
     try {
-      const evalResp = await apiJson<EvaluationResultData>(
-        "/evaluations/evaluate-single",
+      let evalResp: EvaluationResultData | null = null;
+      await apiStream(
+        "/evaluations/evaluate-single/stream",
         token,
         {
-          method: "POST",
-          body: JSON.stringify({
-            candidate_id: candidateId,
-            repo_url: directRepoUrl.trim(),
-          }),
+          candidate_id: candidateId,
+          repo_url: directRepoUrl.trim(),
+        },
+        (event: StreamEvent) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "complete") {
+            evalResp = event.data as EvaluationResultData;
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Lỗi xử lý đánh giá repository");
+          }
         }
       );
+
+      if (!evalResp) {
+        evalResp = await apiJson<EvaluationResultData>(
+          "/evaluations/evaluate-single",
+          token,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              candidate_id: candidateId,
+              repo_url: directRepoUrl.trim(),
+            }),
+          }
+        );
+      }
 
       setEvaluatedResults([evalResp]);
       setStatusPhase("complete");
@@ -1390,6 +1452,18 @@ export default function RepoEvaluationPage() {
                 </span>
               )}
             </div>
+
+            {/* Live streaming status indicator for active repo evaluation */}
+            {statusPhase === "evaluating" && streamingSteps.length > 0 && (
+              <div className="pt-1">
+                <SuggestionStatusIndicator
+                  currentLabel={currentStatusLabel}
+                  steps={streamingSteps}
+                  isGenerating={true}
+                  theme="candidate"
+                />
+              </div>
+            )}
           </motion.div>
         )}
 

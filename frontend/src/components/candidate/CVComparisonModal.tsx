@@ -19,8 +19,9 @@ import {
   Award,
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthProvider";
-import { apiJson } from "../../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../../lib/api";
 import { getResumeSignedUrl } from "../../lib/storage";
+import SuggestionStatusIndicator, { type StatusStep } from "../SuggestionStatusIndicator";
 import type { CompareCandidatesResponse, ComparedCandidate } from "../../types";
 
 interface CVComparisonModalProps {
@@ -145,37 +146,65 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
   const [data, setData] = useState<CompareCandidatesResponse | null>(null);
   const [hoveredCandidate, setHoveredCandidate] = useState<string | null>(null);
 
+  // Streaming real-time status steps
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
+
   // Fetch comparison data
   const runComparison = async () => {
     if (!session?.access_token || !jobId || applicationIds.length < 2) return;
     setLoading(true);
     setError(null);
-    setLoadingStep(0);
-
-    const stepTimer1 = setTimeout(() => setLoadingStep(1), 700);
-    const stepTimer2 = setTimeout(() => setLoadingStep(2), 1600);
-    const stepTimer3 = setTimeout(() => setLoadingStep(3), 2600);
+    setStreamingSteps([]);
+    setCurrentStatusLabel("Khởi tạo so sánh ứng viên...");
 
     try {
-      const response = await apiJson<CompareCandidatesResponse>(
-        "/candidates/compare",
+      let completedData: CompareCandidatesResponse | null = null;
+
+      await apiStream<CompareCandidatesResponse>(
+        "/candidates/compare/stream",
         session.access_token,
         {
-          method: "POST",
-          body: JSON.stringify({
-            job_id: jobId,
-            application_ids: applicationIds,
-          }),
+          job_id: jobId,
+          application_ids: applicationIds,
+        },
+        (event: StreamEvent<CompareCandidatesResponse>) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "complete") {
+            completedData = event.data as unknown as CompareCandidatesResponse;
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Không thể so sánh CV lúc này");
+          }
         }
       );
-      setData(response);
+
+      if (!completedData) {
+        completedData = await apiJson<CompareCandidatesResponse>(
+          "/candidates/compare",
+          session.access_token,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              job_id: jobId,
+              application_ids: applicationIds,
+            }),
+          }
+        );
+      }
+
+      setData(completedData);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Không thể so sánh CV lúc này.");
     } finally {
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
-      clearTimeout(stepTimer3);
       setLoading(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
     }
   };
 
@@ -321,29 +350,22 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Loading State */}
             {loading && (
-              <div className="py-16 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="relative">
-                  <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-500 flex items-center justify-center text-indigo-600 animate-pulse">
-                    <Sparkles size={28} className="text-purple-500 animate-spin" />
-                  </div>
-                  <Loader2 size={36} className="absolute inset-0 m-auto text-indigo-500 animate-spin opacity-40" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
-                    AI đang so sánh và chấm điểm CV...
-                  </h3>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 transition-all">
-                    {LOADING_STEPS[loadingStep]}
-                  </p>
-                </div>
-                {/* Progress bar */}
-                <div className="w-64 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-600"
-                    initial={{ width: "15%" }}
-                    animate={{ width: `${(loadingStep + 1) * 25}%` }}
-                    transition={{ duration: 0.5 }}
+              <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 max-w-lg mx-auto w-full">
+                <div className="w-full">
+                  <SuggestionStatusIndicator
+                    currentLabel={currentStatusLabel || "AI đang so sánh và chấm điểm CV..."}
+                    steps={streamingSteps}
+                    isGenerating={true}
+                    theme="recruiter"
                   />
+                </div>
+                <div className="text-center space-y-1">
+                  <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
+                    AI đang so sánh và chấm điểm khách quan hồ sơ ứng viên
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-md">
+                    Ẩn danh hóa thông tin PII, đối chiếu kỹ năng & kinh nghiệm với tiêu chuẩn JD để xếp hạng đa chiều.
+                  </p>
                 </div>
               </div>
             )}

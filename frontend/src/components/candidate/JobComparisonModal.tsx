@@ -23,8 +23,9 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import { apiJson } from "../../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../../lib/api";
 import { formatCurrency, formatDate, ENUM_LABELS } from "../../lib/format";
+import SuggestionStatusIndicator, { type StatusStep } from "../SuggestionStatusIndicator";
 import type { CompareJobsResponse, ComparedJob } from "../../types";
 
 interface JobComparisonModalProps {
@@ -151,6 +152,10 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
   const [hoveredJob, setHoveredJob] = useState<string | null>(null);
   const [activeResumeId, setActiveResumeId] = useState<string | null>(resumeId || null);
 
+  // Streaming real-time status steps
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
+
   useEffect(() => {
     if (resumeId) {
       setActiveResumeId(resumeId);
@@ -160,38 +165,67 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
     }
   }, [resumeId, resumes]);
 
-  // Fetch comparison data
+  // Fetch comparison data via stream
   const runComparison = async (overrideResumeId?: string | null) => {
     if (!session?.access_token || jobIds.length < 2) return;
 
     try {
       setLoading(true);
       setError(null);
-      setLoadingStep(0);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("Khởi tạo so sánh việc làm...");
 
       const targetResume = overrideResumeId !== undefined ? overrideResumeId : activeResumeId;
+      let completedData: CompareJobsResponse | null = null;
 
-      const res = await apiJson<CompareJobsResponse>(
-        "/jobs/compare",
+      await apiStream<CompareJobsResponse>(
+        "/jobs/compare/stream",
         session.access_token,
         {
-          method: "POST",
-          body: JSON.stringify({
-            job_ids: jobIds,
-            resume_id: targetResume || undefined,
-          }),
+          job_ids: jobIds,
+          resume_id: targetResume || undefined,
+        },
+        (event: StreamEvent<CompareJobsResponse>) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "complete") {
+            completedData = event.data as unknown as CompareJobsResponse;
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Không thể so sánh việc làm");
+          }
         }
       );
 
-      setData(res);
+      if (!completedData) {
+        completedData = await apiJson<CompareJobsResponse>(
+          "/jobs/compare",
+          session.access_token,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              job_ids: jobIds,
+              resume_id: targetResume || undefined,
+            }),
+          }
+        );
+      }
 
-      if (res.resume_id) {
-        setActiveResumeId(res.resume_id);
+      setData(completedData);
+
+      if (completedData?.resume_id) {
+        setActiveResumeId(completedData.resume_id);
       }
     } catch (err: any) {
       setError(err?.message || "Không thể so sánh việc làm. Vui lòng thử lại.");
     } finally {
       setLoading(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
     }
   };
 
@@ -204,17 +238,6 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
       setError(null);
     }
   }, [isOpen, jobIds.join(",")]);
-
-  // Loading animation step timer
-  useEffect(() => {
-    let timer: any;
-    if (loading) {
-      timer = setInterval(() => {
-        setLoadingStep((prev) => (prev < LOADING_STEPS.length - 1 ? prev + 1 : prev));
-      }, 1500);
-    }
-    return () => clearInterval(timer);
-  }, [loading]);
 
   const jobs = useMemo(() => data?.jobs || [], [data]);
   const topJob = useMemo(
@@ -365,29 +388,22 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Loading State */}
           {loading && (
-            <div className="py-16 flex flex-col items-center justify-center text-center space-y-4">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-500 flex items-center justify-center text-indigo-600 animate-pulse">
-                  <Sparkles size={28} className="text-purple-500 animate-spin" />
-                </div>
-                <Loader2 size={36} className="absolute inset-0 m-auto text-indigo-500 animate-spin opacity-40" />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
-                  AI Career Advisor đang phân tích & so sánh các việc làm...
-                </h3>
-                <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 transition-all">
-                  {LOADING_STEPS[loadingStep]}
-                </p>
-              </div>
-              {/* Progress bar */}
-              <div className="w-64 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
-                  initial={{ width: "15%" }}
-                  animate={{ width: `${(loadingStep + 1) * 25}%` }}
-                  transition={{ duration: 0.5 }}
+            <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 max-w-lg mx-auto w-full">
+              <div className="w-full">
+                <SuggestionStatusIndicator
+                  currentLabel={currentStatusLabel || "AI Career Advisor đang phân tích & so sánh các việc làm..."}
+                  steps={streamingSteps}
+                  isGenerating={true}
+                  theme="candidate"
                 />
+              </div>
+              <div className="text-center space-y-1">
+                <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
+                  AI Career Advisor đang phân tích & so sánh các việc làm
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md">
+                  Đối chiếu năng lực CV với từng yêu cầu tuyển dụng để xác định mức độ phù hợp và lợi thế cạnh tranh.
+                </p>
               </div>
             </div>
           )}

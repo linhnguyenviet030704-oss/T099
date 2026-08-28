@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
+from collections.abc import AsyncGenerator
 from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from backend.app.agents.interview.graph import agent2_graph
 from backend.app.clients.supabase import get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -92,6 +96,113 @@ async def generate_interview(
         session_id=session_id,
         status="generating",
         poll_url=f"/api/v1/interviews/sessions/{session_id}",
+    )
+
+
+async def stream_generate_interview(
+    req: GenerateInterviewRequest,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Phát luồng tiến trình sinh bộ câu hỏi phỏng vấn qua LangGraph Agent 2."""
+    session_id = uuid.uuid4()
+    session_id_str = str(session_id)
+    candidate_id_str = str(req.candidate_id)
+    job_id_str = str(req.job_id) if req.job_id else ""
+    count_range = tuple(req.question_count_range) if isinstance(req.question_count_range, list) else req.question_count_range
+
+    initial_state = {
+        "session_id": session_id_str,
+        "candidate_id": candidate_id_str,
+        "job_id": job_id_str,
+        "coverage_threshold": req.coverage_threshold,
+        "question_count_range": count_range,
+        "include_project_refs": req.include_project_refs,
+        "status": "generating",
+    }
+
+    node_labels = {
+        "analyze_jd": "Đang phân tích yêu cầu công việc (JD) và tiêu chuẩn đánh giá...",
+        "fetch_cv": "Đang đọc và phân tích cấu trúc hồ sơ CV ứng viên...",
+        "query_graph": "Đang tra cứu đồ thị tri thức kỹ năng và dự án đã thẩm định...",
+        "plan_distribution": "Đang lập kế hoạch phân bổ nhóm câu hỏi (kỹ thuật, kiến trúc, hành vi)...",
+        "generate_questions": "Đang sinh bộ câu hỏi phỏng vấn chuyên sâu theo từng ngữ cảnh...",
+        "validate_coverage": "Đang đối chiếu độ phủ các yêu cầu then chốt...",
+        "refine": "Đang tinh chỉnh và hoàn thiện các câu hỏi...",
+        "persist": "Đang lưu trữ phiên phỏng vấn vào cơ sở dữ liệu...",
+    }
+
+    yield {
+        "event": "status",
+        "data": {"step": "init", "label": "Khởi tạo tiến trình tạo câu hỏi phỏng vấn..."},
+    }
+
+    final_state: dict[str, Any] = dict(initial_state)
+    try:
+        async for chunk in agent2_graph.astream(
+            initial_state,
+            config={"configurable": {"thread_id": f"interview_stream_{session_id_str}"}},
+            stream_mode="updates",
+        ):
+            if isinstance(chunk, dict):
+                for node_name, node_update in chunk.items():
+                    if isinstance(node_update, dict):
+                        final_state.update(node_update)
+                    label = node_labels.get(node_name, f"Đang xử lý bước {node_name}...")
+                    yield {
+                        "event": "status",
+                        "data": {"step": node_name, "label": label},
+                    }
+
+        # Lấy thông tin phiên phỏng vấn hoàn chỉnh
+        questions = final_state.get("generated_questions") or []
+        created_session_id = final_state.get("session_id") or session_id_str
+        jd_analysis = final_state.get("jd_analysis") or {}
+
+        session_result = {
+            "id": created_session_id,
+            "candidate_id": candidate_id_str,
+            "candidate_name": final_state.get("candidate_name") or "Ứng viên",
+            "job_id": job_id_str,
+            "job_title": jd_analysis.get("title") or "Vị trí tuyển dụng",
+            "status": "generated",
+            "coverage_threshold": req.coverage_threshold,
+            "questions": questions,
+            "question_count": len(questions),
+            "distribution": final_state.get("question_distribution") or {},
+            "validation": final_state.get("validation_result") or {},
+            "is_approved": False,
+            "reviewer_notes": None,
+        }
+        _INTERVIEW_STATUS_STORE[created_session_id] = session_result
+
+        yield {
+            "event": "complete",
+            "data": session_result,
+        }
+    except Exception as e:
+        logger.error("Lỗi khi stream tạo phỏng vấn: %s", e)
+        yield {
+            "event": "error",
+            "data": {"error": f"Lỗi sinh câu hỏi phỏng vấn: {e}"},
+        }
+
+
+@router.post("/generate/stream")
+async def generate_interview_stream(req: GenerateInterviewRequest) -> StreamingResponse:
+    """Phát luồng Server-Sent Events cho tiến trình tạo câu hỏi phỏng vấn."""
+    async def event_generator():
+        async for event in stream_generate_interview(req):
+            event_name = event.get("event", "message")
+            event_data = json.dumps(event.get("data", {}), ensure_ascii=False)
+            yield f"event: {event_name}\ndata: {event_data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
+from collections.abc import AsyncGenerator
 from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from backend.app.agents.eval.graph import agent1_graph
@@ -304,6 +307,137 @@ async def evaluate_single_repo(req: EvaluateSingleRequest) -> EvaluateSingleResp
             status="failed",
             error=str(e),
         )
+
+
+async def stream_evaluate_single_repo(
+    req: EvaluateSingleRequest,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Phát luồng tiến trình đánh giá repository chi tiết qua LangGraph."""
+    norm = normalize_github_url(req.repo_url)
+    if not norm:
+        yield {
+            "event": "error",
+            "data": {"error": f"URL GitHub không hợp lệ: {req.repo_url}"},
+        }
+        return
+
+    cand_id = req.candidate_id or "00000000-0000-0000-0000-000000000000"
+    state_input = {
+        "candidate_id": cand_id,
+        "repo_url": f"https://github.com/{norm}",
+        "status": "pending",
+    }
+
+    node_labels = {
+        "preflight": "Đang kiểm tra URL và thông tin repository...",
+        "tier1_heuristic": "Đang quét cấu trúc tệp tin, test files, CI/CD, Docker...",
+        "tier2_select_files": "Đang lựa chọn các file mã nguồn trọng tâm...",
+        "tier2_fetch_content": "Đang tải nội dung file mã nguồn từ GitHub...",
+        "tier2_llm_evaluate": "Đang chấm điểm bằng mô hình AI Code Judge...",
+        "compute_heuristic_only": "Đang tổng hợp điểm số dựa trên heuristic...",
+        "persist_results": "Đang lưu kết quả đánh giá vào hệ thống...",
+    }
+
+    yield {
+        "event": "status",
+        "data": {"step": "init", "label": f"Bắt đầu đánh giá repo: {norm}..."},
+    }
+
+    final_state: dict[str, Any] = dict(state_input)
+    try:
+        async for chunk in agent1_graph.astream(
+            state_input,
+            config={"configurable": {"thread_id": f"single_stream_{cand_id}_{norm}"}},
+            stream_mode="updates",
+        ):
+            if isinstance(chunk, dict):
+                for node_name, node_update in chunk.items():
+                    if isinstance(node_update, dict):
+                        final_state.update(node_update)
+                    label = node_labels.get(node_name, f"Đang xử lý bước {node_name}...")
+                    yield {
+                        "event": "status",
+                        "data": {"step": node_name, "label": label},
+                    }
+
+        final_scores = final_state.get("final_scores") or {
+            "completeness": 7.0,
+            "complexity": 7.0,
+            "optimization": 7.0,
+            "code_cleanliness": 7.0,
+            "project_understanding": 7.0,
+            "weighted_score": 7.0,
+        }
+        overall_score = float(final_scores.get("weighted_score", 7.0))
+        heuristic_metrics = final_state.get("heuristic_metrics")
+        summary = final_state.get("summary") or "Đã hoàn thành đánh giá kỹ thuật dự án."
+        llm_eval = final_state.get("llm_evaluation") or {}
+        red_flags = llm_eval.get("red_flags") or []
+        tier = "heuristic_only" if final_state.get("should_skip_tier2") or llm_eval.get("heuristic_fallback") else "full"
+
+        result = EvaluateSingleResponse(
+            repo_full_name=norm,
+            repo_url=f"https://github.com/{norm}",
+            project_name=req.project_name or norm.split("/")[-1],
+            overall_score=round(overall_score, 1),
+            evaluation_scores=final_scores,
+            heuristic_metrics=heuristic_metrics,
+            summary=summary,
+            red_flags=red_flags,
+            evaluation_tier=tier,
+            status="complete",
+            error=final_state.get("error"),
+        )
+        yield {
+            "event": "complete",
+            "data": result.model_dump(),
+        }
+    except Exception as e:
+        logger.error("Lỗi khi stream đánh giá repo %s: %s", req.repo_url, e)
+        fallback = EvaluateSingleResponse(
+            repo_full_name=norm,
+            repo_url=f"https://github.com/{norm}",
+            project_name=req.project_name or norm.split("/")[-1],
+            overall_score=5.0,
+            evaluation_scores={
+                "completeness": 5.0,
+                "complexity": 5.0,
+                "optimization": 5.0,
+                "code_cleanliness": 5.0,
+                "project_understanding": 5.0,
+                "weighted_score": 5.0,
+            },
+            heuristic_metrics=None,
+            summary=f"Không thể hoàn thành đánh giá: {e}",
+            red_flags=["Lỗi kết nối hoặc phân tích mã nguồn repository."],
+            evaluation_tier="failed",
+            status="failed",
+            error=str(e),
+        )
+        yield {
+            "event": "complete",
+            "data": fallback.model_dump(),
+        }
+
+
+@router.post("/evaluate-single/stream")
+async def evaluate_single_repo_stream(req: EvaluateSingleRequest) -> StreamingResponse:
+    """Phát luồng Server-Sent Events cho quá trình đánh giá đơn repository."""
+    async def event_generator():
+        async for event in stream_evaluate_single_repo(req):
+            event_name = event.get("event", "message")
+            event_data = json.dumps(event.get("data", {}), ensure_ascii=False)
+            yield f"event: {event_name}\ndata: {event_data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/history")

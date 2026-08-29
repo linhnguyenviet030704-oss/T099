@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+import { Analytics } from "@vercel/analytics/react";
 import { ThemeProvider } from "./context/AppContext";
 import { LangProvider } from "./context/LangContext";
 import { AuthProvider } from "./auth/AuthProvider";
@@ -163,6 +164,7 @@ export default function App() {
           </AuthProvider>
         </ThemeProvider>
       </LangProvider>
+      <Analytics />
     </ToastProvider>
   );
 }

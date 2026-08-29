@@ -38,6 +38,9 @@ class EvaluationState(TypedDict, total=False):
     skill_analysis: SkillAnalysis | None
     breakdown: dict[str, Any]  # MetricScore serialized
     overall_score: float | None
+    raw_overall_score: float | None
+    authenticity: dict[str, Any]
+    red_flags: list[str]
 
     # Output
     result: EvaluationResult | None

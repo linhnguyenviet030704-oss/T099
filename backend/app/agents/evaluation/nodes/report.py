@@ -37,6 +37,8 @@ async def generate_report_node(
     radar_chart_dict = state.get("radar_chart")
     benchmark_dict = state.get("comparison_with_benchmark")
     recommendations = state.get("recommendations", [])
+    authenticity = state.get("authenticity", {})
+    red_flags = state.get("red_flags", [])
 
     # Reconstruct objects from dicts
     breakdown = {}
@@ -59,6 +61,7 @@ async def generate_report_node(
                 parsed_cv,
                 parsed_jd,
                 recommendations,
+                red_flags,
             )
             raw_response = await asyncio.to_thread(brain.chat, prompt, temperature=0.7)
             evidence = [*skill_analysis.matched_skills, *skill_analysis.missing_critical]
@@ -71,12 +74,18 @@ async def generate_report_node(
         except Exception:
             pass
 
+    # Add warnings (kết hợp các cảnh báo thông thường và các Red Flags từ xác thực CV)
+    warnings = _generate_warnings(skill_analysis, breakdown, confidence, red_flags)
+
     # Build result
     result = EvaluationResult(
         overall_score=overall_score,
         breakdown=breakdown,
         skill_analysis=skill_analysis,
         recommendations=recommendations,
+        warnings=warnings,
+        red_flags=red_flags,
+        authenticity=authenticity,
         confidence=confidence,
         radar_chart=radar_chart,
         comparison_with_benchmark=benchmark,
@@ -86,14 +95,12 @@ async def generate_report_node(
         natural_language_summary=str(response) if response else None,
     )
 
-    # Add warnings
-    warnings = _generate_warnings(skill_analysis, breakdown, confidence)
-    result.warnings = warnings
-
     return {
         "result": result,
         "response": response,
         "overall_score": overall_score,
+        "authenticity": authenticity,
+        "red_flags": red_flags,
     }
 
 
@@ -104,6 +111,7 @@ def _build_summary_prompt(
     parsed_cv,
     parsed_jd,
     recommendations: list[str],
+    red_flags: list[str] | None = None,
 ) -> str:
     """Build prompt for generating natural language summary."""
     cv_name = parsed_cv.job_titles[0] if parsed_cv and parsed_cv.job_titles else "the candidate"
@@ -121,19 +129,25 @@ Missing critical skills ({len(skill_analysis.missing_critical)}): {', '.join(ski
 
     recommendations_text = "\n".join(f"- {r}" for r in recommendations[:3])
 
+    red_flags_text = ""
+    if red_flags:
+        red_flags_text = "\n**CẢNH BÁO RỦI RO / RED FLAGS ĐÃ PHÁT HIỆN**:\n" + "\n".join(f"- ⚠️ {f}" for f in red_flags)
+
     return f"""Bạn là một chuyên gia HR với 10 năm kinh nghiệm đánh giá ứng viên.
 
 Hãy viết một báo cáo đánh giá ngắn gọn (200-300 từ) bằng tiếng Việt cho ứng viên ({cv_name}) ứng tuyển vị trí ({jd_name}), bao gồm:
 
-1. **Đánh giá tổng quan**: Nhận xét về mức độ phù hợp (Overall: {overall_score:.0f}/100)
-2. **Điểm mạnh**: Các điểm nổi bật ({scores_text})
+1. **Đánh giá tổng quan**: Nhận xét về mức độ phù hợp thực tế (Overall Real Score: {overall_score:.0f}/100)
+2. **Điểm mạnh & Điểm hạn chế**: ({scores_text})
 3. **Khoảng trống kỹ năng**: {skills_text}
-4. **Khuyến nghị**: {recommendations_text}
+4. **Độ chân thực của hồ sơ**: Nhận xét về tính nhất quán giữa số năm kinh nghiệm, kỹ năng và bằng chứng dự án thực tế.
+5. **Khuyến nghị & Cảnh báo cho Nhà tuyển dụng**: {recommendations_text}
+{red_flags_text}
 
 Điểm số chi tiết:
 {scores_text}
 
-Viết theo phong cách chuyên nghiệp, khách quan, phù hợp để gửi cho recruiter hoặc ứng viên.
+Viết theo phong cách chuyên nghiệp, khách quan, trung thực, giúp nhà tuyển dụng nhìn ra được năng lực thực tế.
 """
 
 
@@ -141,9 +155,15 @@ def _generate_warnings(
     skill_analysis: SkillAnalysis,
     breakdown: dict[str, MetricScore],
     confidence: float,
+    red_flags: list[str] | None = None,
 ) -> list[str]:
     """Generate warnings for potential issues."""
     warnings = []
+
+    # Thêm các Red Flags phát hiện được từ CV
+    if red_flags:
+        for rf in red_flags:
+            warnings.append(f"[Cảnh báo rủi ro] {rf}")
 
     # Low confidence warning
     if confidence < 0.6:

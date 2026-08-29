@@ -72,9 +72,12 @@ class ParsedProfile:
     verified_skills: list[str] = field(default_factory=list)
     inferred_skills: list[str] = field(default_factory=list)
     experience_years: int | None = None
+    demonstrated_years: float | None = None
     education: list[str] = field(default_factory=list)
     job_titles: list[str] = field(default_factory=list)
     companies: list[str] = field(default_factory=list)
+    projects: list[dict[str, Any]] = field(default_factory=list)
+    authenticity: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -84,9 +87,12 @@ class ParsedProfile:
             "verified_skills": self.verified_skills,
             "inferred_skills": self.inferred_skills,
             "experience_years": self.experience_years,
+            "demonstrated_years": self.demonstrated_years,
             "education": self.education,
             "job_titles": self.job_titles,
             "companies": self.companies,
+            "projects": self.projects,
+            "authenticity": self.authenticity,
             "metadata": self.metadata,
         }
 
@@ -160,6 +166,8 @@ class EvaluationResult:
 
     recommendations: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    red_flags: list[str] = field(default_factory=list)
+    authenticity: dict[str, Any] = field(default_factory=dict)
     natural_language_summary: str | None = None
 
     confidence: float = 0.8  # Overall confidence 0-1
@@ -192,6 +200,8 @@ class EvaluationResult:
                 "unexpected": self.skill_analysis.unexpected_skills,
                 "match_rate": round(self.skill_analysis.skill_match_rate, 1),
             },
+            "authenticity": self.authenticity,
+            "red_flags": self.red_flags,
             "recommendations": self.recommendations,
             "warnings": self.warnings,
             "summary": self.natural_language_summary,

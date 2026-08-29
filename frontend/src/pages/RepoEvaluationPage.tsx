@@ -737,7 +737,7 @@ export default function RepoEvaluationPage() {
                   return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
                 });
               } else if (event.event === "complete") {
-                evalResp = event.data as EvaluationResultData;
+                evalResp = event.data as unknown as EvaluationResultData;
               } else if (event.event === "error") {
                 throw new Error(event.data.error || "Lỗi xử lý đánh giá repository");
               }
@@ -851,7 +851,7 @@ export default function RepoEvaluationPage() {
               return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
             });
           } else if (event.event === "complete") {
-            evalResp = event.data as EvaluationResultData;
+            evalResp = event.data as unknown as EvaluationResultData;
           } else if (event.event === "error") {
             throw new Error(event.data.error || "Lỗi xử lý đánh giá repository");
           }

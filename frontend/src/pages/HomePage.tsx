@@ -13,7 +13,7 @@ import JobCard from "../components/JobCard";
 export default function HomePage() {
   const { user } = useAuth();
   const { profile, isRecruiter, isAdmin } = useCurrentProfile();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<JobPost[]>([]);
 

@@ -1,12 +1,11 @@
 """Unit tests cho module CV Authenticity & Verification Engine (cv_verifier.py)."""
 
-import pytest
 
 from backend.app.services.matching.cv_verifier import (
     ProjectEvidence,
+    calculate_claim_to_evidence_matrix,
     check_tech_anachronisms,
     check_timeline_sanity,
-    calculate_claim_to_evidence_matrix,
     evaluate_cv_authenticity,
     extract_project_evidences,
 )
@@ -98,7 +97,7 @@ def test_project_depth_and_template_detection():
     """
     complex_cv = """
     Dự án: Hệ thống giao dịch phân tán High Throughput Payment Gateway
-    Mô tả: Thiết kế kiến trúc microservices chịu tải cao với Kafka và Redis cluster. 
+    Mô tả: Thiết kế kiến trúc microservices chịu tải cao với Kafka và Redis cluster.
     Tối ưu hóa database query PostgreSQL và indexing, giảm latency từ 450ms xuống 35ms.
     Xử lý 10,000 req/s với 99.99% high availability, cấu hình load balancing và fault tolerance.
     Thời gian: 24 tháng.
@@ -123,7 +122,7 @@ def test_full_authenticity_evaluation_fake_vs_real():
     Tóm tắt: Có 10 năm kinh nghiệm làm software engineer, 20 năm kinh nghiệm fullstack. Chuyên gia hàng đầu.
     Kỹ năng: React, Flutter, FastAPI, Kubernetes, Kafka, AWS, Docker, AI, ML, Blockchain, Solidity, Rust
     Học vấn: Đại học Công Nghệ - Tốt nghiệp 2024
-    
+
     DỰ ÁN:
     1. To-do list App: Làm ứng dụng to-do list bằng HTML, CSS, JS cơ bản. (1 tháng)
     2. Web bán sách: Web bán sách sinh viên có đăng nhập và giỏ hàng. (2 tháng)
@@ -148,14 +147,14 @@ def test_full_authenticity_evaluation_fake_vs_real():
     Tóm tắt: Senior Backend Engineer với 6 năm kinh nghiệm thiết kế hệ thống phân tán và tối ưu database.
     Kỹ năng: Python, FastAPI, PostgreSQL, Docker, Redis, Kafka, CI/CD
     Học vấn: Đại học Bách Khoa Hà Nội - Tốt nghiệp 2018
-    
+
     KINH NGHIỆM LÀM VIỆC & DỰ ÁN:
     1. E-Commerce Core Service (2021 - 2024, 36 tháng)
     - Vai trò: Tech Lead / Senior Backend Engineer
     - Thiết kế hệ thống microservices với FastAPI, PostgreSQL và Kafka.
     - Xây dựng giải pháp caching với Redis cluster, tối ưu query giảm latency 60% cho 500k active users.
     - Xây dựng pipeline CI/CD tự động test và deploy lên Docker Swarm.
-    
+
     2. Payment Gateway Service (2018 - 2021, 36 tháng)
     - Vai trò: Backend Developer
     - Phát triển API xử lý giao dịch tài chính bằng Python và PostgreSQL.

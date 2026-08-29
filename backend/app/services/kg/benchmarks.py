@@ -6,7 +6,6 @@ cho từng vị trí và cấp bậc trong ngành CNTT / Phần mềm, phục v�
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 

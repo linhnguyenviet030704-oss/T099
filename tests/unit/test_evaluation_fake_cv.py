@@ -4,7 +4,6 @@ import pytest
 
 from backend.app.agents.evaluation.graph import build_evaluation_graph
 
-
 JD_SENIOR_BACKEND = """
 Vị trí: Senior Backend Engineer
 Yêu cầu:
@@ -35,11 +34,11 @@ async def test_edge_case_1_extreme_exaggeration():
     Tóm tắt: Có 10 năm kinh nghiệm làm software, 20 năm kinh nghiệm fullstack. Master mọi ngôn ngữ và framework.
     Kỹ năng: Python, FastAPI, PostgreSQL, Redis, Docker, Kafka, Kubernetes, AWS, Microservices
     Học vấn: Đại học Công nghệ - Tốt nghiệp năm 2024
-    
+
     DỰ ÁN:
     1. To-do list App (01/2024 - 02/2024, 1 tháng)
     Mô tả: Làm ứng dụng to-do list bằng HTML CSS JS cơ bản.
-    
+
     2. Web bán sách đồ án tốt nghiệp (03/2024 - 05/2024, 2 tháng)
     Mô tả: Làm trang web bán sách có giỏ hàng và đăng nhập bằng PHP MySQL cơ bản.
     """
@@ -85,7 +84,7 @@ async def test_edge_case_2_tech_anachronism():
     Tóm tắt: Có 10 năm kinh nghiệm chuyên sâu FastAPI và 12 năm kinh nghiệm Flutter, 8 năm kinh nghiệm Next.js App Router.
     Kỹ năng: FastAPI, Flutter, Next.js App Router, Python, Docker
     Học vấn: Đại học Khoa Học Tự Nhiên - Tốt nghiệp năm 2014
-    
+
     KINH NGHIỆM DỰ ÁN:
     1. Mobile App Flutter (2014 - 2024, 10 năm)
     Mô tả: Phát triển ứng dụng Flutter từ năm 2014.
@@ -122,7 +121,7 @@ async def test_edge_case_3_ghost_skills_keyword_stuffing():
     Tóm tắt: 4 năm kinh nghiệm lập trình web.
     Kỹ năng: Python, FastAPI, PostgreSQL, Redis, Docker, Kafka, Kubernetes, AWS, Terraform, Microservices, CI/CD, Rust, Golang, GraphQL, Spark
     Học vấn: Đại học Bách Khoa - Tốt nghiệp 2020
-    
+
     DỰ ÁN:
     1. Quản lý nhân sự công ty ABC (2020 - 2024, 48 tháng)
     Mô tả: Xây dựng hệ thống quản lý nhân sự bằng PHP thuần, jQuery và MySQL. Quản lý thông tin nhân viên, chấm công và xuất file Excel.
@@ -160,7 +159,7 @@ async def test_edge_case_4_graduation_conflict():
     Tóm tắt: 8 năm kinh nghiệm phát triển phần mềm chuyên nghiệp.
     Kỹ năng: Python, FastAPI, PostgreSQL, Git
     Học vấn: Đại học Bách Khoa Hà Nội - Tốt nghiệp năm 2024
-    
+
     DỰ ÁN:
     1. Đồ án môn học: Xây dựng web API bằng Python FastAPI và PostgreSQL (3 tháng).
     """
@@ -192,7 +191,7 @@ async def test_edge_case_5_legitimate_senior():
     Tóm tắt: Senior Backend Engineer với 6 năm kinh nghiệm thiết kế hệ thống phân tán, xử lý giao dịch chịu tải cao.
     Kỹ năng: Python, FastAPI, PostgreSQL, Redis, Docker, Kafka, CI/CD, Microservices
     Học vấn: Đại học Bách Khoa Hà Nội - Tốt nghiệp năm 2018
-    
+
     KINH NGHIỆM LÀM VIỆC & DỰ ÁN:
     1. Core Banking & Payment System (06/2021 - 06/2024, 36 tháng)
     - Vai trò: Senior Backend Engineer / Tech Lead
@@ -200,7 +199,7 @@ async def test_edge_case_5_legitimate_senior():
     - Triển khai Redis caching và tối ưu hóa database queries, giảm latency từ 320ms xuống 45ms.
     - Xử lý hệ thống phân tán chịu tải 5,000 req/s với độ khả dụng 99.99%.
     - Thiết lập pipeline CI/CD tự động build và deploy lên cụm Docker.
-    
+
     2. E-Commerce Platform API (06/2018 - 05/2021, 35 tháng)
     - Vai trò: Backend Developer
     - Xây dựng RESTful API bằng Python và PostgreSQL phục vụ 300k người dùng.
@@ -244,7 +243,7 @@ async def test_edge_case_6_honest_junior():
     Tóm tắt: 1 năm kinh nghiệm lập trình Python, đam mê học hỏi và xây dựng backend APIs.
     Kỹ năng: Python, Git, SQL, REST API
     Học vấn: Đại học Công Nghệ - Tốt nghiệp năm 2023
-    
+
     DỰ ÁN:
     1. Blog API Platform (06/2023 - 05/2024, 11 tháng)
     - Vai trò: Junior Developer

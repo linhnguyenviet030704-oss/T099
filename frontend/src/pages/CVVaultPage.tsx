@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit, Globe, Trash2 } from "lucide-react";
+import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit, Globe, Trash2, Compass } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
 import { supabase, handleSupabaseError } from "../lib/supabase";

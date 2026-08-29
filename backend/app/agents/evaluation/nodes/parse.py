@@ -10,8 +10,8 @@ from typing import Any
 from backend.app.agents.evaluation.state import EvaluationState
 from backend.app.agents.evaluation.types import ParsedProfile
 from backend.app.services.matching.cv_verifier import (
-    extract_project_evidences,
     evaluate_cv_authenticity,
+    extract_project_evidences,
 )
 from backend.app.services.matching.skills import extract_skills
 from backend.app.shared_brain import AgentBrain

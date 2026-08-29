@@ -10,7 +10,7 @@ Bao gồm:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -20,7 +20,7 @@ from backend.app.agents.evaluation import EvaluationAgent
 from backend.app.agents.evaluation.nodes.report import build_learning_roadmap
 from backend.app.agents.evaluation.types import EvaluationType, SkillAnalysis
 from backend.app.api.routes.evaluation import _format_cv_assessment_response
-from backend.app.api.schemas.evaluation import CvAssessmentRequest, CvAssessmentResponse
+from backend.app.api.schemas.evaluation import CvAssessmentResponse
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.core.security import AuthenticatedUser
 from backend.app.main import app

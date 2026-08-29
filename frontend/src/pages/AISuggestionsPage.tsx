@@ -250,6 +250,9 @@ export default function AISuggestionsPage() {
   const welcomeText = lang === "en"
     ? "Hello! Click \"Suggest matching jobs\" or enter your prompt so AI can find ideal positions for you."
     : "Xin chào! Bấm \"Gợi ý việc phù hợp\" hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn.";
+  const [messages, setMessages] = useState<Message[]>([
+    { id: "welcome", role: "system", text: welcomeText },
+  ]);
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
@@ -466,7 +469,7 @@ export default function AISuggestionsPage() {
       await loadDefaultCv();
     } catch (err) {
       console.error("Failed to set default CV", err);
-      toastError(t.error, lang === "en" ? "Cannot update default CV" : "Không thể cập nhật CV mặc định");
+      toastError(lang === "en" ? "Error" : "Lỗi", lang === "en" ? "Cannot update default CV" : "Không thể cập nhật CV mặc định");
     } finally {
       setIsSettingDefaultCv(false);
     }

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import AsyncGenerator
 from typing import Any
 from uuid import UUID
 
@@ -28,7 +27,7 @@ from backend.app.api.schemas.evaluation import (
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.core.exceptions import AppError, BadRequestError, ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
-from backend.app.dependencies.auth import get_current_candidate, get_current_user
+from backend.app.dependencies.auth import get_current_candidate
 from backend.app.guardrails.input import MAX_CV_BYTES, validate_file
 from backend.app.observability.logger import get_logger
 from backend.app.services.kg.benchmarks import RoleBenchmark, build_role_benchmark

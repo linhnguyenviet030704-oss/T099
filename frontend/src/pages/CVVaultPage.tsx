@@ -323,6 +323,15 @@ export default function CVVaultPage() {
 
                 <motion.button
                   whileTap={{ scale: 0.85 }}
+                  onClick={() => navigate(`/cv-assessment?resumeId=${r.id}`)}
+                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  title={lang === "en" ? "Assess CV with AI" : "Đánh giá năng lực CV với AI"}
+                >
+                  <Compass size={14} />
+                  <span>{lang === "en" ? "Assess AI" : "Đánh giá AI"}</span>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
                   onClick={() => navigate(`/cv-builder?id=${r.id}`)}
                   className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                   title={t.editCVContent}

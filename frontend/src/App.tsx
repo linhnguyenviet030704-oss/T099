@@ -19,6 +19,7 @@ import CVVaultPage from "./pages/CVVaultPage";
 import CVBuilderPage from "./pages/CVBuilderPage";
 import ApplicationsPage from "./pages/ApplicationsPage";
 import AISuggestionsPage from "./pages/AISuggestionsPage";
+import CVAssessmentPage from "./pages/CVAssessmentPage";
 import RecruiterRegisterPage from "./pages/RecruiterRegisterPage";
 import RecruitmentDashboardPage from "./pages/RecruitmentDashboardPage";
 import AICandidatePage from "./pages/AICandidatePage";
@@ -82,6 +83,14 @@ function AnimatedRoutes() {
           element={
             <RoleRoute allowedRoles={["candidate"]}>
               <AISuggestionsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/cv-assessment"
+          element={
+            <RoleRoute allowedRoles={["candidate"]}>
+              <CVAssessmentPage />
             </RoleRoute>
           }
         />

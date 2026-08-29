@@ -28,7 +28,7 @@ from backend.app.api.schemas.evaluation import (
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.core.exceptions import AppError, BadRequestError, ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
-from backend.app.dependencies.auth import get_current_user
+from backend.app.dependencies.auth import get_current_candidate, get_current_user
 from backend.app.guardrails.input import MAX_CV_BYTES, validate_file
 from backend.app.observability.logger import get_logger
 from backend.app.services.kg.benchmarks import RoleBenchmark, build_role_benchmark
@@ -396,11 +396,12 @@ def _format_cv_assessment_response(
 @router.post("/cv-assessment", response_model=CvAssessmentResponse)
 async def assess_cv(
     request: CvAssessmentRequest,
-    _user: AuthenticatedUser = Depends(get_current_user),
+    _user: AuthenticatedUser = Depends(get_current_candidate),
     client: Client = Depends(get_supabase_client),
 ) -> CvAssessmentResponse:
     """
     Đánh giá độ mạnh/yếu CV theo ngành nghề mục tiêu và gợi ý lộ trình bổ sung kiến thức.
+    Dành riêng cho Ứng viên (Candidate).
     """
     cv_text = await _resolve_authorized_cv(request, actor_id=_user.id, client=client)
     benchmark = build_role_benchmark(request.target_role, request.target_level)
@@ -427,11 +428,12 @@ async def assess_cv_with_file(
     cv_file: UploadFile = File(...),
     target_role: str = Form(...),
     target_level: str = Form("middle"),
-    _user: AuthenticatedUser = Depends(get_current_user),
+    _user: AuthenticatedUser = Depends(get_current_candidate),
     client: Client = Depends(get_supabase_client),
 ) -> CvAssessmentResponse:
     """
     Đánh giá CV tải lên trực tiếp (PDF/DOCX/TXT) theo ngành nghề mục tiêu.
+    Dành riêng cho Ứng viên (Candidate).
     """
     content = await cv_file.read()
     validated = validate_file(
@@ -455,7 +457,7 @@ async def assess_cv_with_file(
 @router.post("/cv-assessment/stream")
 async def assess_cv_stream(
     request: CvAssessmentRequest,
-    _user: AuthenticatedUser = Depends(get_current_user),
+    _user: AuthenticatedUser = Depends(get_current_candidate),
     client: Client = Depends(get_supabase_client),
 ) -> StreamingResponse:
     """

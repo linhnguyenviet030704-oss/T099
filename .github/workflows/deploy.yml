@@ -1,3 +1,4 @@
+# Pipeline CD Deploy lên Cloud (Supabase, Render, Vercel)
 name: CD Deploy Pipeline
 
 on:
@@ -5,23 +6,27 @@ on:
     branches: [main]
 
 jobs:
+  # ==========================================
+  # Giai đoạn 1: Deploy Database Migrations lên Supabase Cloud
+  # ==========================================
   deploy-database:
-    name: Deploy Migrations to Supabase Cloud
+    name: "1. Deploy Migrations to Supabase"
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
+      - name: "⚙️ Thiết lập Supabase CLI"
         if: ${{ env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_ID != '' && env.SUPABASE_DB_PASSWORD != '' }}
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Push DB Migrations to Supabase Cloud
+      - name: "🚀 Đẩy DB Migrations lên Supabase Cloud"
         if: ${{ env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_ID != '' && env.SUPABASE_DB_PASSWORD != '' }}
         run: |
           supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
@@ -29,32 +34,39 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
+  # ==========================================
+  # Giai đoạn 2a: Trigger Deploy Backend lên Render
+  # ==========================================
   deploy-backend:
-    name: Deploy Backend to Render
+    name: "2a. Deploy Backend (Render)"
     needs: [deploy-database]
     if: always()
     runs-on: ubuntu-latest
     env:
       RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
     steps:
-      - name: Trigger Render Deploy Hook
+      - name: "🚀 Kích hoạt Render Deploy Hook"
         if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' }}
         run: |
-          echo "Triggering Render Deploy Hook..."
+          echo "Đang kích hoạt Render Deploy Hook..."
           curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
-          echo "Render deployment triggered successfully."
+          echo "Kích hoạt Render deployment thành công."
 
+  # ==========================================
+  # Giai đoạn 2b: Deploy Frontend lên Vercel Production
+  # ==========================================
   deploy-frontend:
-    name: Deploy Frontend to Vercel
+    name: "2b. Deploy Frontend (Vercel)"
     needs: [deploy-database]
     if: always()
     runs-on: ubuntu-latest
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
 
-      - name: Deploy to Vercel Production
+      - name: "🚀 Deploy lên Vercel Production"
         if: ${{ env.VERCEL_TOKEN != '' }}
         uses: amondnet/vercel-action@v25
         with:
@@ -63,3 +75,4 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: ./
+

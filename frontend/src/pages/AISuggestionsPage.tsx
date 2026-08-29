@@ -248,8 +248,9 @@ export default function AISuggestionsPage() {
   const [desktop, setDesktop] = useState(isDesktop);
 
   const welcomeText = lang === "en"
-    ? "Hello! Click “Suggest matching jobs” or enter your prompt so AI can find ideal positions for you."
-    : "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho b�  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
+    ? "Hello! Click \"Suggest matching jobs\" or enter your prompt so AI can find ideal positions for you."
+    : "Xin chào! Bấm \"Gợi ý việc phù hợp\" hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn.";
+  const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
   const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
   const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
@@ -1307,26 +1308,6 @@ export default function AISuggestionsPage() {
         onClose={() => setIsCompareModalOpen(false)}
         jobIds={selectedCompareJobs.map((j) => j.id)}
         resumeId={selectedResumeId}
-        resumes={resumes}
-      />
-
-      {/* Confirmation Modal for Delete Chat Session / History */}
-      <ConfirmModal
-        open={Boolean(deleteTargetSessionId || isClearAllConfirm)}
-        title={isClearAllConfirm ? t.clearAllChatConfirmTitle : t.deleteChatConfirmTitle}
-        message={isClearAllConfirm ? t.clearAllChatConfirmDesc : t.deleteChatConfirmDesc}
-        confirmLabel={isDeletingSession ? (lang === "en" ? "Deleting..." : "Đang xóa...") : t.delete}
-        cancelLabel={t.cancel}
-        danger={true}
-        onConfirm={() => void handleConfirmDelete()}
-        onCancel={() => {
-          setDeleteTargetSessionId(null);
-          setIsClearAllConfirm(false);
-        }}
-      />
-    </AnimatedPage>
-  );
-}tedResumeId}
         resumes={resumes}
       />
 

@@ -174,14 +174,14 @@ class TestCvAssessmentApiEndpoint:
     """Kiểm thử endpoint HTTP /api/v1/cv-assessment."""
 
     def test_api_cv_assessment_success(self) -> None:
-        from backend.app.dependencies.auth import get_current_user
+        from backend.app.dependencies.auth import get_current_candidate
 
         mock_user = AuthenticatedUser(
             id=uuid4(),
             email="candidate@example.com",
             claims={"sub": str(uuid4()), "role": "candidate"},
         )
-        app.dependency_overrides[get_current_user] = lambda: mock_user
+        app.dependency_overrides[get_current_candidate] = lambda: mock_user
 
         mock_supabase = MagicMock()
         app.dependency_overrides[get_supabase_client] = lambda: mock_supabase

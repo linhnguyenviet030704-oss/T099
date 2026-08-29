@@ -172,7 +172,7 @@ export default function HomePage() {
       <footer className="border-t border-slate-200 dark:border-slate-800 py-10 bg-white dark:bg-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-slate-500">
           <p className="mb-2 font-display font-bold text-lg text-slate-800 dark:text-white">Next<span className="text-indigo-600">Job</span></p>
-          <p>© 2026 NextJob Vietnam. Nền tảng tuyển dụng thông minh.</p>
+          <p>{lang === "en" ? "© 2026 NextJob Vietnam. Smart recruitment platform." : "© 2026 NextJob Vietnam. Nền tảng tuyển dụng thông minh."}</p>
         </div>
       </footer>
     </div>

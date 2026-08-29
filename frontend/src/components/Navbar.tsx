@@ -9,7 +9,7 @@ import { useTheme } from "../context/AppContext";
 import { useLang } from "../context/LangContext";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
-import { ENUM_LABELS } from "../lib/format";
+import { getEnumLabels } from "../lib/format";
 
 export default function Navbar() {
   const { darkMode, toggleDarkMode } = useTheme();
@@ -32,28 +32,28 @@ export default function Navbar() {
   };
 
   const role = profile?.role || "candidate";
-  const displayName = profile?.full_name || user?.email || "Tài khoản";
+  const displayName = profile?.full_name || user?.email || t.account;
   const displayEmail = profile?.email || user?.email || "";
   const isCandidate = role === "candidate";
 
   const navLinks = [
     { label: t.home, href: "/", always: true },
     { label: t.jobs, href: "/jobs", always: true },
-    { label: t.repoEvaluation || "Đánh giá Repo", href: "/repo-evaluation", always: true },
+    { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", always: true },
     { label: t.aiSuggestions, href: "/ai-suggestions", candidate: true },
     { label: t.aiCandidates, href: "/ai-candidates", recruiter: true },
-    { label: t.aiInterview || "Phỏng vấn AI", href: "/ai-interview", recruiter: true },
+    { label: t.aiInterview || (lang === "en" ? "AI Interview" : "Phỏng vấn AI"), href: "/ai-interview", recruiter: true },
     { label: t.dashboard, href: "/dashboard", recruiter: true },
     { label: t.adminMenu, href: "/admin", admin: true },
   ];
 
   const userLinks = [
     { label: t.profile, href: "/profile", icon: User, always: true },
-    { label: t.repoEvaluation || "Đánh giá Repo", href: "/repo-evaluation", icon: GitBranch, always: true },
+    { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", icon: GitBranch, always: true },
     { label: t.cvVault, href: "/cv-vault", icon: FileText, candidate: true },
     { label: t.applications, href: "/applications", icon: BookOpen, candidate: true },
     { label: t.recruiterRegister, href: "/recruiter-register", icon: Star, candidate: true },
-    { label: t.aiInterview || "Phỏng vấn AI", href: "/ai-interview", icon: MessageSquareCode, recruiter: true },
+    { label: t.aiInterview || (lang === "en" ? "AI Interview" : "Phỏng vấn AI"), href: "/ai-interview", icon: MessageSquareCode, recruiter: true },
     { label: t.dashboard, href: "/dashboard", icon: LayoutDashboard, recruiter: true },
     { label: t.adminMenu, href: "/admin", icon: Shield, admin: true },
   ];
@@ -162,7 +162,7 @@ export default function Navbar() {
                         {displayName.split(" ").pop()}
                       </p>
                       <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${roleColors[role] || ""}`}>
-                        {ENUM_LABELS.profile_role[role]}
+                        {getEnumLabels(lang).profile_role[role]}
                       </span>
                     </div>
                     <ChevronDown size={14} className={`text-slate-400 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
@@ -269,16 +269,16 @@ export default function Navbar() {
                       className="flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl w-full mt-1"
                     >
                       <LogOut size={15} />
-                      Đăng xuất
+                      {t.logout}
                     </button>
                   </div>
                 ) : (
                   <div className="flex gap-2 pt-2">
                     <Link to="/login" onClick={() => setMobileOpen(false)} className="flex-1 py-2.5 text-sm font-medium text-center border border-slate-200 rounded-xl">
-                      Đăng nhập
+                      {t.login}
                     </Link>
                     <Link to="/register" onClick={() => setMobileOpen(false)} className="flex-1 py-2.5 text-sm font-semibold text-center text-white bg-indigo-600 rounded-xl">
-                      Đăng ký
+                      {t.register}
                     </Link>
                   </div>
                 )}

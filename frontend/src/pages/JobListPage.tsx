@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, X, Bookmark, Layers } from "lucide-react";
+import { Search, Filter, Bookmark, Layers } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { useLang } from "../context/LangContext";
 import { supabase } from "../lib/supabase";
 import type { EmploymentType, JobPost } from "../types";
-import { ENUM_LABELS } from "../lib/format";
+import { getEnumLabels } from "../lib/format";
 import JobCard from "../components/JobCard";
 import AnimatedPage, { staggerContainer, fadeUp } from "../components/AnimatedPage";
 import { JobCardSkeleton } from "../components/ui/Skeleton";
@@ -12,11 +13,10 @@ import { useToast } from "../context/ToastContext";
 import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
 import JobComparisonModal from "../components/candidate/JobComparisonModal";
 
-const JOB_TYPES = Object.keys(ENUM_LABELS.employment_type) as EmploymentType[];
-
 export default function JobListPage() {
   const { user } = useAuth();
-  const { success, info, error: toastError } = useToast();
+  const { lang, t } = useLang();
+  const { success, info } = useToast();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +26,9 @@ export default function JobListPage() {
   const [location, setLocation] = useState("");
   const [savedOnly, setSavedOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  const enumLabels = getEnumLabels(lang);
+  const jobTypes = Object.keys(enumLabels.employment_type) as EmploymentType[];
 
   // Compare states
   const [selectedCompareJobs, setSelectedCompareJobs] = useState<JobPost[]>([]);
@@ -81,7 +84,7 @@ export default function JobListPage() {
           setSavedIds([]);
         }
       } catch {
-        if (!cancelled) setError("Không tải được danh sách việc làm.");
+        if (!cancelled) setError(lang === "en" ? "Failed to load job listings." : "Không tải được danh sách việc làm.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -89,7 +92,7 @@ export default function JobListPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, lang]);
 
   const handleToggleCompare = (job: JobPost) => {
     setSelectedCompareJobs((prev) => {
@@ -98,7 +101,7 @@ export default function JobListPage() {
         return prev.filter((j) => j.id !== job.id);
       }
       if (prev.length >= 5) {
-        info("Chỉ có thể so sánh tối đa 5 việc làm cùng lúc");
+        info(t.compareMax5);
         return prev;
       }
       return [...prev, job];
@@ -115,25 +118,24 @@ export default function JobListPage() {
 
   const handleOpenCompareModal = () => {
     if (!user) {
-      info("Vui lòng đăng nhập để sử dụng tính năng so sánh việc làm với CV");
+      info(t.compareLoginPrompt);
       return;
     }
     if (selectedCompareJobs.length < 2) {
-      info("Vui lòng chọn từ 2 đến 5 việc làm để so sánh");
+      info(t.compareMin2);
       return;
     }
     setIsCompareModalOpen(true);
   };
-
 
   const handleToggleSaved = async (jobId: string) => {
     if (!supabase || !user) return;
     const isSaved = savedIds.includes(jobId);
     setSavedIds((ids) => (isSaved ? ids.filter((id) => id !== jobId) : [...ids, jobId]));
     if (isSaved) {
-      info("Đã bỏ lưu việc làm");
+      info(t.unsavedJobToast);
     } else {
-      success("Đã lưu việc làm thành công!");
+      success(t.savedJobToast);
     }
     const { error: saveErr } = isSaved
       ? await supabase.from("saved_jobs").delete().eq("user_id", user.id).eq("job_post_id", jobId)
@@ -154,8 +156,8 @@ export default function JobListPage() {
     });
   }, [jobs, query, selectedTypes, location, savedOnly, savedIds]);
 
-  const toggleType = (t: EmploymentType) =>
-    setSelectedTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const toggleType = (typeKey: EmploymentType) =>
+    setSelectedTypes((prev) => (prev.includes(typeKey) ? prev.filter((x) => x !== typeKey) : [...prev, typeKey]));
   const clearFilters = () => { setQuery(""); setSelectedTypes([]); setLocation(""); setSavedOnly(false); };
   const hasFilters = query || selectedTypes.length || location || savedOnly;
   const locations = [...new Set(jobs.map((j) => j.location).filter(Boolean))] as string[];
@@ -164,9 +166,9 @@ export default function JobListPage() {
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-2">Việc làm</h1>
+          <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-2">{t.jobListTitle}</h1>
           <p className="text-slate-500 dark:text-slate-400">
-            <span className="font-semibold text-indigo-600">{filtered.length}</span> tin đang tuyển
+            <span className="font-semibold text-indigo-600">{filtered.length}</span> {t.jobsCount(filtered.length)}
           </p>
           <div className="mt-6 flex gap-3">
             <div className="flex-1 relative">
@@ -175,7 +177,7 @@ export default function JobListPage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tiêu đề, công ty, địa điểm, mô tả..."
+                placeholder={t.searchPlaceholder}
                 className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
@@ -184,7 +186,7 @@ export default function JobListPage() {
               onClick={() => setShowFilters((v) => !v)}
               className={`flex items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-colors ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200"}`}
             >
-              <Filter size={16} /> Lọc
+              <Filter size={16} /> {t.filter}
             </motion.button>
           </div>
           <AnimatePresence>
@@ -192,20 +194,20 @@ export default function JobListPage() {
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                 <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
                   <div className="flex flex-wrap gap-2">
-                    {JOB_TYPES.map((t) => (
+                    {jobTypes.map((typeKey) => (
                       <motion.button
-                        key={t}
+                        key={typeKey}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => toggleType(t)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${selectedTypes.includes(t) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
+                        onClick={() => toggleType(typeKey)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${selectedTypes.includes(typeKey) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
                       >
-                        {ENUM_LABELS.employment_type[t]}
+                        {enumLabels.employment_type[typeKey]}
                       </motion.button>
                     ))}
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4">
                     <select value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-3 py-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
-                      <option value="">Tất cả địa điểm</option>
+                      <option value="">{t.allLocations}</option>
                       {locations.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                     {user && (
@@ -214,11 +216,11 @@ export default function JobListPage() {
                         onClick={() => setSavedOnly((v) => !v)}
                         className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${savedOnly ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
                       >
-                        <Bookmark size={14} /> Đã lưu ({savedIds.length})
+                        <Bookmark size={14} /> {t.savedJobsCount(savedIds.length)}
                       </motion.button>
                     )}
                   </div>
-                  {hasFilters && <button onClick={clearFilters} className="text-xs text-red-500 font-medium hover:underline">Xóa tất cả bộ lọc</button>}
+                  {hasFilters && <button onClick={clearFilters} className="text-xs text-red-500 font-medium hover:underline">{t.clearFilters}</button>}
                 </div>
               </motion.div>
             )}
@@ -235,8 +237,8 @@ export default function JobListPage() {
           <p className="text-sm text-red-500">{error}</p>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20">
-            <h3 className="font-display text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">Không tìm thấy kết quả</h3>
-            <button onClick={clearFilters} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl">Xóa bộ lọc</button>
+            <h3 className="font-display text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">{t.noJobsFound}</h3>
+            <button onClick={clearFilters} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl">{t.clearFilters}</button>
           </div>
         ) : (
           <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -289,4 +291,5 @@ export default function JobListPage() {
     </AnimatedPage>
   );
 }
+
 

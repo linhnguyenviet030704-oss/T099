@@ -7,9 +7,11 @@ import { supabase, handleSupabaseError } from "../lib/supabase";
 import { SITE_URL } from "../lib/env";
 import AnimatedPage from "../components/AnimatedPage";
 import Button from "../components/ui/Button";
+import { useLang } from "../context/LangContext";
 
 export default function ForgotPasswordPage() {
   const { user, loading: authLoading } = useAuth();
+  const { lang, t } = useLang();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,7 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) {
-      setError("Hệ thống Supabase chưa được cấu hình.");
+      setError(t.supabaseConfigError);
       return;
     }
     setError("");
@@ -46,12 +48,12 @@ export default function ForgotPasswordPage() {
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 size={40} className="text-emerald-600" />
           </div>
-          <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-2">Kiểm tra email</h2>
+          <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-2">{t.checkEmailTitle}</h2>
           <p className="text-slate-500 mb-6">
-            Nếu <span className="font-medium text-slate-700 dark:text-slate-300">{email.trim()}</span> tồn tại trong hệ thống, chúng tôi đã gửi một liên kết để đặt lại mật khẩu.
+            {t.checkEmailResetDesc(email.trim())}
           </p>
           <Link to="/login" className="text-indigo-600 font-medium hover:underline text-sm">
-            Quay lại đăng nhập
+            {t.backToLogin}
           </Link>
         </motion.div>
       </AnimatedPage>
@@ -70,8 +72,8 @@ export default function ForgotPasswordPage() {
               Next<span className="text-indigo-600">Job</span>
             </span>
           </Link>
-          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white mt-6 mb-2">Quên mật khẩu?</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Nhập email để nhận liên kết đặt lại mật khẩu</p>
+          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white mt-6 mb-2">{t.forgotPassword}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{t.forgotPasswordDesc}</p>
         </div>
 
         <motion.div
@@ -82,7 +84,7 @@ export default function ForgotPasswordPage() {
         >
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Email</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t.email}</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -91,7 +93,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                  placeholder="ten@email.com"
+                  placeholder={t.emailPlaceholder}
                 />
               </div>
             </div>
@@ -106,16 +108,17 @@ export default function ForgotPasswordPage() {
               </motion.div>
             )}
 
-            <Button type="submit" isLoading={loading} loadingText="Đang gửi..." fullWidth size="lg">
-              Gửi liên kết đặt lại
+            <Button type="submit" isLoading={loading} loadingText={t.sendingResetLink} fullWidth size="lg">
+              {t.sendResetLink}
             </Button>
           </form>
 
           <Link to="/login" className="mt-6 flex items-center justify-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors">
-            <ArrowLeft size={14} /> Quay lại đăng nhập
+            <ArrowLeft size={14} /> {t.backToLogin}
           </Link>
         </motion.div>
       </div>
     </AnimatedPage>
   );
 }
+

@@ -13,20 +13,19 @@ import {
   Cpu,
   Target,
   ExternalLink,
-  Loader2,
   RefreshCw,
   MapPin,
   DollarSign,
   FileText,
   Building2,
-  Calendar,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
+import { useLang } from "../../context/LangContext";
 import { apiJson, apiStream, type StreamEvent } from "../../lib/api";
-import { formatCurrency, formatDate, ENUM_LABELS } from "../../lib/format";
+import { formatCurrency, getEnumLabels } from "../../lib/format";
 import SuggestionStatusIndicator, { type StatusStep } from "../SuggestionStatusIndicator";
-import type { CompareJobsResponse, ComparedJob } from "../../types";
+import type { CompareJobsResponse } from "../../types";
 
 interface JobComparisonModalProps {
   isOpen: boolean;
@@ -89,50 +88,43 @@ const JOB_THEMES = [
   },
 ];
 
-const METRIC_DEFINITIONS = [
+const getMetricDefinitions = (lang: 'vi' | 'en') => [
   {
     key: "experience" as const,
-    label: "Kinh nghiệm làm việc",
-    shortLabel: "Kinh nghiệm",
+    label: lang === "en" ? "Work Experience" : "Kinh nghiệm làm việc",
+    shortLabel: lang === "en" ? "Experience" : "Kinh nghiệm",
     icon: Briefcase,
     color: "text-blue-600 dark:text-blue-400",
     bgColor: "bg-blue-50 dark:bg-blue-950/40",
-    description: "Mức độ khớp giữa số năm và tính chất kinh nghiệm của bạn so với yêu cầu JD",
+    description: lang === "en" ? "Match between years & depth of your experience vs JD" : "Mức độ khớp giữa số năm và tính chất kinh nghiệm của bạn so với yêu cầu JD",
   },
   {
     key: "hard_skills" as const,
-    label: "Kỹ năng chuyên môn",
-    shortLabel: "Kỹ năng cứng",
+    label: lang === "en" ? "Technical Skills" : "Kỹ năng chuyên môn",
+    shortLabel: lang === "en" ? "Hard Skills" : "Kỹ năng cứng",
     icon: Cpu,
     color: "text-purple-600 dark:text-purple-400",
     bgColor: "bg-purple-50 dark:bg-purple-950/40",
-    description: "Mức độ bạn sở hữu các kỹ năng cứng và công nghệ mà JD yêu cầu",
+    description: lang === "en" ? "Level of mastery for required technical stack & skills" : "Mức độ bạn sở hữu các kỹ năng cứng và công nghệ mà JD yêu cầu",
   },
   {
     key: "education" as const,
-    label: "Học vấn & Chứng chỉ",
-    shortLabel: "Học vấn",
+    label: lang === "en" ? "Education & Certifications" : "Học vấn & Chứng chỉ",
+    shortLabel: lang === "en" ? "Education" : "Học vấn",
     icon: GraduationCap,
     color: "text-emerald-600 dark:text-emerald-400",
     bgColor: "bg-emerald-50 dark:bg-emerald-950/40",
-    description: "Sự đáp ứng của bạn về bằng cấp, chứng chỉ và nền tảng đào tạo chuyên môn",
+    description: lang === "en" ? "Alignment with degrees, certifications, and academic background" : "Sự đáp ứng của bạn về bằng cấp, chứng chỉ và nền tảng đào tạo chuyên môn",
   },
   {
     key: "overall_fit" as const,
-    label: "Độ phù hợp tổng thể",
-    shortLabel: "Phù hợp chung",
+    label: lang === "en" ? "Overall Fit" : "Độ phù hợp tổng thể",
+    shortLabel: lang === "en" ? "General Fit" : "Phù hợp chung",
     icon: Target,
     color: "text-amber-600 dark:text-amber-400",
     bgColor: "bg-amber-50 dark:bg-amber-950/40",
-    description: "Khả năng bạn có thể đảm nhận tốt và phát triển xuất sắc ở vị trí công việc này",
+    description: lang === "en" ? "Potential to excel and deliver impact in this position" : "Khả năng bạn có thể đảm nhận tốt và phát triển xuất sắc ở vị trí công việc này",
   },
-];
-
-const LOADING_STEPS = [
-  "Ẩn danh hóa CV (PII Redaction) để bảo mật thông tin cá nhân...",
-  "Trích xuất mô tả & yêu cầu cốt lõi của các việc làm...",
-  "Chuyên gia AI Career Advisor đối chiếu và chấm điểm 4 tiêu chí...",
-  "Tổng hợp biểu đồ so sánh trực quan đa chiều...",
 ];
 
 export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
@@ -143,14 +135,17 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
   resumes = [],
 }) => {
   const { session } = useAuth();
+  const { lang, t } = useLang();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"column" | "radar" | "line" | "matrix">("column");
   const [loading, setLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<CompareJobsResponse | null>(null);
   const [hoveredJob, setHoveredJob] = useState<string | null>(null);
   const [activeResumeId, setActiveResumeId] = useState<string | null>(resumeId || null);
+
+  const metricDefinitions = useMemo(() => getMetricDefinitions(lang), [lang]);
+  const enumLabels = getEnumLabels(lang);
 
   // Streaming real-time status steps
   const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
@@ -173,7 +168,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
       setLoading(true);
       setError(null);
       setStreamingSteps([]);
-      setCurrentStatusLabel("Khởi tạo so sánh việc làm...");
+      setCurrentStatusLabel(lang === "en" ? "Initializing job comparison..." : "Khởi tạo so sánh việc làm...");
 
       const targetResume = overrideResumeId !== undefined ? overrideResumeId : activeResumeId;
       let completedData: CompareJobsResponse | null = null;
@@ -196,7 +191,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
           } else if (event.event === "complete") {
             completedData = event.data as unknown as CompareJobsResponse;
           } else if (event.event === "error") {
-            throw new Error(event.data.error || "Không thể so sánh việc làm");
+            throw new Error(event.data.error || (lang === "en" ? "Failed to compare jobs" : "Không thể so sánh việc làm"));
           }
         }
       );
@@ -221,7 +216,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
         setActiveResumeId(completedData.resume_id);
       }
     } catch (err: any) {
-      setError(err?.message || "Không thể so sánh việc làm. Vui lòng thử lại.");
+      setError(err?.message || (lang === "en" ? "Failed to compare jobs. Please try again." : "Không thể so sánh việc làm. Vui lòng thử lại."));
     } finally {
       setLoading(false);
       setStreamingSteps([]);
@@ -265,14 +260,16 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">
-                  So sánh trực quan việc làm AI
+                  {lang === "en" ? "AI Visual Job Comparison" : "So sánh trực quan việc làm AI"}
                 </h2>
                 <span className="bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
-                  {jobIds.length} vị trí
+                  {jobIds.length} {lang === "en" ? "positions" : "vị trí"}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                AI Career Advisor đối chiếu năng lực CV với yêu cầu từng vị trí để chấm điểm và phân tích đa chiều
+                {lang === "en"
+                  ? "AI Career Advisor matches your CV against each job's requirements to score and analyze multi-dimensionally"
+                  : "AI Career Advisor đối chiếu năng lực CV với yêu cầu từng vị trí để chấm điểm và phân tích đa chiều"}
               </p>
             </div>
           </div>
@@ -295,7 +292,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                 >
                   {resumes.map((r) => (
                     <option key={r.id} value={r.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
-                      {r.title || "CV của bạn"} {r.is_default ? "(Mặc định)" : ""}
+                      {r.title || (lang === "en" ? "Your CV" : "CV của bạn")} {r.is_default ? `(${lang === "en" ? "Default" : "Mặc định"})` : ""}
                     </option>
                   ))}
                 </select>
@@ -308,7 +305,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
               onClick={() => void runComparison()}
               disabled={loading}
               className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
-              title="Phân tích lại"
+              title={lang === "en" ? "Re-analyze" : "Phân tích lại"}
             >
               <RefreshCw size={16} className={loading ? "animate-spin text-indigo-600" : ""} />
             </button>
@@ -329,10 +326,10 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
           <div className="px-6 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-4 overflow-x-auto shrink-0">
             <div className="flex items-center gap-1.5">
               {[
-                { id: "column" as const, label: "Biểu đồ cột", icon: BarChart3 },
-                { id: "radar" as const, label: "Biểu đồ mạng nhện", icon: RadarIcon },
-                { id: "line" as const, label: "Biểu đồ đường", icon: LineChartIcon },
-                { id: "matrix" as const, label: "Bảng ma trận so sánh", icon: TableIcon },
+                { id: "column" as const, label: lang === "en" ? "Column Chart" : "Biểu đồ cột", icon: BarChart3 },
+                { id: "radar" as const, label: lang === "en" ? "Radar Chart" : "Biểu đồ mạng nhện", icon: RadarIcon },
+                { id: "line" as const, label: lang === "en" ? "Line Chart" : "Biểu đồ đường", icon: LineChartIcon },
+                { id: "matrix" as const, label: lang === "en" ? "Comparison Matrix" : "Bảng ma trận so sánh", icon: TableIcon },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -391,7 +388,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
             <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 max-w-lg mx-auto w-full">
               <div className="w-full">
                 <SuggestionStatusIndicator
-                  currentLabel={currentStatusLabel || "AI Career Advisor đang phân tích & so sánh các việc làm..."}
+                  currentLabel={currentStatusLabel || (lang === "en" ? "AI Career Advisor is analyzing and comparing jobs..." : "AI Career Advisor đang phân tích & so sánh các việc làm...")}
                   steps={streamingSteps}
                   isGenerating={true}
                   theme="candidate"
@@ -399,10 +396,12 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
               </div>
               <div className="text-center space-y-1">
                 <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
-                  AI Career Advisor đang phân tích & so sánh các việc làm
+                  {lang === "en" ? "AI Career Advisor is analyzing and comparing jobs" : "AI Career Advisor đang phân tích & so sánh các việc làm"}
                 </h3>
                 <p className="text-xs text-slate-500 max-w-md">
-                  Đối chiếu năng lực CV với từng yêu cầu tuyển dụng để xác định mức độ phù hợp và lợi thế cạnh tranh.
+                  {lang === "en"
+                    ? "Comparing CV competencies against recruitment requirements to pinpoint fit and competitive edge."
+                    : "Đối chiếu năng lực CV với từng yêu cầu tuyển dụng để xác định mức độ phù hợp và lợi thế cạnh tranh."}
                 </p>
               </div>
             </div>
@@ -411,14 +410,14 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
           {/* Error State */}
           {!loading && error && (
             <div className="p-8 text-center bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-2xl">
-              <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">Đã xảy ra lỗi khi so sánh</p>
+              <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">{lang === "en" ? "An error occurred during comparison" : "Đã xảy ra lỗi khi so sánh"}</p>
               <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">{error}</p>
               <button
                 type="button"
                 onClick={() => void runComparison()}
                 className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-medium hover:bg-red-700 transition-colors"
               >
-                Thử lại
+                {lang === "en" ? "Try Again" : "Thử lại"}
               </button>
             </div>
           )}
@@ -440,20 +439,22 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded-md">
-                          Việc làm phù hợp nhất #1
+                          {lang === "en" ? "Best Matching Job #1" : "Việc làm phù hợp nhất #1"}
                         </span>
                         <h4 className="font-bold text-sm text-slate-900 dark:text-white">{topJob.title}</h4>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
                         {data.summary ||
-                          `Vị trí '${topJob.title}' đạt điểm trung bình cao nhất (${topJob.average_score}/10) với sự phù hợp vượt trội về kỹ năng và kinh nghiệm.`}
+                          (lang === "en"
+                            ? `Position '${topJob.title}' achieved the highest average score (${topJob.average_score}/10) with outstanding alignment in skills and experience.`
+                            : `Vị trí '${topJob.title}' đạt điểm trung bình cao nhất (${topJob.average_score}/10) với sự phù hợp vượt trội về kỹ năng và kinh nghiệm.`)}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
                     <div className="text-right">
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">Điểm đánh giá AI</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{lang === "en" ? "AI Evaluation Score" : "Điểm đánh giá AI"}</p>
                       <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
                         {topJob.average_score}
                         <span className="text-xs text-slate-400">/10</span>
@@ -467,7 +468,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                       }}
                       className="px-3.5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl flex items-center gap-1.5 shadow-md shadow-orange-500/20 transition-all cursor-pointer"
                     >
-                      <span>Xem tin & Ứng tuyển</span>
+                      <span>{lang === "en" ? "View Job & Apply" : "Xem tin & Ứng tuyển"}</span>
                       <ExternalLink size={13} />
                     </button>
                   </div>
@@ -489,16 +490,16 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                       <div className="mb-6">
                         <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                           <BarChart3 size={16} className="text-indigo-600" />
-                          Biểu đồ cột so sánh 4 tiêu chí phù hợp (Thang điểm 10)
+                          {lang === "en" ? "Column Chart: 4 Matching Dimensions (Scale of 10)" : "Biểu đồ cột so sánh 4 tiêu chí phù hợp (Thang điểm 10)"}
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Điểm số do AI Career Advisor đánh giá khách quan dựa trên CV đối chiếu với JD từng công việc
+                          {lang === "en" ? "Objective scores evaluated by AI Career Advisor comparing CV to each JD" : "Điểm số do AI Career Advisor đánh giá khách quan dựa trên CV đối chiếu với JD từng công việc"}
                         </p>
                       </div>
 
                       {/* Grouped Columns Grid */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {METRIC_DEFINITIONS.map((metric) => {
+                        {metricDefinitions.map((metric) => {
                           const Icon = metric.icon;
                           return (
                             <div
@@ -513,13 +514,12 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                                   <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                                     {metric.shortLabel}
                                   </p>
-                                  <p className="text-[10px] text-slate-400">Thang 10</p>
+                                  <p className="text-[10px] text-slate-400">{lang === "en" ? "Scale 10" : "Thang 10"}</p>
                                 </div>
                               </div>
 
                               {/* Bars Canvas */}
                               <div className="h-44 flex items-end justify-around gap-2 px-1 pb-2 border-b border-slate-200 dark:border-slate-700 relative">
-                                {/* Horizontal grid reference line at 5 and 10 */}
                                 <div className="absolute inset-x-0 bottom-1/2 border-b border-dashed border-slate-200 dark:border-slate-700 pointer-events-none opacity-60" />
                                 <div className="absolute inset-x-0 top-0 border-b border-dashed border-slate-200 dark:border-slate-700 pointer-events-none opacity-60" />
 
@@ -604,10 +604,10 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                       <div className="mb-4">
                         <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                           <RadarIcon size={16} className="text-indigo-600" />
-                          Biểu đồ mạng nhện (Radar Chart) so sánh năng lực đa chiều
+                          {lang === "en" ? "Radar Chart: Multi-Dimensional Competency Comparison" : "Biểu đồ mạng nhện (Radar Chart) so sánh năng lực đa chiều"}
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Trực quan hóa hình đa giác so sánh mức độ đáp ứng 4 tiêu chí giữa các vị trí việc làm
+                          {lang === "en" ? "Visualizing polygon comparison across 4 key criteria" : "Trực quan hóa hình đa giác so sánh mức độ đáp ứng 4 tiêu chí giữa các vị trí việc làm"}
                         </p>
                       </div>
 
@@ -615,7 +615,6 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                       <div className="flex flex-col lg:flex-row items-center justify-center gap-8 py-4">
                         <div className="relative w-72 h-72 sm:w-84 sm:h-84 shrink-0">
                           <svg viewBox="0 0 300 300" className="w-full h-full overflow-visible">
-                            {/* Concentric circles */}
                             {[2, 4, 6, 8, 10].map((level) => {
                               const r = (level / 10) * 110;
                               return (
@@ -632,22 +631,21 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                               );
                             })}
 
-                            {/* Axes */}
                             <line x1="150" y1="40" x2="150" y2="260" stroke="currentColor" className="text-slate-200 dark:text-slate-700" />
                             <line x1="40" y1="150" x2="260" y2="150" stroke="currentColor" className="text-slate-200 dark:text-slate-700" />
 
                             {/* Labels */}
                             <text x="150" y="24" textAnchor="middle" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                              Kinh nghiệm
+                              {metricDefinitions[0].shortLabel}
                             </text>
                             <text x="272" y="154" textAnchor="start" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                              Kỹ năng cứng
+                              {metricDefinitions[1].shortLabel}
                             </text>
                             <text x="150" y="284" textAnchor="middle" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                              Học vấn
+                              {metricDefinitions[2].shortLabel}
                             </text>
                             <text x="28" y="154" textAnchor="end" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                              Phù hợp chung
+                              {metricDefinitions[3].shortLabel}
                             </text>
 
                             {/* Polygons */}
@@ -735,19 +733,19 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
 
                                 <div className="grid grid-cols-4 gap-1 text-[10px] text-center">
                                   <div className="bg-slate-50 dark:bg-slate-800 p-1 rounded-lg">
-                                    <span className="text-slate-400 block">K.Nghiệm</span>
+                                    <span className="text-slate-400 block">{metricDefinitions[0].shortLabel}</span>
                                     <b className="text-slate-700 dark:text-slate-300">{job.metrics.experience.score}</b>
                                   </div>
                                   <div className="bg-slate-50 dark:bg-slate-800 p-1 rounded-lg">
-                                    <span className="text-slate-400 block">K.Năng</span>
+                                    <span className="text-slate-400 block">{metricDefinitions[1].shortLabel}</span>
                                     <b className="text-slate-700 dark:text-slate-300">{job.metrics.hard_skills.score}</b>
                                   </div>
                                   <div className="bg-slate-50 dark:bg-slate-800 p-1 rounded-lg">
-                                    <span className="text-slate-400 block">Học vấn</span>
+                                    <span className="text-slate-400 block">{metricDefinitions[2].shortLabel}</span>
                                     <b className="text-slate-700 dark:text-slate-300">{job.metrics.education.score}</b>
                                   </div>
                                   <div className="bg-slate-50 dark:bg-slate-800 p-1 rounded-lg">
-                                    <span className="text-slate-400 block">Phù hợp</span>
+                                    <span className="text-slate-400 block">{metricDefinitions[3].shortLabel}</span>
                                     <b className="text-slate-700 dark:text-slate-300">{job.metrics.overall_fit.score}</b>
                                   </div>
                                 </div>
@@ -773,17 +771,16 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                       <div className="mb-4">
                         <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                           <LineChartIcon size={16} className="text-indigo-600" />
-                          Biểu đồ đường (Trend Line) so sánh xu hướng điểm số
+                          {lang === "en" ? "Trend Line: Score Trends Across Criteria" : "Biểu đồ đường (Trend Line) so sánh xu hướng điểm số"}
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Đường biểu diễn mức độ vượt trội qua 4 tiêu chí cốt lõi
+                          {lang === "en" ? "Trajectories across 4 core evaluation aspects" : "Đường biểu diễn mức độ vượt trội qua 4 tiêu chí cốt lõi"}
                         </p>
                       </div>
 
                       {/* SVG Line Graph */}
                       <div className="h-64 sm:h-72 w-full py-4">
                         <svg viewBox="0 0 500 200" className="w-full h-full overflow-visible">
-                          {/* Grid horizontal lines for scores 2, 4, 6, 8, 10 */}
                           {[2, 4, 6, 8, 10].map((score) => {
                             const y = 180 - (score / 10) * 150;
                             return (
@@ -804,18 +801,18 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                             );
                           })}
 
-                          {/* X-axis labels: 4 metrics */}
-                          {["Kinh nghiệm", "Kỹ năng cứng", "Học vấn", "Phù hợp chung"].map((label, idx) => {
+                          {/* X-axis labels */}
+                          {metricDefinitions.map((m, idx) => {
                             const x = 70 + idx * 130;
                             return (
                               <text
-                                key={label}
+                                key={m.key}
                                 x={x}
                                 y="195"
                                 textAnchor="middle"
                                 className="fill-slate-600 dark:fill-slate-400 text-[9px] font-semibold"
                               >
-                                {label}
+                                {m.shortLabel}
                               </text>
                             );
                           })}
@@ -863,7 +860,6 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                                   className="transition-all"
                                 />
 
-                                {/* Dots */}
                                 {points.map((pt, pIdx) => (
                                   <circle
                                     key={pIdx}
@@ -897,10 +893,10 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                       <div className="p-5 border-b border-slate-200 dark:border-slate-700">
                         <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                           <TableIcon size={16} className="text-indigo-600" />
-                          Bảng ma trận so sánh chi tiết công việc
+                          {lang === "en" ? "Detailed Job Comparison Matrix" : "Bảng ma trận so sánh chi tiết công việc"}
                         </h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Đối chiếu trực tiếp từng tiêu chí, mức lương, địa điểm và nhận xét chuyên môn từ AI
+                          {lang === "en" ? "Direct side-by-side comparison of criteria, salary, location, and AI expert advice" : "Đối chiếu trực tiếp từng tiêu chí, mức lương, địa điểm và nhận xét chuyên môn từ AI"}
                         </p>
                       </div>
 
@@ -909,7 +905,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                           <thead>
                             <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700">
                               <th className="p-3.5 font-bold text-slate-600 dark:text-slate-300 w-44">
-                                Tiêu chí đối chiếu
+                                {lang === "en" ? "Criteria" : "Tiêu chí đối chiếu"}
                               </th>
                               {jobs.map((job, idx) => {
                                 const theme = JOB_THEMES[idx % JOB_THEMES.length];
@@ -924,7 +920,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                                       <span className="truncate">{job.title}</span>
                                     </div>
                                     <p className="text-[11px] text-slate-400 font-normal mt-0.5">
-                                      {job.company?.name || "Công ty đối tác"}
+                                      {job.company?.name || (lang === "en" ? "Partner Company" : "Công ty đối tác")}
                                     </p>
                                   </th>
                                 );
@@ -934,7 +930,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                             {/* Row: Rank & Score */}
                             <tr className="bg-amber-50/30 dark:bg-amber-950/10">
-                              <td className="p-3.5 font-bold text-slate-700 dark:text-slate-300">Xếp hạng & Điểm AI</td>
+                              <td className="p-3.5 font-bold text-slate-700 dark:text-slate-300">{lang === "en" ? "Rank & AI Score" : "Xếp hạng & Điểm AI"}</td>
                               {jobs.map((job) => (
                                 <td key={job.job_id} className="p-3.5">
                                   <div className="flex items-center gap-2">
@@ -960,17 +956,18 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                               <td className="p-3.5 font-medium text-slate-500 dark:text-slate-400">
                                 <div className="flex items-center gap-1.5">
                                   <DollarSign size={13} className="text-emerald-500" />
-                                  <span>Mức lương</span>
+                                  <span>{t.salary}</span>
                                 </div>
                               </td>
                               {jobs.map((job) => (
                                 <td key={job.job_id} className="p-3.5 font-semibold text-emerald-600 dark:text-emerald-400">
                                   {job.salary_min || job.salary_max
-                                    ? `${formatCurrency(job.salary_min, job.currency)} - ${formatCurrency(
+                                    ? `${formatCurrency(job.salary_min, job.currency, lang)} - ${formatCurrency(
                                         job.salary_max,
-                                        job.currency
+                                        job.currency,
+                                        lang
                                       )}`
-                                    : "Thoả thuận"}
+                                    : t.negotiable}
                                 </td>
                               ))}
                             </tr>
@@ -980,12 +977,12 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                               <td className="p-3.5 font-medium text-slate-500 dark:text-slate-400">
                                 <div className="flex items-center gap-1.5">
                                   <MapPin size={13} className="text-slate-400" />
-                                  <span>Địa điểm</span>
+                                  <span>{t.location}</span>
                                 </div>
                               </td>
                               {jobs.map((job) => (
                                 <td key={job.job_id} className="p-3.5 text-slate-700 dark:text-slate-300">
-                                  {job.location || "Toàn quốc"}
+                                  {job.location || (lang === "en" ? "Nationwide" : "Toàn quốc")}
                                 </td>
                               ))}
                             </tr>
@@ -995,20 +992,20 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                               <td className="p-3.5 font-medium text-slate-500 dark:text-slate-400">
                                 <div className="flex items-center gap-1.5">
                                   <Building2 size={13} className="text-slate-400" />
-                                  <span>Hình thức</span>
+                                  <span>{t.employmentType}</span>
                                 </div>
                               </td>
                               {jobs.map((job) => (
                                 <td key={job.job_id} className="p-3.5 text-slate-700 dark:text-slate-300">
-                                  {ENUM_LABELS.employment_type[job.employment_type as keyof typeof ENUM_LABELS.employment_type] ||
+                                  {enumLabels.employment_type[job.employment_type as keyof typeof enumLabels.employment_type] ||
                                     job.employment_type ||
-                                    "Toàn thời gian"}
+                                    (lang === "en" ? "Full-time" : "Toàn thời gian")}
                                 </td>
                               ))}
                             </tr>
 
                             {/* Metric Rows */}
-                            {METRIC_DEFINITIONS.map((metric) => {
+                            {metricDefinitions.map((metric) => {
                               const Icon = metric.icon;
                               return (
                                 <tr key={metric.key}>
@@ -1045,7 +1042,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
 
                             {/* Actions Row */}
                             <tr className="bg-slate-50/50 dark:bg-slate-900/50">
-                              <td className="p-3.5 font-medium text-slate-500 dark:text-slate-400">Thao tác</td>
+                              <td className="p-3.5 font-medium text-slate-500 dark:text-slate-400">{lang === "en" ? "Action" : "Thao tác"}</td>
                               {jobs.map((job) => (
                                 <td key={job.job_id} className="p-3.5">
                                   <button
@@ -1056,7 +1053,7 @@ export const JobComparisonModal: React.FC<JobComparisonModalProps> = ({
                                     }}
                                     className="w-full py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300 font-semibold text-xs rounded-xl flex items-center justify-center gap-1 transition-colors cursor-pointer"
                                   >
-                                    <span>Xem chi tiết</span>
+                                    <span>{lang === "en" ? "View Details" : "Xem chi tiết"}</span>
                                     <ExternalLink size={12} />
                                   </button>
                                 </td>

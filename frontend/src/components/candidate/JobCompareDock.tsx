@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, X, Briefcase, Trash2, ArrowRight, FileText, ChevronDown } from "lucide-react";
+import { Sparkles, X, Briefcase, Trash2, ArrowRight, FileText } from "lucide-react";
+import { useLang } from "../../context/LangContext";
 
 export interface SelectedJobItem {
   id: string;
@@ -46,6 +47,7 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
   onSelectResume,
   maxAllowed = 5,
 }) => {
+  const { lang, t } = useLang();
   const count = selectedJobs.length;
   const isReady = count >= 2 && count <= maxAllowed;
 
@@ -65,7 +67,7 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
               <div className="flex items-center gap-1.5 shrink-0 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-xs px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800">
                 <Briefcase size={14} className="shrink-0" />
                 <span>
-                  Đã chọn: <b className="text-indigo-900 dark:text-indigo-100">{count}</b>/{maxAllowed}
+                  {t.dockSelected} <b className="text-indigo-900 dark:text-indigo-100">{count}</b>/{maxAllowed}
                 </span>
               </div>
 
@@ -94,7 +96,7 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
                       type="button"
                       onClick={() => onRemove(job.id)}
                       className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-full transition-colors shrink-0"
-                      title="Bỏ chọn việc làm"
+                      title={t.compareDeselect}
                     >
                       <X size={12} />
                     </button>
@@ -109,7 +111,7 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
               {resumes.length > 0 && onSelectResume && (
                 <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300">
                   <FileText size={13} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">Đối chiếu:</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">{t.compareAgainst}:</span>
                   <select
                     value={selectedResumeId || (resumes.find((r) => r.is_default)?.id || resumes[0]?.id)}
                     onChange={(e) => onSelectResume(e.target.value)}
@@ -117,7 +119,7 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
                   >
                     {resumes.map((r) => (
                       <option key={r.id} value={r.id} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">
-                        {r.title || "CV của bạn"} {r.is_default ? "(Mặc định)" : ""}
+                        {r.title || (lang === "en" ? "Your CV" : "CV của bạn")} {r.is_default ? `(${lang === "en" ? "Default" : "Mặc định"})` : ""}
                       </option>
                     ))}
                   </select>
@@ -129,10 +131,10 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
                 type="button"
                 onClick={onClear}
                 className="px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-1"
-                title="Bỏ chọn tất cả"
+                title={t.clearSelection}
               >
                 <Trash2 size={13} />
-                <span className="hidden sm:inline">Bỏ chọn</span>
+                <span className="hidden sm:inline">{t.clearSelection}</span>
               </button>
 
               {/* Compare Button */}
@@ -151,10 +153,10 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
                 <Sparkles size={14} className={isReady ? "text-amber-300 animate-pulse" : ""} />
                 <span>
                   {isComparing
-                    ? "Đang phân tích..."
+                    ? t.analyzing
                     : count < 2
-                    ? `Chọn thêm ${2 - count} việc`
-                    : "So sánh trực quan (AI)"}
+                    ? (lang === "en" ? `Select ${2 - count} more job(s)` : `Chọn thêm ${2 - count} việc`)
+                    : t.compareVisualAI}
                 </span>
                 {isReady && <ArrowRight size={13} className="ml-0.5" />}
               </motion.button>
@@ -167,3 +169,4 @@ export const JobCompareDock: React.FC<JobCompareDockProps> = ({
 };
 
 export default JobCompareDock;
+

@@ -2,8 +2,9 @@ import { motion } from "framer-motion";
 import { MapPin, DollarSign, Calendar, Bookmark, BookmarkCheck, ExternalLink, Layers, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { useLang } from "../context/LangContext";
 import type { JobPost } from "../types";
-import { ENUM_LABELS, formatDate } from "../lib/format";
+import { getEnumLabels, formatDate } from "../lib/format";
 import { EMPLOYMENT_BADGE, isDeadlinePassed, salaryRange } from "../lib/ui";
 import Badge from "./Badge";
 
@@ -28,8 +29,10 @@ export default function JobCard({
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { lang, t } = useLang();
   const company = job.company;
   const expired = isDeadlinePassed(job.deadline_at);
+  const enumLabels = getEnumLabels(lang);
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -44,7 +47,6 @@ export default function JobCard({
     e.stopPropagation();
     onToggleCompare?.(job);
   };
-
 
   return (
     <motion.div
@@ -68,7 +70,7 @@ export default function JobCard({
               )}
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{company?.name || "Công ty"}</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{company?.name || (lang === "en" ? "Company" : "Công ty")}</p>
               <h3 className="font-semibold text-slate-900 dark:text-white leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors">
                 {job.title}
               </h3>
@@ -84,17 +86,17 @@ export default function JobCard({
                     ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20"
                     : "text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700"
                 }`}
-                title={selectedForCompare ? "Bỏ chọn so sánh" : "Thêm vào so sánh việc làm"}
+                title={selectedForCompare ? t.compareDeselect : t.compareAdd}
               >
                 {selectedForCompare ? (
                   <>
                     <Check size={12} className="stroke-[3]" />
-                    <span>{compareLabel ? `So sánh (${compareLabel})` : "Đã chọn"}</span>
+                    <span>{compareLabel ? `${t.compareJobAction} (${compareLabel})` : t.compareSelected}</span>
                   </>
                 ) : (
                   <>
                     <Layers size={12} />
-                    <span>So sánh</span>
+                    <span>{t.compareJobAction}</span>
                   </>
                 )}
               </motion.button>
@@ -109,7 +111,7 @@ export default function JobCard({
                     ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30"
                     : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                 }`}
-                title={saved ? "Bỏ lưu việc làm" : "Lưu việc làm"}
+                title={saved ? t.unsaveJob : t.saveJob}
               >
                 {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
               </motion.button>
@@ -117,27 +119,26 @@ export default function JobCard({
           </div>
         </div>
 
-
         <div className="flex flex-wrap gap-2 mb-3">
           <Badge variant={EMPLOYMENT_BADGE[job.employment_type] || "muted"}>
-            {ENUM_LABELS.employment_type[job.employment_type] || job.employment_type}
+            {enumLabels.employment_type[job.employment_type] || job.employment_type}
           </Badge>
-          {expired ? <Badge variant="danger">Hết hạn</Badge> : <Badge variant="success">Đang tuyển</Badge>}
+          {expired ? <Badge variant="danger">{t.expired}</Badge> : <Badge variant="success">{t.hiring}</Badge>}
         </div>
 
         <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-1.5">
             <MapPin size={12} className="text-slate-400 flex-shrink-0" />
-            <span className="truncate">{job.location || "Toàn quốc"}</span>
+            <span className="truncate">{job.location || (lang === "en" ? "Nationwide" : "Toàn quốc")}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <DollarSign size={12} className="text-emerald-500 flex-shrink-0" />
-            <span className="font-medium text-emerald-700 dark:text-emerald-400">{salaryRange(job)}</span>
+            <span className="font-medium text-emerald-700 dark:text-emerald-400">{salaryRange(job, lang)}</span>
           </div>
           {!compact && (
             <div className="flex items-center gap-1.5">
               <Calendar size={12} className="text-slate-400 flex-shrink-0" />
-              <span>Hạn nộp: {formatDate(job.deadline_at)}</span>
+              <span>{t.deadline}: {formatDate(job.deadline_at, false, lang)}</span>
             </div>
           )}
         </div>
@@ -149,12 +150,13 @@ export default function JobCard({
         )}
 
         <div className="mt-4 flex items-center justify-between">
-          <span className="text-xs text-slate-400">Đăng ngày {formatDate(job.published_at || job.created_at)}</span>
+          <span className="text-xs text-slate-400">{t.postedAt(formatDate(job.published_at || job.created_at, false, lang))}</span>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 group-hover:gap-2 transition-all">
-            Xem chi tiết <ExternalLink size={11} />
+            {t.viewDetails} <ExternalLink size={11} />
           </span>
         </div>
       </div>
     </motion.div>
   );
 }
+

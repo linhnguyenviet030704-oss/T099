@@ -226,9 +226,11 @@ async def score_node(
 
     # 5. Điểm Market Fit (Độ phù hợp thị trường & cấp bậc)
     market_score = 70.0  # Default
+    cv_level = 3
+    jd_level = 3
     if parsed_cv and parsed_jd:
-        cv_titles = [t.lower() for t in (parsed_cv.job_titles or [])]
-        jd_titles = [t.lower() for t in (parsed_jd.job_titles or [])]
+        cv_titles = [str(t).lower() for t in (parsed_cv.job_titles or []) if t]
+        jd_titles = [str(t).lower() for t in (parsed_jd.job_titles or []) if t]
 
         seniority_levels = {"intern": 1, "junior": 2, "middle": 3, "senior": 4, "lead": 5, "principal": 6, "manager": 5, "director": 6, "vp": 7}
 

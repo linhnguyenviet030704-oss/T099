@@ -191,7 +191,7 @@ Respond ONLY with valid JSON."""
                     verified_skills=data.get("skills", []),  # All required skills are "verified"
                     experience_years=data.get("experience_years"),
                     education=data.get("education", []),
-                    job_titles=data.get("job_titles", [state.get("job_id", "Unknown Job")]),
+                    job_titles=data.get("job_titles") or [str(state.get("job_id") or "Unknown Job")],
                 )
             except (json.JSONDecodeError, Exception):
                 pass
@@ -204,7 +204,7 @@ Respond ONLY with valid JSON."""
                 verified_skills=skills,
                 experience_years=_extract_years_experience(jd_text),
                 education=_extract_education(jd_text),
-                job_titles=[state.get("job_id", "Unknown Job")],
+                job_titles=_extract_job_titles(jd_text) or [str(state.get("job_id") or "Unknown Job")],
             )
 
     return {

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Search, CheckCircle, XCircle, Clock, Check, X, Shield, Users, UserCheck } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { useLang } from "../context/LangContext";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { apiJson } from "../lib/api";
 import type { Profile, ProfileRole, RecruiterRegistrationForm } from "../types";
-import { ENUM_LABELS, formatDate } from "../lib/format";
+import { getEnumLabels, formatDate } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
-
 import Button from "../components/ui/Button";
 import { useToast } from "../context/ToastContext";
 import { motion } from "framer-motion";
@@ -16,6 +16,7 @@ type AdminSection = "requests" | "roles";
 
 export default function AdminRecruiterPage() {
   const { session } = useAuth();
+  const { lang, t } = useLang();
   const { success, error: toastError } = useToast();
   const [section, setSection] = useState<AdminSection>("requests");
   const [forms, setForms] = useState<RecruiterRegistrationForm[]>([]);
@@ -26,6 +27,8 @@ export default function AdminRecruiterPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [processing, setProcessing] = useState<string | null>(null);
 
+  const enumLabels = getEnumLabels(lang);
+
   const load = useCallback(async () => {
     if (!supabase) return;
     const { data: formsData, error: formsErr } = await supabase
@@ -33,7 +36,7 @@ export default function AdminRecruiterPage() {
       .select("*")
       .order("created_at", { ascending: false });
     if (formsErr) {
-      toastError("Không tải được danh sách đơn", handleSupabaseError(formsErr));
+      toastError(lang === "en" ? "Failed to load registration list" : "Không tải được danh sách đơn", handleSupabaseError(formsErr));
     } else {
       const items = (formsData || []) as RecruiterRegistrationForm[];
       setForms(items);
@@ -53,7 +56,7 @@ export default function AdminRecruiterPage() {
       pList.forEach((p) => { map[p.id] = p; });
       setProfilesMap(map);
     }
-  }, [toastError]);
+  }, [toastError, lang]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -96,9 +99,9 @@ export default function AdminRecruiterPage() {
         }
       }
       await load();
-      success(`Đã ${decision === "approved" ? "phê duyệt" : "từ chối"} đơn thành công!`);
+      success(decision === "approved" ? t.approveSuccess : t.rejectSuccess);
     } catch (err: unknown) {
-      toastError("Thao tác thất bại", handleSupabaseError(err));
+      toastError(lang === "en" ? "Action failed" : "Thao tác thất bại", handleSupabaseError(err));
     } finally {
       setProcessing(null);
     }
@@ -117,10 +120,10 @@ export default function AdminRecruiterPage() {
         const { error: sbErr } = await supabase.from("profiles").update({ role: newRole }).eq("id", targetUserId);
         if (sbErr) throw sbErr;
       }
-      success("Cập nhật phân quyền người dùng thành công!");
+      success(t.roleChangedSuccess);
       await load();
     } catch (err: unknown) {
-      toastError("Cập nhật quyền thất bại", handleSupabaseError(err));
+      toastError(lang === "en" ? "Failed to update role" : "Cập nhật quyền thất bại", handleSupabaseError(err));
     } finally {
       setProcessing(null);
     }
@@ -151,16 +154,16 @@ export default function AdminRecruiterPage() {
   };
 
   const tabs = [
-    { key: "pending" as const, label: "Chờ duyệt", icon: Clock, color: "text-amber-600 dark:text-amber-400" },
-    { key: "approved" as const, label: "Đã phê duyệt", icon: CheckCircle, color: "text-emerald-600 dark:text-emerald-400" },
-    { key: "rejected" as const, label: "Đã từ chối", icon: XCircle, color: "text-red-500 dark:text-red-400" },
+    { key: "pending" as const, label: t.tabPending, icon: Clock, color: "text-amber-600 dark:text-amber-400" },
+    { key: "approved" as const, label: t.tabApproved, icon: CheckCircle, color: "text-emerald-600 dark:text-emerald-400" },
+    { key: "rejected" as const, label: t.tabRejected, icon: XCircle, color: "text-red-500 dark:text-red-400" },
   ];
 
   return (
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-2">Trang Quản trị Admin</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Phê duyệt đơn đăng ký Nhà tuyển dụng và Quản lý sửa quyền người dùng</p>
+        <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-2">{t.adminTitle}</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{t.adminSubtitle}</p>
 
         {/* Section Navigation Tabs */}
         <div className="flex gap-3 mb-6 border-b border-slate-200 dark:border-slate-700 pb-3">
@@ -172,7 +175,7 @@ export default function AdminRecruiterPage() {
                 : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             }`}
           >
-            <UserCheck size={16} /> Duyệt đăng ký Recruiter ({counts.pending})
+            <UserCheck size={16} /> {t.recruiterApproval} ({counts.pending})
           </button>
           <button
             onClick={() => { setSection("roles"); setSearch(""); }}
@@ -182,7 +185,7 @@ export default function AdminRecruiterPage() {
                 : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             }`}
           >
-            <Shield size={16} /> Quản lý & Sửa quyền ({allProfiles.length})
+            <Shield size={16} /> {t.roleManagement} ({allProfiles.length})
           </button>
         </div>
 
@@ -191,7 +194,7 @@ export default function AdminRecruiterPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={section === "requests" ? "Tìm theo công ty, email..." : "Tìm theo tên, email, vai trò..."}
+            placeholder={section === "requests" ? t.searchByCompanyEmail : t.searchByNameEmailRole}
             className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white"
           />
         </div>
@@ -224,7 +227,7 @@ export default function AdminRecruiterPage() {
             <div className="space-y-3">
               {filteredForms.length === 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                  Không có đơn nào trong mục này.
+                  {t.noFormsFound}
                 </div>
               ) : (
                 filteredForms.map((a) => {
@@ -232,10 +235,10 @@ export default function AdminRecruiterPage() {
                   return (
                     <div key={a.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
                       <p className="font-semibold text-slate-900 dark:text-white">{a.company_name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{u?.full_name} · {u?.email} · {formatDate(a.created_at)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{u?.full_name} · {u?.email} · {formatDate(a.created_at, false, lang)}</p>
                       {a.status === "pending" && (
                         <div className="mt-3 space-y-2">
-                          <input value={notes[a.id] || ""} onChange={(e) => setNotes((p) => ({ ...p, [a.id]: e.target.value }))} placeholder="Ghi chú Admin (bắt buộc nếu từ chối)" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
+                          <input value={notes[a.id] || ""} onChange={(e) => setNotes((p) => ({ ...p, [a.id]: e.target.value }))} placeholder={t.adminNotePlaceholder} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
                           <div className="flex gap-2">
                             <Button
                               size="xs"
@@ -244,7 +247,7 @@ export default function AdminRecruiterPage() {
                               isLoading={processing === a.id}
                               onClick={() => void handleReview(a.id, "approved")}
                             >
-                              Phê duyệt
+                              {t.approveBtn}
                             </Button>
                             <Button
                               size="xs"
@@ -254,7 +257,7 @@ export default function AdminRecruiterPage() {
                               isLoading={processing === a.id}
                               onClick={() => void handleReview(a.id, "rejected")}
                             >
-                              Từ chối
+                              {t.rejectBtn}
                             </Button>
                           </div>
                         </div>
@@ -269,30 +272,30 @@ export default function AdminRecruiterPage() {
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
             <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
               <h2 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <Users size={16} /> Danh sách tài khoản người dùng ({filteredProfiles.length})
+                <Users size={16} /> {t.userList} ({filteredProfiles.length})
               </h2>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-700">
               {filteredProfiles.length === 0 ? (
-                <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Không tìm thấy tài khoản phù hợp.</div>
+                <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">{t.noUsersFound}</div>
               ) : (
                 filteredProfiles.map((p) => (
                   <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <p className="font-medium text-sm text-slate-900 dark:text-white">{p.full_name || "Chưa đặt tên"}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{p.email} · Tham gia {formatDate(p.created_at)}</p>
+                      <p className="font-medium text-sm text-slate-900 dark:text-white">{p.full_name || (lang === "en" ? "Unnamed" : "Chưa đặt tên")}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{p.email} · {t.joinedAt(formatDate(p.created_at, false, lang))}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 font-medium">Quyền hiện tại:</span>
+                      <span className="text-xs text-slate-500 font-medium">{t.currentRole}:</span>
                       <select
                         value={p.role}
                         disabled={processing === p.id}
                         onChange={(e) => void handleUpdateRole(p.id, e.target.value as ProfileRole)}
                         className="px-3 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer disabled:opacity-50"
                       >
-                        <option value="candidate">{ENUM_LABELS.profile_role.candidate}</option>
-                        <option value="recruiter">{ENUM_LABELS.profile_role.recruiter}</option>
-                        <option value="admin">{ENUM_LABELS.profile_role.admin}</option>
+                        <option value="candidate">{enumLabels.profile_role.candidate}</option>
+                        <option value="recruiter">{enumLabels.profile_role.recruiter}</option>
+                        <option value="admin">{enumLabels.profile_role.admin}</option>
                       </select>
                     </div>
                   </div>
@@ -305,3 +308,4 @@ export default function AdminRecruiterPage() {
     </AnimatedPage>
   );
 }
+

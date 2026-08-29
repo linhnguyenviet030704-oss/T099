@@ -101,33 +101,33 @@
 
 ```mermaid
 graph TB
-    subgraph Client Layer
-        UI[Frontend Web App<br/>React 19 + Vite + TypeScript + Tailwind v4]
+    subgraph ClientLayer ["Client Layer"]
+        UI["Frontend Web App<br/>React 19 + Vite + TypeScript + Tailwind v4"]
     end
 
-    subgraph Backend Layer (FastAPI)
-        API[API Routers<br/>FastAPI /api/v1]
-        Security[Security & Guardrails<br/>JWT HS256/RS256, Rate Limiter, PII Redactor]
+    subgraph BackendLayer ["Backend Layer (FastAPI)"]
+        API["API Routers<br/>FastAPI /api/v1"]
+        Security["Security & Guardrails<br/>JWT HS256/RS256, Rate Limiter, PII Redactor"]
         
-        subgraph Agent Orchestration (LangGraph)
-            IngestAgent[Ingest Agent<br/>parse -> clean -> extract -> summarize -> embed]
-            MatchingAgent[Matching Agent<br/>retrieve -> kg -> skill -> rrf -> rerank -> explain]
-            RecommendAgent[Recommend Agent<br/>retrieve -> kg -> skill -> rrf -> rerank -> explain]
+        subgraph AgentOrchestration ["Agent Orchestration (LangGraph)"]
+            IngestAgent["Ingest Agent<br/>parse &rarr; clean &rarr; extract &rarr; summarize &rarr; embed"]
+            MatchingAgent["Matching Agent<br/>retrieve &rarr; kg &rarr; skill &rarr; rrf &rarr; rerank &rarr; explain"]
+            RecommendAgent["Recommend Agent<br/>retrieve &rarr; kg &rarr; skill &rarr; rrf &rarr; rerank &rarr; explain"]
         end
         
-        ServiceLayer[Domain Services & Ranking Engine<br/>RRF Fusion, BM25, Skill Taxonomy, Anonymizer]
-        RepoLayer[Data Access Layer<br/>Supabase Service Role Client]
-        LLMClient[LLM & Embedding Client<br/>Qwen Cloud DashScope / OpenAI compatible]
+        ServiceLayer["Domain Services & Ranking Engine<br/>RRF Fusion, BM25, Skill Taxonomy, Anonymizer"]
+        RepoLayer["Data Access Layer<br/>Supabase Service Role Client"]
+        LLMClient["LLM & Embedding Client<br/>Qwen Cloud DashScope / OpenAI compatible"]
     end
 
-    subgraph Data & Cloud Layer (Supabase)
-        Auth[(Supabase Auth<br/>JWT Session Management)]
-        Storage[(Supabase Storage<br/>Buckets: resumes, avatars)]
-        Postgres[(PostgreSQL + pgvector<br/>HNSW Vector Index, Tables, RLS)]
+    subgraph DataLayer ["Data & Cloud Layer (Supabase)"]
+        Auth[("Supabase Auth<br/>JWT Session Management")]
+        Storage[("Supabase Storage<br/>Buckets: resumes, avatars")]
+        Postgres[("PostgreSQL + pgvector<br/>HNSW Vector Index, Tables, RLS")]
     end
 
-    subgraph External AI Cloud
-        DashScope[Qwen Cloud API<br/>qwen3.7-flash, qwen3.7-text-embedding]
+    subgraph ExternalAI ["External AI Cloud"]
+        DashScope["Qwen Cloud API<br/>qwen3.7-flash, qwen3.7-text-embedding"]
     end
 
     UI -->|REST API /api/v1| API
@@ -160,11 +160,11 @@ Quy trình tự động kích hoạt khi ứng viên tải lên CV (PDF/DOCX) ho
 
 ```mermaid
 graph LR
-    START((Start)) --> parse[1. parse<br/>PyMuPDF4LLM + PDFPlumber fallback<br/>DOCX python-docx]
-    parse --> clean[2. clean<br/>Chuẩn hóa Markdown & Heading]
-    clean --> extract[3. extract<br/>Trích xuất 186 Skill Taxonomy + Fuzzy]
-    extract --> summarize[4. summarize<br/>LLM Tóm tắt + Redact PII + Grounded Titles]
-    summarize --> embed[5. embed<br/>Tạo Embedding Vector 1536 dim]
+    START((Start)) --> parse["1. parse<br/>PyMuPDF4LLM + PDFPlumber fallback<br/>DOCX python-docx"]
+    parse --> clean["2. clean<br/>Chuẩn hóa Markdown & Heading"]
+    clean --> extract["3. extract<br/>Trích xuất 186 Skill Taxonomy + Fuzzy"]
+    extract --> summarize["4. summarize<br/>LLM Tóm tắt + Redact PII + Grounded Titles"]
+    summarize --> embed["5. embed<br/>Tạo Embedding Vector 1536 dim"]
     embed --> END((End / pgvector))
 ```
 
@@ -181,12 +181,12 @@ Quy trình hỗ trợ Nhà tuyển dụng xếp hạng ứng viên cho một v�
 
 ```mermaid
 graph LR
-    START((Start)) --> retrieve[1. retrieve<br/>Dense pgvector Cosine Search]
-    retrieve --> skill[2. skill<br/>Skill Graph Coverage & Soft Delta]
-    skill --> rrf[3. rrf<br/>Reciprocal Rank Fusion k=60]
-    rrf --> rerank[4. rerank<br/>Cross-Encoder / LLM Re-ranking]
-    rerank --> explain[5. explain<br/>Sinh giải thích ẩn danh CAND_xxx]
-    explain --> respond[6. respond<br/>Trả về kết quả & Lưu Evidence]
+    START((Start)) --> retrieve["1. retrieve<br/>Dense pgvector Cosine Search"]
+    retrieve --> skill["2. skill<br/>Skill Graph Coverage & Soft Delta"]
+    skill --> rrf["3. rrf<br/>Reciprocal Rank Fusion k=60"]
+    rrf --> rerank["4. rerank<br/>Cross-Encoder / LLM Re-ranking"]
+    rerank --> explain["5. explain<br/>Sinh giải thích ẩn danh CAND_xxx"]
+    explain --> respond["6. respond<br/>Trả về kết quả & Lưu Evidence"]
     respond --> END((End))
 ```
 

@@ -60,10 +60,10 @@ jobs:
         with:
           version: 10
 
-      - name: "⚙️ Thiết lập môi trường Node.js 20"
+      - name: "⚙️ Thiết lập môi trường Node.js 22"
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -114,10 +114,10 @@ jobs:
         with:
           version: 10
 
-      - name: "⚙️ Thiết lập Node.js 20 với cache"
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -177,10 +177,10 @@ jobs:
         with:
           version: 10
 
-      - name: "⚙️ Thiết lập Node.js 20 với cache"
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -209,10 +209,10 @@ jobs:
         with:
           version: 10
 
-      - name: "⚙️ Thiết lập Node.js 20 với cache"
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 

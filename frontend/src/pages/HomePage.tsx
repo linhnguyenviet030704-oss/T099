@@ -306,8 +306,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors">
-      {/* Khối Viewport đầu tiên: Hero/Stats phía trên, Việc làm mới nhất scale nhỏ gọn và bám sát chiếm trọn phần đáy */}
-      <div className="min-h-[calc(100vh-3.5rem)] flex flex-col justify-between pt-5 sm:pt-6 pb-2.5 sm:pb-3.5 px-4 sm:px-6 relative overflow-hidden">
+      {/* Khối Viewport đầu tiên: Sử dụng 100dvh để khớp chuẩn 100% viewport trên cả local và production (kể cả khi có Bookmark bar) */}
+      <div className="min-h-[calc(100dvh-3.5rem)] flex flex-col justify-between pt-4 sm:pt-6 pb-2.5 sm:pb-3.5 px-4 sm:px-6 relative overflow-hidden">
         {/* Background Decorative Elements & Animations */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           {/* Subtle Technology Grid Mesh Pattern */}
@@ -319,22 +319,22 @@ export default function HomePage() {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[750px] h-[400px] bg-gradient-to-tr from-indigo-100/40 via-purple-50/20 to-pink-50/10 dark:from-indigo-900/15 dark:via-purple-900/10 dark:to-transparent rounded-full blur-3xl" />
         </div>
 
-        {/* Floating Decorative Badges 2 bên (Trang trí sườn màn hình lớn) */}
+        {/* Floating Decorative Badges 2 bên (Trang trí sườn màn hình lớn - Scale cân xứng) */}
         <motion.div
           initial={{ opacity: 0, x: -35 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.15 }}
-          className="hidden xl:flex absolute left-4 2xl:left-12 top-16 lg:top-20 items-center gap-3 p-3 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl border border-indigo-100/90 dark:border-indigo-900/60 rounded-2xl shadow-lg shadow-indigo-500/5 animate-float pointer-events-none max-w-[230px]"
+          className="hidden xl:flex absolute left-4 2xl:left-12 top-20 lg:top-24 items-center gap-3.5 p-3.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-indigo-100/90 dark:border-indigo-900/60 rounded-2xl shadow-lg shadow-indigo-500/5 animate-float pointer-events-none max-w-[250px]"
         >
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/90 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0 border border-indigo-100 dark:border-indigo-800/50">
-            <Cpu size={18} />
+          <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/90 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0 border border-indigo-100 dark:border-indigo-800/50">
+            <Cpu size={20} />
           </div>
           <div className="text-left min-w-0">
-            <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-white truncate">
+            <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">
               <span>Git Repo Evaluator</span>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             </div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">5 tiêu chuẩn đánh giá mã</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">5 tiêu chuẩn đánh giá mã</p>
           </div>
         </motion.div>
 
@@ -342,57 +342,57 @@ export default function HomePage() {
           initial={{ opacity: 0, x: 35 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.25 }}
-          className="hidden xl:flex absolute right-4 2xl:right-12 top-16 lg:top-20 items-center gap-3 p-3 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl border border-purple-100/90 dark:border-purple-900/60 rounded-2xl shadow-lg shadow-purple-500/5 animate-float-slow pointer-events-none max-w-[230px]"
+          className="hidden xl:flex absolute right-4 2xl:right-12 top-20 lg:top-24 items-center gap-3.5 p-3.5 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-purple-100/90 dark:border-purple-900/60 rounded-2xl shadow-lg shadow-purple-500/5 animate-float-slow pointer-events-none max-w-[250px]"
         >
-          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/90 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold shrink-0 border border-purple-100 dark:border-purple-800/50">
-            <Sparkles size={18} />
+          <div className="w-11 h-11 rounded-xl bg-purple-50 dark:bg-purple-950/90 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold shrink-0 border border-purple-100 dark:border-purple-800/50">
+            <Sparkles size={20} />
           </div>
           <div className="text-left min-w-0">
-            <div className="flex items-center gap-1 font-bold text-xs text-slate-800 dark:text-white truncate">
+            <div className="flex items-center gap-1 font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate">
               <span>AI Interview Question</span>
-              <span className="text-amber-500 text-[10px]">★ 98%</span>
+              <span className="text-amber-500 text-xs">★ 98%</span>
             </div>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Rubric 3 cấp độ chuẩn hóa</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Rubric 3 cấp độ chuẩn hóa</p>
           </div>
         </motion.div>
 
-        {/* 1. Hero Content & Scaled Stats Bar */}
+        {/* 1. Hero Content & Scaled Stats Bar - Scale lớn ấn tượng */}
         <div className="max-w-7xl mx-auto w-full relative z-10">
-          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="text-center max-w-3xl mx-auto">
+          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="text-center max-w-4xl mx-auto">
             <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center gap-1.5 bg-indigo-50/90 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold px-3.5 py-1 rounded-full mb-3.5 sm:mb-4 border border-indigo-100 dark:border-indigo-800 shadow-2xs">
-                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+              <span className="inline-flex items-center gap-2 bg-indigo-50/90 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs sm:text-sm font-semibold px-4 py-1.5 rounded-full mb-3.5 sm:mb-4.5 border border-indigo-100 dark:border-indigo-800 shadow-2xs">
+                <span className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
                 {t.heroTag}
               </span>
             </motion.div>
-            <motion.h1 variants={fadeUp} className="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-3.5 sm:mb-4 leading-tight tracking-tight">
+            <motion.h1 variants={fadeUp} className="font-display text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white mb-3.5 sm:mb-4.5 leading-[1.15] tracking-tight">
               {t.heroTitle1}{" "}
               <span className="gradient-text">{t.heroTitle2}</span>
             </motion.h1>
-            <motion.p variants={fadeUp} className="text-xs sm:text-sm lg:text-base text-slate-600 dark:text-slate-300 mb-5 sm:mb-6 max-w-2xl mx-auto leading-relaxed">
+            <motion.p variants={fadeUp} className="text-sm sm:text-base lg:text-lg text-slate-600 dark:text-slate-300 mb-6 sm:mb-7 max-w-3xl mx-auto leading-relaxed">
               {t.heroDesc}
             </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-wrap gap-3 justify-center items-center">
-              <Link to={ctaHref} className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-indigo-500/25 hover:shadow-md transition-all">
-                {ctaLabel} <ArrowRight size={14} />
+            <motion.div variants={fadeUp} className="flex flex-wrap gap-3.5 justify-center items-center">
+              <Link to={ctaHref} className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3 sm:py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm sm:text-base font-bold rounded-2xl shadow-md shadow-indigo-500/25 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all">
+                {ctaLabel} <ArrowRight size={16} />
               </Link>
-              <Link to="/jobs" className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-2xs hover:shadow-xs transition-all">
-                <Search size={14} /> {t.searchJobs}
+              <Link to="/jobs" className="inline-flex items-center justify-center gap-2 px-6 sm:px-7 py-3 sm:py-3.5 bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm sm:text-base font-bold rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all">
+                <Search size={16} /> {t.searchJobs}
               </Link>
             </motion.div>
 
-            {/* Scaled Stats Bar */}
-            <motion.div variants={fadeUp} className="mt-8 sm:mt-10 lg:mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-left max-w-5xl mx-auto">
+            {/* Scaled Stats Bar - To rõ, nổi bật và có độ lớn ấn tượng */}
+            <motion.div variants={fadeUp} className="mt-7 sm:mt-9 lg:mt-11 grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4.5 text-left max-w-5xl mx-auto">
               {stats.map((stat) => (
-                <div key={stat.label} className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-3.5 sm:p-4 flex items-center gap-3.5 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition-all group">
-                  <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${stat.color} flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform`}>
-                    <stat.icon size={18} />
+                <div key={stat.label} className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-4 sm:p-4.5 flex items-center gap-3.5 sm:gap-4 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition-all group">
+                  <div className={`w-11 h-11 sm:w-13 sm:h-13 rounded-2xl ${stat.color} flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform`}>
+                    <stat.icon size={22} />
                   </div>
                   <div className="min-w-0">
-                    <p className={`font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-tight ${statsLoading && !landingStats ? "opacity-40 animate-pulse" : "opacity-100"}`}>
+                    <p className={`font-display text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white leading-tight ${statsLoading && !landingStats ? "opacity-40 animate-pulse" : "opacity-100"}`}>
                       {stat.value}
                     </p>
-                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">{stat.label}</p>
+                    <p className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">{stat.label}</p>
                   </div>
                 </div>
               ))}

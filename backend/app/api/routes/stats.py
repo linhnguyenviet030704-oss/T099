@@ -5,11 +5,11 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends
-from supabase import Client
 
 from backend.app.api.schemas.stats import LandingStatsResponse
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.observability.logger import get_logger
+from supabase import Client
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 logger = get_logger(__name__)

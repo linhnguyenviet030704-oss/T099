@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from unittest.mock import MagicMock
-import pytest
+
 from fastapi.testclient import TestClient
 
 from backend.app.clients.supabase import get_supabase_client

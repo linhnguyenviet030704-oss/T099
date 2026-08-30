@@ -296,10 +296,10 @@ export default function RecruitmentDashboardPage() {
   const jobApps = selectedJobId ? applications.filter((a) => a.job_post_id === selectedJobId) : [];
 
   return (
-    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">{t.recruiterWorkspace}</h1>
+    <AnimatedPage className="min-h-[calc(100vh-3.5rem)] bg-slate-50 dark:bg-slate-900 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
+        <div className="flex items-center justify-between mb-3.5">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{t.recruiterWorkspace}</h1>
           {memberships.length > 0 && (
             <select
               ref={companySelectRef}
@@ -310,51 +310,51 @@ export default function RecruitmentDashboardPage() {
                 setSelectedCompareCandidates([]);
                 setFieldErrors((p) => ({ ...p, company: false }));
               }}
-              className={`px-3 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-sm transition-all ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
+              className={`px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-2xs ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
             >
               {memberships.map((m) => <option key={m.company_id} value={m.company_id}>{m.company?.name || m.company_id}</option>)}
             </select>
           )}
         </div>
         {memberships.length === 0 && !loading && (
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
-                <Building2 size={20} />
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <div className="w-9 h-9 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+                <Building2 size={18} />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white text-base">{t.noApprovedCompanyTitle}</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">{t.noApprovedCompanyTitle}</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                   {t.noApprovedCompanyDesc}
                 </p>
               </div>
             </div>
-            <Button onClick={() => navigate("/register-recruiter")} leftIcon={<Building2 size={15} />}>
+            <Button size="sm" onClick={() => navigate("/register-recruiter")} leftIcon={<Building2 size={14} />}>
               {t.recruiterRegister}
             </Button>
           </div>
         )}
-        {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
-        {loading ? <p className="text-sm text-slate-500">{lang === "en" ? "Loading..." : "Đang tải..."}</p> : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="space-y-4">
+        {error && <p className="text-xs text-rose-500 mb-3">{error}</p>}
+        {loading ? <p className="text-xs text-slate-500">{lang === "en" ? "Loading..." : "Đang tải..."}</p> : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-sm">{t.jobListings} ({companyJobs.length})</h2>
-                <button onClick={handleOpenCreateJob} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors">
-                  <Plus size={13} /> {t.createJob}
+                <h2 className="font-semibold text-xs text-slate-700 dark:text-slate-300">{t.jobListings} ({companyJobs.length})</h2>
+                <button onClick={handleOpenCreateJob} className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer shadow-2xs">
+                  <Plus size={12} /> {t.createJob}
                 </button>
               </div>
               <AnimatePresence>
                 {showCreateJob && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-indigo-200 dark:border-indigo-800 p-5 space-y-4 shadow-sm">
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
-                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                          {editingJob ? <Pencil size={14} className="text-indigo-600" /> : <Plus size={14} className="text-indigo-600" />}
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-indigo-200 dark:border-indigo-800 p-4 space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-1.5">
+                        <h3 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                          {editingJob ? <Pencil size={13} className="text-indigo-600" /> : <Plus size={13} className="text-indigo-600" />}
                           {editingJob ? t.editJobListing : t.createNewJob}
                         </h3>
                         <button onClick={() => { setShowCreateJob(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-                          <X size={14} />
+                          <X size={13} />
                         </button>
                       </div>
 

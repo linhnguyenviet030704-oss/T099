@@ -912,98 +912,87 @@ export default function RepoEvaluationPage() {
 
   return (
     <AnimatedPage>
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* Header Banner */}
-        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
-          <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="max-w-3xl space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-medium">
-                <Sparkles size={14} className="text-indigo-400" />
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3">
+        {/* Header Banner - Super Compact */}
+        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 rounded-2xl p-3.5 sm:p-4 text-white relative overflow-hidden shadow-sm">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[11px] font-medium">
+                <Sparkles size={12} className="text-indigo-400" />
                 Agent 1 • AI Repository Research & Evaluator
               </div>
-              <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight">
+              <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight">
                 Agent Nghiên Cứu & Đánh Giá Git Repository
               </h1>
-              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                Dành cho Nhà tuyển dụng: Chọn vị trí công việc đã đăng, chọn CV ứng viên đã submit để tự động bóc tách dự án,
-                truy vết repository GitHub và nghiên cứu đánh giá tuần tự theo 5 tiêu chí chuẩn quốc tế.
+              <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
+                Bóc tách dự án, truy vết GitHub repository từ CV ứng viên và chấm điểm tự động theo 5 tiêu chuẩn quốc tế.
               </p>
             </div>
 
             {/* History Trigger Button */}
-            <div className="shrink-0 flex items-center gap-3">
+            <div className="shrink-0 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   void loadSearchHistory();
                   setShowHistoryModal(true);
                 }}
-                className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs backdrop-blur-md transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <History size={18} className="text-indigo-300" />
-                <span>Lịch sử tìm kiếm ({searchHistory.length})</span>
+                <History size={14} className="text-indigo-300" />
+                <span>Lịch sử ({searchHistory.length})</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1.5">
           <button
             type="button"
             onClick={() => { if (!isRunning) setActiveTab("cv"); }}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
               activeTab === "cv"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-indigo-600 text-white shadow-xs"
                 : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             }`}
           >
-            <FileText size={18} />
+            <FileText size={14} />
             <span>Nghiên cứu từ CV (AI CV Repo Agent)</span>
           </button>
 
           <button
             type="button"
             onClick={() => { if (!isRunning) setActiveTab("url"); }}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
               activeTab === "url"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-indigo-600 text-white shadow-xs"
                 : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             }`}
           >
-            <LinkIcon size={18} />
+            <LinkIcon size={14} />
             <span>Nhập trực tiếp URL Repository</span>
           </button>
         </div>
 
-        {/* Mode 1: CV Input Form Box */}
+        {/* Mode 1: CV Input Form Box - Compact 1-Screen */}
         {activeTab === "cv" && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-6">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Briefcase size={18} className="text-indigo-600" />
-                Quy trình nghiên cứu CV ứng viên
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Chọn công việc đã đăng, chọn CV ứng viên đã submit để Agent bóc tách dự án và đánh giá các repository liên quan.
-              </p>
-            </div>
-
-            {/* Sub-inputs: Recruiter Job Application (Default) vs Saved Vault vs Direct Text vs Upload */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-3 text-xs font-medium">
+          <div className="bg-white dark:bg-slate-800/95 rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+            {/* Sub-inputs Selector */}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 dark:border-slate-700/60 pb-2 text-xs font-medium">
               {canBrowse && (
                 <button
                   type="button"
                   onClick={() => setCvInputType("job_applications")}
-                  className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                     cvInputType === "job_applications"
-                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
                       : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
-                  <Briefcase size={15} />
-                  <span>1. Ứng viên nộp vào Job đã đăng ({recruiterJobs.length} Job)</span>
+                  <Briefcase size={13} />
+                  <span>1. Ứng viên nộp vào Job ({recruiterJobs.length})</span>
                 </button>
               )}
 
@@ -1011,39 +1000,39 @@ export default function RepoEvaluationPage() {
                 <button
                   type="button"
                   onClick={() => setCvInputType("vault")}
-                  className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                     cvInputType === "vault"
-                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
                       : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
-                  <UserCheck size={15} />
-                  <span>2. Kho CV cá nhân ({userResumes.length})</span>
+                  <UserCheck size={13} />
+                  <span>2. Kho CV ({userResumes.length})</span>
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={() => setCvInputType("text")}
-                className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                   cvInputType === "text"
-                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                 }`}
               >
-                <Code2 size={15} />
-                <span>3. Dán văn bản / Markdown CV</span>
+                <Code2 size={13} />
+                <span>3. Dán văn bản CV</span>
               </button>
 
               <label
-                className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                   cvInputType === "upload"
-                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                 }`}
               >
-                <Upload size={15} />
-                <span>{uploadedFileName ? `Tệp: ${uploadedFileName}` : "4. Tải tệp CV lên (.md, .txt, .pdf)"}</span>
+                <Upload size={13} />
+                <span>{uploadedFileName ? `Tệp: ${uploadedFileName}` : "4. Tải tệp CV lên"}</span>
                 <input
                   type="file"
                   accept=".md,.txt,.pdf,.docx,.doc"
@@ -1054,168 +1043,119 @@ export default function RepoEvaluationPage() {
               </label>
             </div>
 
-            {/* Workflow 1: Recruiter selects Job -> selects submitted CV */}
+            {/* Workflow 1: Recruiter selects Job & selects submitted CV - 2 Columns Side-by-Side */}
             {cvInputType === "job_applications" && (
-              <div className="space-y-6">
-                {/* Step 1: Select Job */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[11px] font-black">
-                        1
-                      </span>
-                      <span>Chọn vị trí tuyển dụng (Job đã đăng):</span>
-                    </label>
-                    {isLoadingJobs && (
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Loader2 size={12} className="animate-spin" /> Đang tải danh sách job...
-                      </span>
-                    )}
-                  </div>
-
-                  {recruiterJobs.length === 0 && !isLoadingJobs ? (
-                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs">
-                      Chưa tìm thấy tin tuyển dụng nào. Bạn có thể chuyển sang tab <strong>Dán văn bản CV</strong> hoặc <strong>Tải tệp CV lên</strong>.
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedJobId}
-                      onChange={(e) => setSelectedJobId(e.target.value)}
-                      disabled={isRunning}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                    >
-                      {recruiterJobs.map((job) => (
-                        <option key={job.id} value={job.id}>
-                          {job.title} {job.location ? `(${job.location})` : ""} — {job.application_count || 0} ứng viên đã nộp CV
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* Step 2: Select Submitted CV from Candidates */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[11px] font-black">
-                        2
-                      </span>
-                      <span>Chọn CV ứng viên đã nộp vào Job này ({jobApplications.length} ứng viên):</span>
-                    </label>
-                    {isLoadingApps && (
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Loader2 size={12} className="animate-spin" /> Đang tải danh sách CV...
-                      </span>
-                    )}
-                  </div>
-
-                  {isLoadingApps ? (
-                    <div className="p-8 flex items-center justify-center gap-2 text-slate-400 text-xs">
-                      <Loader2 size={16} className="animate-spin text-indigo-600" />
-                      <span>Đang tải danh sách ứng viên đã nộp...</span>
-                    </div>
-                  ) : jobApplications.length === 0 ? (
-                    <div className="p-6 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-center space-y-2">
-                      <Users size={28} className="mx-auto text-slate-400" />
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        Chưa có ứng viên nào submit CV vào vị trí tuyển dụng này
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Bạn có thể chọn một vị trí tuyển dụng khác ở trên, hoặc chuyển sang tab <strong>Dán văn bản / Tải tệp CV lên</strong>.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {jobApplications.map((app) => {
-                        const isSelected = selectedApplicationId === app.id;
-
-                        return (
-                          <div
-                            key={app.id}
-                            onClick={() => {
-                              if (!isRunning) {
-                                setSelectedApplicationId(app.id);
-                                setSelectedResumeId(app.resume_id);
-                              }
-                            }}
-                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                              isSelected
-                                ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 dark:border-indigo-600 shadow-md ring-2 ring-indigo-500/20"
-                                : "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div
-                                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                                    isSelected
-                                      ? "bg-indigo-600 text-white"
-                                      : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                                  }`}
-                                >
-                                  {app.applicant_name.slice(0, 2).toUpperCase()}
-                                </div>
-                                <div className="min-w-0">
-                                  <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                                    {app.applicant_name}
-                                  </h4>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                    {app.applicant_email || "Chưa có email"}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="shrink-0">
-                                {isSelected ? (
-                                  <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                                    <Check size={12} strokeWidth={3} />
-                                  </div>
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600" />
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                              <span className="truncate max-w-[140px]" title={app.resume_title_snapshot || "CV Ứng viên"}>
-                                📄 {app.resume_title_snapshot || "CV Ứng viên"}
-                              </span>
-                              <span className="capitalize px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 text-[10px] font-semibold">
-                                {app.current_status}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Active candidate summary pill */}
-                  {activeSelectedApp && activeSelectedJob && (
-                    <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
-                      <div className="flex items-center gap-2">
-                        <UserCheck size={16} className="text-indigo-600" />
-                        <span>
-                          Sẵn sàng nghiên cứu CV của <strong>{activeSelectedApp.applicant_name}</strong> cho vị trí <strong>{activeSelectedJob.title}</strong>
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Step 1: Select Job */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                        <span className="w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-black">
+                          1
                         </span>
-                      </div>
+                        <span>Vị trí tuyển dụng:</span>
+                      </label>
+                      {isLoadingJobs && (
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Loader2 size={10} className="animate-spin" /> Đang tải...
+                        </span>
+                      )}
                     </div>
-                  )}
+
+                    {recruiterJobs.length === 0 && !isLoadingJobs ? (
+                      <div className="p-2.5 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs">
+                        Chưa có tin tuyển dụng nào.
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedJobId}
+                        onChange={(e) => setSelectedJobId(e.target.value)}
+                        disabled={isRunning}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium cursor-pointer"
+                      >
+                        {recruiterJobs.map((job) => (
+                          <option key={job.id} value={job.id}>
+                            {job.title} {job.location ? `(${job.location})` : ""} — {job.application_count || 0} ứng viên
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Step 2: Select Submitted CV from Candidates */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                        <span className="w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-black">
+                          2
+                        </span>
+                        <span>Chọn CV ứng viên đã nộp ({jobApplications.length}):</span>
+                      </label>
+                      {isLoadingApps && (
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Loader2 size={10} className="animate-spin" /> Đang tải...
+                        </span>
+                      )}
+                    </div>
+
+                    {isLoadingApps ? (
+                      <div className="p-2.5 flex items-center justify-center gap-1.5 text-slate-400 text-xs bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <Loader2 size={12} className="animate-spin text-indigo-600" />
+                        <span>Đang tải danh sách...</span>
+                      </div>
+                    ) : jobApplications.length === 0 ? (
+                      <div className="p-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-center text-xs text-slate-500">
+                        Chưa có ứng viên nộp CV vào Job này.
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedApplicationId || ""}
+                        onChange={(e) => {
+                          const app = jobApplications.find((a) => a.id === e.target.value);
+                          if (app && !isRunning) {
+                            setSelectedApplicationId(app.id);
+                            setSelectedResumeId(app.resume_id);
+                          }
+                        }}
+                        disabled={isRunning}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-hidden focus:ring-1 focus:ring-indigo-500 font-semibold cursor-pointer"
+                      >
+                        {jobApplications.map((app) => (
+                          <option key={app.id} value={app.id}>
+                            {app.applicant_name} ({app.applicant_email || "Không có email"}) — {app.resume_title_snapshot || "CV Ứng viên"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
+
+                {/* Active candidate summary pill & Quick Action */}
+                {activeSelectedApp && activeSelectedJob && (
+                  <div className="p-2 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <UserCheck size={14} className="text-indigo-600 shrink-0" />
+                      <span className="truncate">
+                        Ứng viên: <strong>{activeSelectedApp.applicant_name}</strong> • Vị trí: <strong>{activeSelectedJob.title}</strong>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Workflow 2: Personal Vault */}
             {cvInputType === "vault" && userResumes.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Chọn CV từ kho CV cá nhân của bạn:
+                  Chọn CV từ kho CV cá nhân:
                 </label>
                 <select
                   value={selectedResumeId}
                   onChange={(e) => setSelectedResumeId(e.target.value)}
                   disabled={isRunning}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-hidden focus:ring-1 focus:ring-indigo-500"
                 >
                   {userResumes.map((r) => (
                     <option key={r.id} value={r.id}>
@@ -1228,14 +1168,14 @@ export default function RepoEvaluationPage() {
 
             {/* Workflow 3 & 4: Text & Upload */}
             {(cvInputType === "text" || cvInputType === "upload") && (
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Văn bản CV (Hỗ trợ Markdown hoặc Text):
                   </label>
                   {/* Sample Presets */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] text-slate-400">Mẫu thử:</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[10px] text-slate-400">Mẫu:</span>
                     {SAMPLE_CVS.map((sample, idx) => (
                       <button
                         key={idx}
@@ -1244,7 +1184,7 @@ export default function RepoEvaluationPage() {
                           setCvTextInput(sample.text);
                           setCvInputType("text");
                         }}
-                        className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 text-[11px] text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors"
+                        className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 text-[10px] text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors"
                       >
                         {sample.label.split(" (")[0]}
                       </button>
@@ -1252,32 +1192,32 @@ export default function RepoEvaluationPage() {
                   </div>
                 </div>
                 <textarea
-                  rows={7}
+                  rows={3}
                   value={cvTextInput}
                   onChange={(e) => setCvTextInput(e.target.value)}
                   placeholder="Dán nội dung CV có chứa thông tin dự án, link GitHub repo hoặc link GitHub Profile..."
                   disabled={isRunning}
-                  className="w-full p-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono outline-hidden focus:ring-1 focus:ring-indigo-500 leading-relaxed resize-none"
                 />
               </div>
             )}
 
-            {/* Submit Button */}
-            <div className="flex justify-end pt-2">
+            {/* Submit Button - Compact & Visible without scrolling */}
+            <div className="flex justify-end pt-1">
               <button
                 type="button"
                 onClick={() => void handleStartCVEvaluation()}
                 disabled={isRunning || (cvInputType === "job_applications" && jobApplications.length === 0)}
-                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 {isRunning ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={14} className="animate-spin" />
                     <span>Đang nghiên cứu repos từ CV...</span>
                   </>
                 ) : (
                   <>
-                    <Search size={18} />
+                    <Search size={14} />
                     <span>Bắt đầu nghiên cứu từ CV</span>
                   </>
                 )}
@@ -1288,36 +1228,36 @@ export default function RepoEvaluationPage() {
 
         {/* Mode 2: Direct URL Input Box */}
         {activeTab === "url" && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-4">
-            <form onSubmit={handleStartDirectEvaluation} className="space-y-4">
-              <label className="block text-sm font-semibold text-slate-900 dark:text-white">
+          <div className="bg-white dark:bg-slate-800/95 rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3.5 sm:p-4 shadow-xs space-y-2.5">
+            <form onSubmit={handleStartDirectEvaluation} className="space-y-2.5">
+              <label className="block text-xs font-bold text-slate-900 dark:text-white">
                 Đường dẫn GitHub Repository
               </label>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                  <GitBranch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <GitBranch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                   <input
                     type="text"
                     value={directRepoUrl}
                     onChange={(e) => setDirectRepoUrl(e.target.value)}
                     placeholder="https://github.com/owner/repository"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-1 focus:ring-indigo-500 transition-all outline-hidden"
                     disabled={isRunning}
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isRunning}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow-md disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                 >
                   {isRunning ? (
                     <>
-                      <Loader2 size={18} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                       <span>Đang đánh giá...</span>
                     </>
                   ) : (
                     <>
-                      <Search size={18} />
+                      <Search size={14} />
                       <span>Đánh giá trực tiếp</span>
                     </>
                   )}
@@ -1325,14 +1265,14 @@ export default function RepoEvaluationPage() {
               </div>
 
               {/* Quick Samples */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-slate-500 dark:text-slate-400">
-                <span className="font-medium">Mẫu thử nghiệm:</span>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="font-medium">Mẫu thử:</span>
                 {SAMPLE_REPOS.map((sample) => (
                   <button
                     type="button"
                     key={sample}
                     onClick={() => setDirectRepoUrl(sample)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 transition-colors"
+                    className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 transition-colors"
                   >
                     {sample.replace("https://github.com/", "")}
                   </button>

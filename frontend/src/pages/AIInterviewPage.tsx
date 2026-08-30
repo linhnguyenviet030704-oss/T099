@@ -1016,14 +1016,14 @@ export default function AIInterviewPage() {
   );
 
   return (
-    <AnimatedPage className="w-full min-h-[calc(100vh-4rem)] bg-slate-50 dark:bg-slate-900 flex">
+    <AnimatedPage className="w-full min-h-[calc(100vh-3.5rem)] bg-slate-50 dark:bg-slate-900 flex transition-colors">
       {/* Left Sidebar (Desktop Animated Aside) */}
       {desktop ? (
         <motion.aside
           initial={false}
           animate={{ width: leftOpen ? LEFT_W : 0 }}
           transition={SIDE_T}
-          className="sticky top-16 h-[calc(100vh-4rem)] shrink-0 overflow-hidden z-20 self-start"
+          className="sticky top-14 h-[calc(100vh-3.5rem)] shrink-0 overflow-hidden z-20 self-start border-r border-slate-200/80 dark:border-slate-800"
         >
           <div className="h-full" style={{ width: LEFT_W }}>
             {historyPane}
@@ -1050,7 +1050,7 @@ export default function AIInterviewPage() {
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={SIDE_T}
-                className="fixed z-40 left-0 top-16 bottom-0 w-64 shadow-xl"
+                className="fixed z-40 left-0 top-14 bottom-0 w-64 shadow-xl"
               >
                 {historyPane}
               </motion.aside>
@@ -1060,40 +1060,39 @@ export default function AIInterviewPage() {
       )}
 
       {/* Main Content Workspace */}
-      <div className="flex-1 min-w-0 flex flex-col py-4 gap-3">
-        <div ref={resultsTopRef} className="w-full lg:w-[92%] lg:mx-auto px-3 sm:px-4 flex flex-col flex-1 min-h-0 gap-3">
-          {/* Header Banner */}
-          <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 rounded-2xl sm:rounded-3xl p-6 sm:p-8 text-white relative overflow-hidden shadow-md">
-            <div className="absolute right-0 top-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-            <div className="relative z-10 max-w-3xl space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-medium">
-                <Sparkles size={13} className="text-purple-400" />
+      <div className="flex-1 min-w-0 flex flex-col py-3 gap-2.5">
+        <div ref={resultsTopRef} className="w-full lg:w-[94%] lg:mx-auto px-3 sm:px-4 flex flex-col flex-1 min-h-0 gap-2.5">
+          {/* Header Banner - Compact */}
+          <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 rounded-2xl p-3.5 sm:p-4 text-white relative overflow-hidden shadow-sm">
+            <div className="absolute right-0 top-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            <div className="relative z-10 max-w-3xl space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-[11px] font-medium">
+                <Sparkles size={11} className="text-purple-400" />
                 Agent 2 • Tailored AI Interview Question Generator
               </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold tracking-tight">
+              <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight">
                 Sinh Bộ Câu Hỏi Phỏng Vấn Cá Nhân Hóa
               </h1>
-              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-                Tự động kết hợp hồ sơ CV, đánh giá dự án Git (Candidate Knowledge Graph) và tiêu chuẩn Job Description để
-                sinh các câu hỏi phỏng vấn chuẩn xác kèm rubric đánh giá 3 cấp độ và câu hỏi đào sâu.
+              <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
+                Tự động kết hợp hồ sơ CV, đánh giá dự án Git (Candidate Knowledge Graph) và JD để sinh câu hỏi phỏng vấn chuẩn xác kèm rubric đánh giá 3 cấp độ.
               </p>
             </div>
           </div>
 
           {/* Quick Select & Trigger Form Bar */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-5 shadow-sm space-y-4">
-            <form onSubmit={handleGenerate} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white dark:bg-slate-800/95 rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3.5 sm:p-4 shadow-xs space-y-2.5">
+            <form onSubmit={handleGenerate} className="space-y-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Select Candidate */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <User size={14} className="text-purple-600 dark:text-purple-400" />
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <User size={13} className="text-purple-600 dark:text-purple-400" />
                     <span>Chọn Ứng viên (CV & Knowledge Graph)</span>
                   </label>
                   <select
                     value={selectedCandidateId}
                     onChange={(e) => setSelectedCandidateId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer shadow-2xs"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-1 focus:ring-purple-500 outline-hidden transition-all cursor-pointer shadow-2xs"
                     disabled={isGenerating}
                   >
                     {candidatesList.map((c) => (
@@ -1105,15 +1104,15 @@ export default function AIInterviewPage() {
                 </div>
 
                 {/* Select Job */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <Briefcase size={14} className="text-indigo-600 dark:text-indigo-400" />
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Briefcase size={13} className="text-indigo-600 dark:text-indigo-400" />
                     <span>Vị trí tuyển dụng (Job Description)</span>
                   </label>
                   <select
                     value={selectedJobId}
                     onChange={(e) => setSelectedJobId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs sm:text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all cursor-pointer shadow-2xs"
+                    className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-1 focus:ring-purple-500 outline-hidden transition-all cursor-pointer shadow-2xs"
                     disabled={isGenerating}
                   >
                     {jobsList.map((j) => (
@@ -1127,16 +1126,16 @@ export default function AIInterviewPage() {
               </div>
 
               {/* Action Buttons & Parameters Quick Strip */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600 dark:text-slate-400">
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/60 font-semibold text-purple-600 dark:text-purple-300">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-600 dark:text-slate-400">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/60 font-semibold text-purple-600 dark:text-purple-300">
                     {questionCount} câu hỏi
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/60 font-semibold text-indigo-600 dark:text-indigo-300">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/60 font-semibold text-indigo-600 dark:text-indigo-300">
                     Bao phủ {coverageThreshold}% JD
                   </span>
                   {includeProjectRefs && (
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-medium flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-medium flex items-center gap-1">
                       <GitBranch size={11} /> Kèm Dự án Git
                     </span>
                   )}

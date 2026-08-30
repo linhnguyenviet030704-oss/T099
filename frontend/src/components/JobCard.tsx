@@ -52,26 +52,32 @@ export default function JobCard({
     <motion.div
       whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(99,102,241,0.12)" }}
       transition={{ duration: 0.18 }}
-      className="group bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 rounded-xl p-3.5 sm:p-4 cursor-pointer relative overflow-hidden shadow-xs hover:border-indigo-200 dark:hover:border-indigo-700"
+      className={`group bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 cursor-pointer relative overflow-hidden shadow-xs hover:border-indigo-200 dark:hover:border-indigo-700 transition-all ${
+        compact ? "p-2.5 sm:p-3 rounded-xl" : "p-3.5 sm:p-4 rounded-2xl"
+      }`}
       onClick={() => navigate(`/jobs/${job.id}`)}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/0 to-purple-50/0 group-hover:from-indigo-50/40 group-hover:to-purple-50/20 dark:group-hover:from-indigo-950/15 dark:group-hover:to-purple-950/10 transition-all duration-300 pointer-events-none" />
 
       <div className="relative">
-        <div className="flex items-start justify-between gap-2.5 mb-2.5">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-slate-100 dark:bg-slate-700/70 overflow-hidden shrink-0 border border-slate-200/60 dark:border-slate-600/50">
+        <div className={`flex items-start justify-between gap-2 ${compact ? "mb-1.5" : "mb-2"}`}>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className={`rounded-lg bg-slate-100 dark:bg-slate-700/70 overflow-hidden shrink-0 border border-slate-200/60 dark:border-slate-600/50 ${
+              compact ? "w-7 h-7 sm:w-8 sm:h-8" : "w-9 h-9 sm:w-10 sm:h-10"
+            }`}>
               {company?.logo_storage_path ? (
                 <img src={company.logo_storage_path} alt={company.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-sm sm:text-base font-bold text-indigo-600 dark:text-indigo-400">
+                <div className="w-full h-full flex items-center justify-center text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400">
                   {(company?.name || "?")[0]}
                 </div>
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">{company?.name || (lang === "en" ? "Company" : "Công ty")}</p>
-              <h3 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white leading-snug line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">{company?.name || (lang === "en" ? "Company" : "Công ty")}</p>
+              <h3 className={`font-semibold text-slate-900 dark:text-white leading-snug line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
+                compact ? "text-xs" : "text-xs sm:text-sm font-bold"
+              }`}>
                 {job.title}
               </h3>
             </div>
@@ -113,26 +119,26 @@ export default function JobCard({
                 }`}
                 title={saved ? t.unsaveJob : t.saveJob}
               >
-                {saved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
+                {saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
               </motion.button>
             )}
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-2.5">
+        <div className={`flex flex-wrap gap-1.5 ${compact ? "mb-1.5" : "mb-2"}`}>
           <Badge variant={EMPLOYMENT_BADGE[job.employment_type] || "muted"}>
             {enumLabels.employment_type[job.employment_type] || job.employment_type}
           </Badge>
           {expired ? <Badge variant="danger">{t.expired}</Badge> : <Badge variant="success">{t.hiring}</Badge>}
         </div>
 
-        <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
+        <div className={`space-y-0.5 text-slate-500 dark:text-slate-400 ${compact ? "text-[11px]" : "text-xs"}`}>
           <div className="flex items-center gap-1.5">
-            <MapPin size={12} className="text-slate-400 shrink-0" />
+            <MapPin size={11} className="text-slate-400 shrink-0" />
             <span className="truncate">{job.location || (lang === "en" ? "Nationwide" : "Toàn quốc")}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <DollarSign size={12} className="text-emerald-500 shrink-0" />
+            <DollarSign size={11} className="text-emerald-500 shrink-0" />
             <span className="font-semibold text-emerald-700 dark:text-emerald-400">{salaryRange(job, lang)}</span>
           </div>
           {!compact && (
@@ -144,15 +150,17 @@ export default function JobCard({
         </div>
 
         {!compact && (
-          <p className="mt-2.5 text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
             {job.description}
           </p>
         )}
 
-        <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
-          <span className="text-[11px] text-slate-400">{t.postedAt(formatDate(job.published_at || job.created_at, false, lang))}</span>
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 group-hover:gap-1.5 transition-all">
-            {t.viewDetails} <ExternalLink size={10} />
+        <div className={`border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between ${
+          compact ? "mt-2 pt-1.5" : "mt-2.5 pt-2"
+        }`}>
+          <span className="text-[10px] text-slate-400">{t.postedAt(formatDate(job.published_at || job.created_at, false, lang))}</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 group-hover:gap-1.5 transition-all">
+            {t.viewDetails} <ExternalLink size={9} />
           </span>
         </div>
       </div>

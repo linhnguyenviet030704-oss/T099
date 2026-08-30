@@ -40,18 +40,17 @@ export default function Navbar() {
     { label: t.home, href: "/", always: true },
     { label: t.jobs, href: "/jobs", always: true },
     { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", always: true },
-    { label: t.contact || (lang === "en" ? "Contact" : "Liên hệ"), href: "/contact", always: true },
     { label: t.aiSuggestions, href: "/ai-suggestions", candidate: true },
     { label: t.cvAssessment || (lang === "en" ? "CV Assessment" : "Đánh giá CV"), href: "/cv-assessment", candidate: true },
     { label: t.aiCandidates, href: "/ai-candidates", recruiter: true },
     { label: t.aiInterview || (lang === "en" ? "AI Interview" : "Phỏng vấn AI"), href: "/ai-interview", recruiter: true },
     { label: t.dashboard, href: "/dashboard", recruiter: true },
     { label: t.adminMenu, href: "/admin", admin: true },
+    { label: t.contact || (lang === "en" ? "Contact" : "Liên hệ"), href: "/contact", always: true },
   ];
 
   const userLinks = [
     { label: t.profile, href: "/profile", icon: User, always: true },
-    { label: t.contact || (lang === "en" ? "Contact" : "Liên hệ"), href: "/contact", icon: MessageSquareCode, always: true },
     { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", icon: GitBranch, always: true },
     { label: t.cvVault, href: "/cv-vault", icon: FileText, candidate: true },
     { label: t.cvAssessment || (lang === "en" ? "CV Assessment" : "Đánh giá CV"), href: "/cv-assessment", icon: Compass, candidate: true },
@@ -60,6 +59,7 @@ export default function Navbar() {
     { label: t.aiInterview || (lang === "en" ? "AI Interview" : "Phỏng vấn AI"), href: "/ai-interview", icon: MessageSquareCode, recruiter: true },
     { label: t.dashboard, href: "/dashboard", icon: LayoutDashboard, recruiter: true },
     { label: t.adminMenu, href: "/admin", icon: Shield, admin: true },
+    { label: t.contact || (lang === "en" ? "Contact" : "Liên hệ"), href: "/contact", icon: MessageSquareCode, always: true },
   ];
 
   const visibleNavLinks = navLinks.filter((l) => {

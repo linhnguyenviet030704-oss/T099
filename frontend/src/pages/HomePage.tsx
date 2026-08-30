@@ -23,6 +23,9 @@ import {
   Send,
   User,
   Briefcase,
+  MessageCircle,
+  Share2,
+  Cpu,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
@@ -55,7 +58,8 @@ export default function HomePage() {
   // Form liên hệ trên trang chủ
   const [contactForm, setContactForm] = useState({
     name: "",
-    email: "",
+    channel: "email" as "email" | "zalo" | "facebook",
+    contactValue: "",
     company: "",
     role: "",
     need: "",
@@ -302,119 +306,167 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900 transition-colors">
-      {/* Hero Section - Compact */}
-      <section className="relative overflow-hidden pt-10 sm:pt-14 pb-12 sm:pb-14">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[750px] h-[450px] bg-gradient-to-br from-indigo-100/60 via-purple-50/40 to-pink-50/20 dark:from-indigo-900/20 dark:via-purple-900/10 dark:to-transparent rounded-full blur-3xl" />
+      {/* Khối Viewport đầu tiên: Hero/Stats phía trên, Việc làm mới nhất scale nhỏ gọn và bám sát chiếm trọn phần đáy */}
+      <div className="min-h-[calc(100vh-3.5rem)] flex flex-col justify-between pt-5 sm:pt-6 pb-2.5 sm:pb-3.5 px-4 sm:px-6 relative overflow-hidden">
+        {/* Background Decorative Elements & Animations */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Subtle Technology Grid Mesh Pattern */}
+          <div className="absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:28px_28px] opacity-[0.12] dark:opacity-[0.08]" />
+
+          {/* Animated Ambient Glow Orbs */}
+          <div className="absolute -left-28 top-12 w-96 h-96 bg-gradient-to-br from-indigo-500/15 to-purple-500/10 dark:from-indigo-600/15 dark:to-purple-600/10 rounded-full blur-3xl animate-pulse-glow" />
+          <div className="absolute -right-28 top-16 w-96 h-96 bg-gradient-to-br from-purple-500/15 to-pink-500/10 dark:from-purple-600/15 dark:to-pink-600/10 rounded-full blur-3xl animate-pulse-glow [animation-delay:3s]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[750px] h-[400px] bg-gradient-to-tr from-indigo-100/40 via-purple-50/20 to-pink-50/10 dark:from-indigo-900/15 dark:via-purple-900/10 dark:to-transparent rounded-full blur-3xl" />
         </div>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative">
+
+        {/* Floating Decorative Badges 2 bên (Trang trí sườn màn hình lớn) */}
+        <motion.div
+          initial={{ opacity: 0, x: -35 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.15 }}
+          className="hidden xl:flex absolute left-4 2xl:left-12 top-16 lg:top-20 items-center gap-3 p-3 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl border border-indigo-100/90 dark:border-indigo-900/60 rounded-2xl shadow-lg shadow-indigo-500/5 animate-float pointer-events-none max-w-[230px]"
+        >
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/90 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0 border border-indigo-100 dark:border-indigo-800/50">
+            <Cpu size={18} />
+          </div>
+          <div className="text-left min-w-0">
+            <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800 dark:text-white truncate">
+              <span>Git Repo Evaluator</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">5 tiêu chuẩn đánh giá mã</p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 35 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.25 }}
+          className="hidden xl:flex absolute right-4 2xl:right-12 top-16 lg:top-20 items-center gap-3 p-3 bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl border border-purple-100/90 dark:border-purple-900/60 rounded-2xl shadow-lg shadow-purple-500/5 animate-float-slow pointer-events-none max-w-[230px]"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/90 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold shrink-0 border border-purple-100 dark:border-purple-800/50">
+            <Sparkles size={18} />
+          </div>
+          <div className="text-left min-w-0">
+            <div className="flex items-center gap-1 font-bold text-xs text-slate-800 dark:text-white truncate">
+              <span>AI Interview Question</span>
+              <span className="text-amber-500 text-[10px]">★ 98%</span>
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Rubric 3 cấp độ chuẩn hóa</p>
+          </div>
+        </motion.div>
+
+        {/* 1. Hero Content & Scaled Stats Bar */}
+        <div className="max-w-7xl mx-auto w-full relative z-10">
           <motion.div variants={staggerContainer} initial="hidden" animate="show" className="text-center max-w-3xl mx-auto">
             <motion.div variants={fadeUp}>
-              <span className="inline-flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold px-3 py-1 rounded-full mb-4 border border-indigo-100 dark:border-indigo-800">
+              <span className="inline-flex items-center gap-1.5 bg-indigo-50/90 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold px-3.5 py-1 rounded-full mb-3.5 sm:mb-4 border border-indigo-100 dark:border-indigo-800 shadow-2xs">
                 <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
                 {t.heroTag}
               </span>
             </motion.div>
-            <motion.h1 variants={fadeUp} className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-4 leading-tight tracking-tight">
-              {t.heroTitle1}
-              <br />
+            <motion.h1 variants={fadeUp} className="font-display text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-3.5 sm:mb-4 leading-tight tracking-tight">
+              {t.heroTitle1}{" "}
               <span className="gradient-text">{t.heroTitle2}</span>
             </motion.h1>
-            <motion.p variants={fadeUp} className="text-sm sm:text-base text-slate-600 dark:text-slate-300 mb-6 max-w-xl mx-auto leading-relaxed">
+            <motion.p variants={fadeUp} className="text-xs sm:text-sm lg:text-base text-slate-600 dark:text-slate-300 mb-5 sm:mb-6 max-w-2xl mx-auto leading-relaxed">
               {t.heroDesc}
             </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link to={ctaHref} className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md shadow-indigo-500/20 transition-all">
-                {ctaLabel} <ArrowRight size={15} />
+            <motion.div variants={fadeUp} className="flex flex-wrap gap-3 justify-center items-center">
+              <Link to={ctaHref} className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm shadow-indigo-500/25 hover:shadow-md transition-all">
+                {ctaLabel} <ArrowRight size={14} />
               </Link>
-              <Link to="/jobs" className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all">
-                <Search size={15} /> {t.searchJobs}
+              <Link to="/jobs" className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-2xs hover:shadow-xs transition-all">
+                <Search size={14} /> {t.searchJobs}
               </Link>
+            </motion.div>
+
+            {/* Scaled Stats Bar */}
+            <motion.div variants={fadeUp} className="mt-8 sm:mt-10 lg:mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-left max-w-5xl mx-auto">
+              {stats.map((stat) => (
+                <div key={stat.label} className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-3.5 sm:p-4 flex items-center gap-3.5 shadow-sm hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-600 transition-all group">
+                  <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${stat.color} flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform`}>
+                    <stat.icon size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-tight ${statsLoading && !landingStats ? "opacity-40 animate-pulse" : "opacity-100"}`}>
+                      {stat.value}
+                    </p>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">{stat.label}</p>
+                  </div>
+                </div>
+              ))}
             </motion.div>
           </motion.div>
         </div>
-      </section>
 
-      {/* Stats Section - Compact */}
-      <section className="py-8 bg-slate-50/80 dark:bg-slate-800/40 border-y border-slate-100 dark:border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="bg-white dark:bg-slate-800/90 rounded-xl p-4 text-center shadow-xs border border-slate-200/70 dark:border-slate-700/70">
-              <div className={`w-9 h-9 rounded-lg ${stat.color} flex items-center justify-center mx-auto mb-2`}>
-                <stat.icon size={18} />
-              </div>
-              <p className={`font-display text-2xl font-bold text-slate-900 dark:text-white transition-opacity duration-300 ${statsLoading && !landingStats ? "opacity-40 animate-pulse" : "opacity-100"}`}>
-                {stat.value}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Latest Jobs Section - Compact */}
-      <section className="py-10 sm:py-12">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex items-end justify-between mb-6">
+        {/* 2. Latest Jobs Section - Scale nhỏ gọn và neo sát mép đáy màn hình */}
+        <div className="max-w-6xl mx-auto w-full relative z-10 pt-2 pb-1">
+          <div className="flex items-center justify-between mb-2">
             <div>
-              <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{t.latestJobs}</h2>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">{t.latestJobsDesc}</p>
+              <h2 className="font-display text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-1.5">
+                <span>{t.latestJobs}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-[9px] font-semibold border border-indigo-100 dark:border-indigo-800/50">
+                  Mới
+                </span>
+              </h2>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t.latestJobsDesc}</p>
             </div>
-            <Link to="/jobs" className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-              {t.viewAll} <ArrowRight size={13} />
+            <Link to="/jobs" className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+              {t.viewAll} <ArrowRight size={11} />
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
             {jobs.map((job) => (
               <JobCard key={job.id} job={job} compact />
             ))}
           </div>
         </div>
-      </section>
+      </div>
 
       {/* Target Audiences Features - Compact */}
-      <section className="py-10 sm:py-12 bg-slate-50/70 dark:bg-slate-800/30 border-y border-slate-100 dark:border-slate-800">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="py-8 sm:py-10 bg-slate-50/70 dark:bg-slate-800/30 border-y border-slate-100 dark:border-slate-800">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 grid grid-cols-1 md:grid-cols-3 gap-3.5">
           {features.map((f) => (
             <button
               key={f.title}
               type="button"
               onClick={() => navigate(f.href)}
-              className="text-left bg-white dark:bg-slate-800/90 rounded-xl p-5 border border-slate-200/70 dark:border-slate-700/70 shadow-xs hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer group"
+              className="text-left bg-white dark:bg-slate-800/90 rounded-xl p-4 border border-slate-200/70 dark:border-slate-700/70 shadow-xs hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-700 transition-all cursor-pointer group"
             >
-              <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${f.gradient} flex items-center justify-center text-xl mb-3 shadow-xs`}>{f.icon}</div>
-              <h3 className="font-display text-base font-bold text-slate-900 dark:text-white mb-1.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{f.title}</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-3 line-clamp-3">{f.desc}</p>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">{f.cta} <ArrowRight size={12} /></span>
+              <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${f.gradient} flex items-center justify-center text-lg mb-2.5 shadow-xs`}>{f.icon}</div>
+              <h3 className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{f.title}</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed mb-2.5 line-clamp-2">{f.desc}</p>
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400">{f.cta} <ArrowRight size={11} /></span>
             </button>
           ))}
         </div>
       </section>
 
       {/* Section Liên hệ & FAQ (#contact) - Compact & High-Density */}
-      <section id="contact" className="py-12 sm:py-14 bg-white dark:bg-slate-900 scroll-mt-14">
+      <section id="contact" className="py-10 sm:py-12 bg-white dark:bg-slate-900 scroll-mt-14">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-2xl mx-auto mb-8">
-            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 mb-2">
-              <Sparkles size={12} className="text-indigo-500" />
+          <div className="text-center max-w-2xl mx-auto mb-6">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 mb-1.5">
+              <Sparkles size={11} className="text-indigo-500" />
               {t.contactBadge}
             </span>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               {t.contactHeroTitle}
             </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
               {t.contactHeroDesc}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* Cột trái: Kênh liên hệ & Trust cards */}
-            <div className="lg:col-span-5 space-y-3.5">
-              <div className="bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 rounded-xl p-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
+            <div className="lg:col-span-5 space-y-3">
+              <div className="bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 rounded-xl p-3.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
                   {lang === "en" ? "Direct Channels" : "Kênh liên lạc trực tiếp"}
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {contactChannels.map((c) => (
                     <a
                       key={c.email}
@@ -422,7 +474,7 @@ export default function HomePage() {
                       className="flex items-center gap-2.5 p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/60 hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors"
                     >
                       <div className={`p-1.5 rounded-md ${c.iconColor}`}>
-                        <c.icon size={14} />
+                        <c.icon size={13} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-slate-800 dark:text-white leading-tight">{c.title}</p>
@@ -451,11 +503,11 @@ export default function HomePage() {
 
             {/* Cột phải: Form liên hệ compact */}
             <div className="lg:col-span-7">
-              <div className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              <div className="bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-sm">
+                <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
                   {t.contactFormTitle}
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-4">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-3.5">
                   {t.contactFormDesc}
                 </p>
 
@@ -467,7 +519,7 @@ export default function HomePage() {
                       animate={{ opacity: 1, scale: 1 }}
                       className="text-center py-6"
                     >
-                      <CheckCircle2 size={28} className="text-emerald-500 mx-auto mb-2" />
+                      <CheckCircle2 size={26} className="text-emerald-500 mx-auto mb-2" />
                       <p className="text-sm font-bold text-slate-900 dark:text-white mb-1">{t.contactSuccessTitle}</p>
                       <p className="text-xs text-slate-500 mb-3">{t.contactSuccessDesc}</p>
                       <button
@@ -493,41 +545,110 @@ export default function HomePage() {
                             placeholder={t.contactNamePlaceholder}
                             className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500"
                           />
-                          <User size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
+                          <User size={13} className="absolute left-2.5 top-2 text-slate-400" />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            {t.contactEmail} *
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="email"
-                              required
-                              value={contactForm.email}
-                              onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                              placeholder={t.contactEmailPlaceholder}
-                              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500"
-                            />
-                            <Mail size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
-                          </div>
+                      {/* Kênh nhận phản hồi & Input liên hệ */}
+                      <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {t.contactChannelLabel || "Kênh nhận phản hồi"} *
+                        </label>
+                        <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-900/70 rounded-lg border border-slate-200/70 dark:border-slate-700/70">
+                          <button
+                            type="button"
+                            onClick={() => setContactForm({ ...contactForm, channel: "email" })}
+                            className={`flex items-center justify-center gap-1 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                              contactForm.channel === "email"
+                                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                            }`}
+                          >
+                            <Mail size={12} />
+                            <span>Email</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setContactForm({ ...contactForm, channel: "zalo" })}
+                            className={`flex items-center justify-center gap-1 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                              contactForm.channel === "zalo"
+                                ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-2xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                            }`}
+                          >
+                            <MessageCircle size={12} />
+                            <span>Zalo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setContactForm({ ...contactForm, channel: "facebook" })}
+                            className={`flex items-center justify-center gap-1 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                              contactForm.channel === "facebook"
+                                ? "bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-2xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                            }`}
+                          >
+                            <Share2 size={12} />
+                            <span>Facebook</span>
+                          </button>
                         </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            {t.contactCompany}
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={contactForm.company}
-                              onChange={(e) => setContactForm({ ...contactForm, company: e.target.value })}
-                              placeholder={t.contactCompanyPlaceholder}
-                              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500"
-                            />
-                            <Briefcase size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
-                          </div>
+
+                        {/* Input động theo Channel */}
+                        <div className="relative pt-0.5">
+                          {contactForm.channel === "email" ? (
+                            <>
+                              <input
+                                type="email"
+                                required
+                                value={contactForm.contactValue}
+                                onChange={(e) => setContactForm({ ...contactForm, contactValue: e.target.value })}
+                                placeholder={t.contactEmailPlaceholder}
+                                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500"
+                              />
+                              <Mail size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
+                            </>
+                          ) : contactForm.channel === "zalo" ? (
+                            <>
+                              <input
+                                type="tel"
+                                required
+                                value={contactForm.contactValue}
+                                onChange={(e) => setContactForm({ ...contactForm, contactValue: e.target.value })}
+                                placeholder={t.contactZaloPlaceholder || "Nhập số điện thoại Zalo..."}
+                                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-blue-500"
+                              />
+                              <MessageCircle size={13} className="absolute left-2.5 top-2.5 text-blue-500" />
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="text"
+                                required
+                                value={contactForm.contactValue}
+                                onChange={(e) => setContactForm({ ...contactForm, contactValue: e.target.value })}
+                                placeholder={t.contactFbPlaceholder || "Nhập link Facebook hoặc username..."}
+                                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-sky-500"
+                              />
+                              <Share2 size={13} className="absolute left-2.5 top-2.5 text-sky-500" />
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Công ty */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t.contactCompany}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={contactForm.company}
+                            onChange={(e) => setContactForm({ ...contactForm, company: e.target.value })}
+                            placeholder={t.contactCompanyPlaceholder}
+                            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500"
+                          />
+                          <Briefcase size={13} className="absolute left-2.5 top-2 text-slate-400" />
                         </div>
                       </div>
 

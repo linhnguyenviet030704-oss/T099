@@ -20,6 +20,8 @@ import {
   Send,
   Building2,
   User,
+  MessageCircle,
+  Share2,
 } from "lucide-react";
 import { useLang } from "../context/LangContext";
 import { useToast } from "../context/ToastContext";
@@ -32,7 +34,8 @@ export default function ContactPage() {
   // Trạng thái form liên hệ
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
+    channel: "email" as "email" | "zalo" | "facebook",
+    contactValue: "",
     company: "",
     role: "",
     need: "",
@@ -65,7 +68,8 @@ export default function ContactPage() {
   const handleResetForm = () => {
     setFormData({
       name: "",
-      email: "",
+      channel: "email",
+      contactValue: "",
       company: "",
       role: "",
       need: "",
@@ -297,41 +301,112 @@ export default function ContactPage() {
                         </div>
                       </div>
 
-                      {/* Hàng đôi: Email + Công ty */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            {t.contactEmail} <span className="text-rose-500">*</span>
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="email"
-                              required
-                              autoComplete="email"
-                              value={formData.email}
-                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                              placeholder={t.contactEmailPlaceholder}
-                              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                            />
-                            <Mail size={14} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
-                          </div>
+                      {/* Kênh nhận phản hồi & Input liên hệ */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {t.contactChannelLabel || "Kênh nhận phản hồi"} <span className="text-rose-500">*</span>
+                        </label>
+                        
+                        {/* Selector Tabs: Email / Zalo / Facebook */}
+                        <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-900/70 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, channel: "email" })}
+                            className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              formData.channel === "email"
+                                ? "bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                            }`}
+                          >
+                            <Mail size={13} />
+                            <span>Email</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, channel: "zalo" })}
+                            className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              formData.channel === "zalo"
+                                ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                            }`}
+                          >
+                            <MessageCircle size={13} />
+                            <span>Zalo</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, channel: "facebook" })}
+                            className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              formData.channel === "facebook"
+                                ? "bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-400 shadow-xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                            }`}
+                          >
+                            <Share2 size={13} />
+                            <span>Facebook</span>
+                          </button>
                         </div>
 
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            {t.contactCompany}
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              autoComplete="organization"
-                              value={formData.company}
-                              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                              placeholder={t.contactCompanyPlaceholder}
-                              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                            />
-                            <Building2 size={14} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
-                          </div>
+                        {/* Input động tương ứng với Channel đã chọn */}
+                        <div className="relative pt-1">
+                          {formData.channel === "email" ? (
+                            <>
+                              <input
+                                type="email"
+                                required
+                                autoComplete="email"
+                                value={formData.contactValue}
+                                onChange={(e) => setFormData({ ...formData, contactValue: e.target.value })}
+                                placeholder={t.contactEmailPlaceholder}
+                                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                              />
+                              <Mail size={14} className="absolute left-3 top-3.5 text-slate-400 pointer-events-none" />
+                            </>
+                          ) : formData.channel === "zalo" ? (
+                            <>
+                              <input
+                                type="tel"
+                                required
+                                value={formData.contactValue}
+                                onChange={(e) => setFormData({ ...formData, contactValue: e.target.value })}
+                                placeholder={t.contactZaloPlaceholder || "Nhập số điện thoại Zalo (ví dụ: 0912 345 678)..."}
+                                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              />
+                              <MessageCircle size={14} className="absolute left-3 top-3.5 text-blue-500 pointer-events-none" />
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="text"
+                                required
+                                value={formData.contactValue}
+                                onChange={(e) => setFormData({ ...formData, contactValue: e.target.value })}
+                                placeholder={t.contactFbPlaceholder || "Nhập link Facebook hoặc username (ví dụ: fb.com/username)..."}
+                                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
+                              />
+                              <Share2 size={14} className="absolute left-3 top-3.5 text-sky-500 pointer-events-none" />
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Công ty / Tổ chức */}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                          {t.contactCompany}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            autoComplete="organization"
+                            value={formData.company}
+                            onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                            placeholder={t.contactCompanyPlaceholder}
+                            className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400 focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                          />
+                          <Building2 size={14} className="absolute left-3 top-2.5 text-slate-400 pointer-events-none" />
                         </div>
                       </div>
 

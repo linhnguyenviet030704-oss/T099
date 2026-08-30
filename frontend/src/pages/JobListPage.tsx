@@ -164,53 +164,54 @@ export default function JobListPage() {
 
   return (
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
-      <div className="bg-white dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+      {/* Sticky Header & Search Bar - Bám theo màn hình khi người dùng cuộn */}
+      <div className="sticky top-14 z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80 shadow-xs transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2.5">
             <div>
-              <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{t.jobListTitle}</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{t.jobListTitle}</h1>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 <span className="font-semibold text-indigo-600 dark:text-indigo-400">{filtered.length}</span> {t.jobsCount(filtered.length)}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
             <div className="flex-1 relative">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t.searchPlaceholder}
-                className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50/70 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700"
+                className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-slate-50/80 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowFilters((v) => !v)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border font-semibold text-xs transition-colors cursor-pointer ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-semibold text-xs transition-colors cursor-pointer ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50"}`}
             >
-              <Filter size={14} /> {t.filter}
+              <Filter size={13} /> {t.filter}
             </motion.button>
           </div>
           <AnimatePresence>
             {showFilters && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="mt-3 p-3.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="mt-2.5 p-3 bg-slate-50/90 dark:bg-slate-700/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5 shadow-2xs">
                   <div className="flex flex-wrap gap-1.5">
                     {jobTypes.map((typeKey) => (
                       <motion.button
                         key={typeKey}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => toggleType(typeKey)}
-                        className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${selectedTypes.includes(typeKey) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-indigo-300"}`}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${selectedTypes.includes(typeKey) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-indigo-300"}`}
                       >
                         {enumLabels.employment_type[typeKey]}
                       </motion.button>
                     ))}
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2.5">
-                    <select value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs">
                       <option value="">{t.allLocations}</option>
                       {locations.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>

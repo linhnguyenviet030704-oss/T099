@@ -5,10 +5,19 @@ import { ArrowRight, Search, Users, TrendingUp, Zap, Building2 } from "lucide-re
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
 import { useLang } from "../context/LangContext";
+import { API_BASE_URL } from "../lib/env";
 import { supabase } from "../lib/supabase";
 import type { JobPost } from "../types";
 import { staggerContainer, fadeUp } from "../components/AnimatedPage";
 import JobCard from "../components/JobCard";
+
+// Kiểu dữ liệu cho các số liệu thống kê thực tế trên trang chủ
+interface LandingStats {
+  jobs_count: number;
+  candidates_count: number;
+  companies_count: number;
+  success_rate: number;
+}
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -16,7 +25,10 @@ export default function HomePage() {
   const { t, lang } = useLang();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<JobPost[]>([]);
+  const [landingStats, setLandingStats] = useState<LandingStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
+  // Tải danh sách công việc mới nhất
   useEffect(() => {
     if (!supabase) return;
     void supabase
@@ -32,15 +44,135 @@ export default function HomePage() {
       });
   }, []);
 
+  // Tải các số liệu thống kê thực tế từ Database / Backend
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchStats() {
+      try {
+        // 1. Thử gọi hàm RPC get_landing_stats trực tiếp từ Supabase
+        if (supabase) {
+          try {
+            const { data: rpcData, error: rpcError } = await supabase.rpc("get_landing_stats");
+            if (!rpcError && rpcData && typeof rpcData === "object") {
+              if (isMounted) {
+                setLandingStats({
+                  jobs_count: Number((rpcData as any).jobs_count || 0),
+                  candidates_count: Number((rpcData as any).candidates_count || 0),
+                  companies_count: Number((rpcData as any).companies_count || 0),
+                  success_rate: Number((rpcData as any).success_rate || 0),
+                });
+                setStatsLoading(false);
+                return;
+              }
+            }
+          } catch {
+            // Chuyển sang phương thức tiếp theo nếu RPC chưa được tạo
+          }
+        }
+
+        // 2. Thử gọi API backend GET /api/v1/stats/landing
+        if (API_BASE_URL) {
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/v1/stats/landing`);
+            if (response.ok) {
+              const apiData = await response.json();
+              if (isMounted && apiData) {
+                setLandingStats({
+                  jobs_count: Number(apiData.jobs_count || 0),
+                  candidates_count: Number(apiData.candidates_count || 0),
+                  companies_count: Number(apiData.companies_count || 0),
+                  success_rate: Number(apiData.success_rate || 0),
+                });
+                setStatsLoading(false);
+                return;
+              }
+            }
+          } catch {
+            // Chuyển sang fallback truy vấn trực tiếp bảng công khai
+          }
+        }
+
+        // 3. Fallback: Truy vấn đếm trực tiếp các bảng công khai trong Supabase
+        if (supabase) {
+          const [jobsRes, companiesRes] = await Promise.all([
+            supabase.from("job_posts").select("id", { count: "exact", head: true }).eq("status", "published"),
+            supabase.from("companies").select("id", { count: "exact", head: true }),
+          ]);
+
+          const jobsCount = jobsRes.count ?? 0;
+          const companiesCount = companiesRes.count ?? 0;
+
+          if (isMounted) {
+            setLandingStats((prev) => ({
+              jobs_count: jobsCount,
+              candidates_count: prev?.candidates_count || 0,
+              companies_count: companiesCount,
+              success_rate: prev?.success_rate || 0,
+            }));
+            setStatsLoading(false);
+          }
+        }
+      } catch (err) {
+        console.warn("Lỗi khi tải số liệu thống kê:", err);
+      } finally {
+        if (isMounted) {
+          setStatsLoading(false);
+        }
+      }
+    }
+
+    void fetchStats();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const ctaHref = !user ? "/register" : isRecruiter || isAdmin ? "/dashboard" : "/jobs";
   const ctaLabel = !user ? t.startFree : isRecruiter ? t.toDashboard : isAdmin ? t.toAdminMenu : t.findJobNow;
 
+  // Định dạng số liệu hiển thị thực tế
+  const formatStatValue = (val: number | undefined, isPercentage = false): string => {
+    if (val === undefined || val === null) {
+      return statsLoading ? "..." : isPercentage ? "0%" : "0";
+    }
+    if (isPercentage) {
+      return `${val}%`;
+    }
+    if (val > 0) {
+      return `${val.toLocaleString()}+`;
+    }
+    return `${val.toLocaleString()}`;
+  };
+
   const stats = [
-    { label: t.statJobs, value: "2,400+", icon: Zap, color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30" },
-    { label: t.statCandidates, value: "18,500+", icon: Users, color: "text-purple-600 bg-purple-50 dark:bg-purple-900/30" },
-    { label: t.statCompanies, value: "340+", icon: Building2, color: "text-orange-600 bg-orange-50 dark:bg-orange-900/30" },
-    { label: t.statSuccess, value: "87%", icon: TrendingUp, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30" },
+    {
+      label: t.statJobs,
+      value: formatStatValue(landingStats?.jobs_count),
+      icon: Zap,
+      color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30",
+    },
+    {
+      label: t.statCandidates,
+      value: formatStatValue(landingStats?.candidates_count),
+      icon: Users,
+      color: "text-purple-600 bg-purple-50 dark:bg-purple-900/30",
+    },
+    {
+      label: t.statCompanies,
+      value: formatStatValue(landingStats?.companies_count),
+      icon: Building2,
+      color: "text-orange-600 bg-orange-50 dark:bg-orange-900/30",
+    },
+    {
+      label: t.statSuccess,
+      value: formatStatValue(landingStats?.success_rate, true),
+      icon: TrendingUp,
+      color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30",
+    },
   ];
+
 
   const features = [
     {
@@ -110,7 +242,9 @@ export default function HomePage() {
               <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center mx-auto mb-3`}>
                 <stat.icon size={22} />
               </div>
-              <p className="font-display text-3xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
+              <p className={`font-display text-3xl font-bold text-slate-900 dark:text-white transition-opacity duration-300 ${statsLoading && !landingStats ? "opacity-40 animate-pulse" : "opacity-100"}`}>
+                {stat.value}
+              </p>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
             </div>
           ))}

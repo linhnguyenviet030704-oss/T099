@@ -1,9 +1,10 @@
-# Pipeline CD Deploy lên Cloud (Supabase, Render, Vercel)
-name: CD Deploy Pipeline
+# Pipeline CI/CD Tự động Build Docker Image, Push lên Amazon ECR và Deploy vào AWS EC2
+name: CD Deploy Pipeline (ECR + EC2)
 
 on:
   push:
-    branches: [main]
+    branches: [main, phase2_mock]
+  workflow_dispatch:
 
 jobs:
   # ==========================================
@@ -35,28 +36,162 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
   # ==========================================
-  # Giai đoạn 2a: Trigger Deploy Backend lên Render
+  # Giai đoạn 2: Build Docker Image & Push lên Amazon ECR
   # ==========================================
-  deploy-backend:
-    name: "2a. Deploy Backend (Render)"
-    needs: [deploy-database]
-    if: always()
+  build-and-push-ecr:
+    name: "2. Build & Push to Amazon ECR"
     runs-on: ubuntu-latest
-    env:
-      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+    outputs:
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
+      image_tag: ${{ steps.build-image.outputs.image_tag }}
+      image_uri: ${{ steps.build-image.outputs.image_uri }}
     steps:
-      - name: "🚀 Kích hoạt Render Deploy Hook"
-        if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' }}
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚙️ Cấu hình thông tin xác thực AWS Credentials"
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: "🔐 Đăng nhập vào Amazon ECR"
+        id: login-ecr
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: "🐳 Thiết lập Docker Buildx"
+        if: ${{ steps.login-ecr.outputs.registry != '' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: "🔨 Build và Push Docker Image lên Amazon ECR"
+        id: build-image
+        if: ${{ steps.login-ecr.outputs.registry != '' && secrets.ECR_REPOSITORY != '' }}
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "Đang kích hoạt Render Deploy Hook..."
-          curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
-          echo "Kích hoạt Render deployment thành công."
+          echo "=== BẮT ĐẦU BUILD DOCKER IMAGE ==="
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          LATEST_URI="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          docker build -t "$IMAGE_URI" -t "$LATEST_URI" .
+          echo "🚀 Đang đẩy Docker Image lên Amazon ECR: $IMAGE_URI"
+          docker push "$IMAGE_URI"
+          docker push "$LATEST_URI"
+
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_uri=$LATEST_URI" >> $GITHUB_OUTPUT
+          echo "=== BUILD & PUSH ECR THÀNH CÔNG ==="
 
   # ==========================================
-  # Giai đoạn 2b: Deploy Frontend lên Vercel Production
+  # Giai đoạn 3: SSH vào AWS EC2 và Kéo Docker Image từ ECR về chạy
+  # ==========================================
+  deploy-ec2:
+    name: "3. Deploy to AWS EC2 via SSH"
+    needs: [deploy-database, build-and-push-ecr]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: "🚀 Kết nối SSH và chạy Container mới từ ECR trên EC2"
+        if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          envs: |
+            AWS_REGION=${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+            ECR_REGISTRY=${{ needs.build-and-push-ecr.outputs.ecr_registry || secrets.ECR_REGISTRY }}
+            ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}
+          script: |
+            echo "=================================================="
+            echo "🚀 BẮT ĐẦU CẬP NHẬT CONTAINER TRÊN AWS EC2 TỪ ECR"
+            echo "=================================================="
+
+            AWS_REGION="${AWS_REGION:-ap-southeast-1}"
+
+            # 1. Đăng nhập ECR trên máy chủ EC2 (nếu có AWS CLI & ECR Registry)
+            if [ -n "$ECR_REGISTRY" ] && [ -n "$ECR_REPOSITORY" ]; then
+              echo "🔐 Đăng nhập vào Amazon ECR trên EC2..."
+              aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY" || true
+
+              IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+              echo "📥 Đang kéo Docker image mới nhất từ ECR: $IMAGE_NAME"
+              docker pull "$IMAGE_NAME"
+
+              # Tìm file .env để truyền vào container
+              ENV_FILE=""
+              if [ -f "$HOME/.env" ]; then
+                ENV_FILE="$HOME/.env"
+              elif [ -f "$HOME/team-Matikanefukukitaru/.env" ]; then
+                ENV_FILE="$HOME/team-Matikanefukukitaru/.env"
+              elif [ -f "$HOME/app/.env" ]; then
+                ENV_FILE="$HOME/app/.env"
+              elif [ -f "/home/ubuntu/.env" ]; then
+                ENV_FILE="/home/ubuntu/.env"
+              elif [ -f "/home/ubuntu/app/.env" ]; then
+                ENV_FILE="/home/ubuntu/app/.env"
+              fi
+
+              ENV_ARG=""
+              if [ -n "$ENV_FILE" ]; then
+                echo "📄 Sử dụng file môi trường: $ENV_FILE"
+                ENV_ARG="--env-file $ENV_FILE"
+              else
+                echo "⚠️ Không tìm thấy file .env cố định, dùng biến môi trường hiện có."
+              fi
+
+              echo "🛑 Dừng và xóa container backend cũ (nếu có)..."
+              docker stop backend 2>/dev/null || true
+              docker rm backend 2>/dev/null || true
+
+              echo "🚀 Khởi chạy container backend mới từ image ECR..."
+              docker run -d \
+                --name backend \
+                --restart unless-stopped \
+                -p 8000:8000 \
+                $ENV_ARG \
+                "$IMAGE_NAME"
+
+              # Dọn dẹp images cũ không dùng để tiết kiệm ổ đĩa
+              docker image prune -f || true
+
+            else
+              echo "ℹ️ Không có cấu hình ECR, fallback sang chế độ Git Pull & Docker Compose..."
+              APP_DIR="${{ secrets.EC2_APP_DIR }}"
+              if [ -z "$APP_DIR" ]; then
+                if [ -d "$HOME/team-Matikanefukukitaru" ]; then
+                  APP_DIR="$HOME/team-Matikanefukukitaru"
+                elif [ -d "$HOME/app" ]; then
+                  APP_DIR="$HOME/app"
+                else
+                  APP_DIR="$(pwd)"
+                fi
+              fi
+              cd "$APP_DIR" || exit 1
+              git pull origin main || git pull
+              docker compose down || true
+              docker compose up -d --build
+            fi
+
+            # Kiểm tra trạng thái hoạt động
+            echo "🔍 Kiểm tra trạng thái hoạt động backend..."
+            sleep 5
+            curl -f http://localhost:8000/health || curl -f http://127.0.0.1:8000/health || echo "Backend đang khởi động..."
+            echo "=================================================="
+            echo "✅ DEPLOY CONTAINER LÊN AWS EC2 THÀNH CÔNG!"
+            echo "=================================================="
+
+  # ==========================================
+  # Giai đoạn 4: Deploy Frontend lên Vercel Production
   # ==========================================
   deploy-frontend:
-    name: "2b. Deploy Frontend (Vercel)"
+    name: "4. Deploy Frontend (Vercel)"
     needs: [deploy-database]
     if: always()
     runs-on: ubuntu-latest
@@ -75,4 +210,3 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: ./
-

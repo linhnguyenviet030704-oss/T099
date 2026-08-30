@@ -22,8 +22,11 @@ env/
 # Environment variables
 .env
 .env.*
+gha.env
+*.env
 !.env.example
 !**/.env.example
+
 
 # Secrets and private credentials
 *.pem

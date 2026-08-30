@@ -35,7 +35,7 @@
    - 5.2. RESTful API Specifications
    - 5.3. Sequence Diagrams for Core Business Workflows
 6. [CHAPTER 6: DEPLOYMENT, TESTING, AND EVALUATION](#chapter-6-deployment-testing-and-evaluation)
-   - 6.1. Cloud Infrastructure Deployment and CI/CD Automation
+   - 6.1. Cloud Infrastructure Deployment and Selection Rationale
    - 6.2. Automated Testing Strategy
    - 6.3. Empirical Evaluation Benchmark with Golden Dataset
 7. [CHAPTER 7: CONCLUSION AND FUTURE ROADMAP](#chapter-7-conclusion-and-future-roadmap)
@@ -1025,33 +1025,80 @@ sequenceDiagram
 
 # CHAPTER 6: DEPLOYMENT, TESTING, AND EVALUATION
 
-## 6.1. Cloud Infrastructure Deployment and CI/CD Automation
+## 6.1. Cloud Infrastructure Deployment and Selection Rationale
 
-NextJob is architected for continuous delivery across cloud platforms:
+NextJob is architected for distributed cloud execution across decoupled tiers: Client-side SPA, Backend Application Server, AI Multi-Agent Engine, and Managed BaaS (Backend-as-a-Service):
 
 ```mermaid
 graph TB
-    subgraph VCS ["Source Code Management (GitHub)"]
+    subgraph VCS ["Source Code Management & CI/CD (GitHub)"]
         Repo["GitHub Repository<br/>team-Matikanefukukitaru"]
-        Actions["GitHub Actions CI/CD<br/>- Pytest & Ruff Linting<br/>- Frontend Typecheck & Build<br/>- Supabase Database Migrations"]
+        Actions["GitHub Actions Pipeline<br/>- Pytest & Ruff Linting<br/>- Frontend Typecheck & Build<br/>- Supabase Database Migrations<br/>- Docker Container Build"]
     end
 
     subgraph ProductionInfra ["Production Cloud Infrastructure"]
-        Vercel["Frontend Deployment (Vercel)<br/>Single Page Application (Global CDN Edge)"]
-        Render["Backend Deployment (Render)<br/>Docker Containerized FastAPI (Python 3.11)"]
-        SupabaseCloud["Database & Storage (Supabase Cloud)<br/>PostgreSQL 15+ & pgvector + Auth + Storage"]
-        DashScopeCloud["AI Cloud (Alibaba Cloud DashScope)<br/>Qwen3.7-Flash & Qwen3.7-Embedding"]
+        Vercel["Frontend Deployment (Vercel)<br/>React 19 + Vite SPA (Global Edge CDN)"]
+        EC2["Backend API & Agents (AWS EC2 t4 family)<br/>Dockerized FastAPI + LangGraph Engine"]
+        SupabaseCloud["Data, Auth & Storage (Supabase Cloud)<br/>PostgreSQL 15+ (pgvector HNSW) + Auth (JWT RS256) + Storage"]
+        DashScopeCloud["AI Cloud (Alibaba Cloud DashScope)<br/>qwen3.7-flash & qwen3.7-text-embedding"]
     end
 
     Repo --> Actions
     Actions -->|Deploy Web Application| Vercel
-    Actions -->|Build & Deploy Container| Render
+    Actions -->|Deploy Container Service| EC2
     Actions -->|Apply SQL Migrations| SupabaseCloud
     
-    Vercel -->|HTTPS API Requests| Render
-    Render -->|SQL Connection Pool & Service Role| SupabaseCloud
-    Render -->|HTTPS REST AI Invocations| DashScopeCloud
+    Vercel -->|HTTPS REST API /api/v1| EC2
+    Vercel -->|Supabase JS SDK / Auth & RLS Queries| SupabaseCloud
+    EC2 -->|SQL Connection Pool & Service Role Client| SupabaseCloud
+    EC2 -->|HTTPS REST AI Invocations| DashScopeCloud
 ```
+
+### 6.1.1. Infrastructure Comparison and Platform Selection Matrix
+
+| System Component | Chosen Platform | Considered Alternatives | Primary Decision Rationale |
+|---|---|---|---|
+| **Frontend Web App** | **Vercel** | Netlify, Cloudflare Pages, AWS S3+CloudFront | **Fast, lightweight, easy to use**, highly optimized for Vite/React SPA, Global Edge CDN, Zero-config CI/CD. |
+| **Backend API & AI Agents** | **AWS EC2 (t4 family)** | Render, Railway, Heroku | Render has a strict **500MB RAM limit** & limited traffic quotas; EC2 t4 provides superior RAM (1-2GB+), burstable CPU, high network bandwidth, preventing OOM during heavy CV parsing. |
+| **Database, Vector, Auth & Storage** | **Supabase Cloud** | Self-hosted PostgreSQL + MinIO + Keycloak | Seamless Python/JS SDK integration, native `pgvector` HNSW (1536 dim), secure File Storage with Signed URLs, unified Auth & RLS. |
+
+---
+
+### 6.1.2. In-Depth Platform Selection Rationale
+
+#### 1. Frontend: Vercel (Fast — Lightweight — Easy to Use)
+* **High Performance & Fast Build**: Vercel offers first-class integration with Vite and React 19 Single Page Applications. Builds and asset bundling execute with minimal latency.
+* **Global Edge Network (CDN)**: Static assets (JavaScript bundles, CSS, fonts) are cached and distributed across hundreds of edge locations globally, delivering low latency ($< 50\text{ms}$) to end users.
+* **Developer Experience & Automated CI/CD**:
+  * Seamless GitHub integration with zero-configuration deployments on every push.
+  * Automated SSL/TLS certificate issuance and individual Preview Deployments for every pull request.
+  * Effortless client-side routing configuration via `vercel.json` rewrites to prevent 404 errors on deep-link refreshes.
+
+#### 2. Backend API & AI Multi-Agents: AWS EC2 (t4 family) vs Render
+* **Why Not Render for Fast Setup?**
+  * ❌ **Severe Memory Constraint (512MB / 500MB RAM Limit)**: 
+    * The NextJob backend executes complex multi-step LangGraph workflows, binary layout extraction (`pymupdf4llm`, `pdfplumber`, `python-docx`), fuzzy matching across 186 skills (`rapidfuzz`), and BM25 tokenization.
+    * When extracting multi-column PDF resumes or processing concurrent evaluation requests, Python process memory regularly exceeds 400MB–600MB RAM. On Render's standard free/starter tier (512MB RAM), the host OS triggers the **Linux OOM (Out-Of-Memory) Killer**, crashing the entire backend instance.
+  * ❌ **Strict Bandwidth & Traffic Quotas**: Render enforces tight network bandwidth limits compared to dedicated AWS infrastructure, which easily becomes a bottleneck when streaming AI responses (SSE) or ingesting heavy CV documents.
+  * ❌ **Cold Start Latency (Sleep Mode)**: Free/starter Render instances sleep after periods of inactivity, causing 30s–60s initial request delays that trigger client timeouts and degrade user experience.
+* **Advantages of AWS EC2 (t4 family - t4g.micro/small/medium)**:
+  * ✅ **Abundant & Stable Hardware Resources**: Generous RAM allocation (1GB to 2GB+) combined with ARM Graviton2 / Burstable CPU capacity, ensuring multi-agent execution and document parsing run seamlessly without memory exhaustion.
+  * ✅ **High Network Bandwidth & Traffic Throughput**: Stable data transfer up to 5 Gbps without artificial rate throttling during high-concurrency periods.
+  * ✅ **Complete Environmental Control**: Full control over Docker container runtimes, underlying C libraries (`poppler-utils`, OCR dependencies), environment variables, logging, and self-healing health check services.
+
+#### 3. Database, Vector, Auth & File Storage: Supabase Cloud (Unified BaaS)
+* **Seamless Agent & Backend Integration**: 
+  * Features official Python SDK support, enabling Backend services and LangGraph agents to use the `service_role_key` for privileged system operations (bypassing RLS when aggregating global data).
+  * Supports direct PostgreSQL connection pooling via **PgBouncer** for high-concurrency asynchronous operations in FastAPI.
+* **Comprehensive Vector Storage (`pgvector` + HNSW)**: 
+  * Native PostgreSQL integration of `pgvector` supports 1536-dimensional embedding storage with high-speed HNSW indexing ($< 15\text{ms}$ search latency).
+  * Enables **Hybrid Search** by uniting vector cosine similarity with relational metadata filtering (SQL WHERE clauses, BM25 text search) within a **single atomic SQL query**, eliminating the overhead of dedicated vector databases (e.g., Pinecone/Milvus).
+* **Comprehensive & Secure File Storage**: 
+  * Centralized management of storage buckets (`resumes` for candidate files, `avatars` for user profiles).
+  * Time-bounded **Signed URLs** allow secure in-browser PDF previewing without exposing public file endpoints.
+* **Integrated Authentication & Multi-Tier Row Level Security (RLS)**: 
+  * Out-of-the-box Supabase Auth handles JWT session verification (HS256 local, RS256/JWKS cloud).
+  * Database-level Row Level Security (RLS) policies enforce granular role-based access control (*Candidate, Recruiter, Admin*), ensuring data isolation and privacy protection.
 
 ---
 

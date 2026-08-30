@@ -1,9 +1,19 @@
-# Hướng Dẫn Deploy (Vercel, Render & Supabase Cloud) & Cấu Hình CI/CD
+# Hướng Dẫn Deploy (Vercel, AWS EC2 / Render & Supabase Cloud) & CI/CD
 
-Tài liệu này hướng dẫn chi tiết quy trình triển khai hệ thống **Recruitment Portal**:
-- **Database & Auth (Supabase Cloud)**: Tự động push migrations qua GitHub Actions.
-- **Frontend (React + Vite)**: Triển khai trên **Vercel** qua GitHub Actions.
-- **Backend (FastAPI)**: Triển khai trên **Render** qua GitHub Actions.
+Tài liệu này hướng dẫn chi tiết quy trình triển khai và lý do lựa chọn hạ tầng cho hệ thống **NextJob Recruitment Platform**:
+- **Database, Auth & Storage (Supabase Cloud)**: PostgreSQL 15+ tích hợp `pgvector` HNSW, Supabase Auth (JWT RS256) và Supabase Storage (Signed URLs). Tự động push migrations qua GitHub Actions.
+- **Frontend (React 19 + Vite)**: Triển khai trên **Vercel** (nhanh, nhẹ, dễ dùng, Global Edge CDN, auto-build).
+- **Backend (FastAPI & LangGraph)**: Triển khai trên **AWS EC2 (t4 family)** cho môi trường Production (đảm bảo đủ RAM 1GB - 2GB+, tránh lỗi OOM 500MB RAM và giới hạn traffic của Render; Render có thể dùng cho Quick PoC).
+
+---
+
+## 🎯 Lý Do Lựa Chọn Hạ Tầng Triển Khai
+
+| Nền Tảng | Thành Phần | Lý Do Lựa Chọn |
+|---|---|---|
+| **Vercel** | Frontend (React 19 SPA) | Nhanh, nhẹ, dễ dùng, zero-config CI/CD với GitHub, tự động cấp SSL & preview link, Global Edge Network tối ưu độ trễ. |
+| **AWS EC2 (t4)** | Backend API & AI Agents | Cung cấp tài nguyên RAM dồi dào (1-2GB+), CPU Burstable, băng thông mạng cao. Tránh tình trạng **OOM crash (500MB RAM limit)** và **Cold start / Traffic throttle** của Render khi chạy LangGraph & Ingest PDF/DOCX. |
+| **Supabase Cloud** | Database, Auth & Storage | Dễ tích hợp trực tiếp vào Agent & Backend (qua `service_role` và Postgres pool), hỗ trợ native `pgvector` HNSW index, File Storage an toàn với Signed URLs, tích hợp sẵn Auth & RLS. |
 
 ---
 
@@ -70,16 +80,29 @@ Vào GitHub Repository -> **Settings** -> **Secrets and variables** -> **Actions
 
 ---
 
-## 4. Tổng Hợp Tất Cả GitHub Secrets Cho CI/CD Pipeline
+## 4. Tổng Hợp Tất Cả GitHub Secrets Cho CI/CD Pipeline (ECR + EC2)
 
-Dưới đây là danh sách toàn bộ GitHub Secrets cần thiết trong repository của bạn:
+Dưới đây là danh sách toàn bộ GitHub Secrets bạn có thể cấu hình trong GitHub Repository (**Settings -> Secrets and variables -> Actions**):
 
-| GitHub Secret Name | Mục Đích |
-| :--- | :--- |
-| `SUPABASE_ACCESS_TOKEN` | Tự động push SQL migrations lên Supabase Cloud |
-| `SUPABASE_PROJECT_ID` | Project Reference ID trên Supabase Cloud |
-| `SUPABASE_DB_PASSWORD` | Mật khẩu database trên Supabase Cloud |
-| `RENDER_DEPLOY_HOOK_URL` | Trigger Render tự động rebuild & deploy Backend |
-| `VERCEL_TOKEN` | Deploy Frontend tự động lên Vercel Production |
-| `VERCEL_ORG_ID` | Vercel Organization ID |
-| `VERCEL_PROJECT_ID` | Vercel Project ID |
+### Nhóm AWS ECR & EC2 (Backend Deploy)
+| GitHub Secret Name | Bắt buộc | Mục Đích |
+| :--- | :--- | :--- |
+| `AWS_ACCESS_KEY_ID` | **Có (ECR)** | AWS Access Key ID của tài khoản / IAM User |
+| `AWS_SECRET_ACCESS_KEY` | **Có (ECR)** | AWS Secret Access Key tương ứng |
+| `AWS_REGION` | Tùy chọn | AWS Region chứa ECR & EC2 (mặc định: `ap-southeast-1` hoặc `us-east-1`) |
+| `ECR_REPOSITORY` | **Có (ECR)** | Tên repository trên Amazon ECR (ví dụ: `recruitment-backend`) |
+| `EC2_HOST` | **Có (EC2)** | Địa chỉ IP Public hoặc DNS của máy chủ AWS EC2 (ví dụ: `54.254.xxx.xxx`) |
+| `EC2_USER` | Tùy chọn | Tên người dùng SSH (mặc định: `ubuntu` hoặc `ec2-user`) |
+| `EC2_SSH_KEY` | **Có (EC2)** | Toàn bộ nội dung private key file `.pem` (kèm header `-----BEGIN RSA PRIVATE KEY-----`) |
+
+### Nhóm Supabase & Vercel
+| GitHub Secret Name | Bắt buộc | Mục Đích |
+| :--- | :--- | :--- |
+| `SUPABASE_ACCESS_TOKEN` | Tùy chọn | Tự động push SQL migrations lên Supabase Cloud |
+| `SUPABASE_PROJECT_ID` | Tùy chọn | Project Reference ID trên Supabase Cloud |
+| `SUPABASE_DB_PASSWORD` | Tùy chọn | Mật khẩu database trên Supabase Cloud |
+| `VERCEL_TOKEN` | Tùy chọn | Deploy Frontend tự động lên Vercel Production |
+| `VERCEL_ORG_ID` | Tùy chọn | Vercel Organization ID |
+| `VERCEL_PROJECT_ID` | Tùy chọn | Vercel Project ID |
+
+

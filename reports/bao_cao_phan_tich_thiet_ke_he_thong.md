@@ -35,7 +35,7 @@
    - 5.2. Đặc tả Giao diện Lập trình Ứng dụng (RESTful API Specifications)
    - 5.3. Sơ đồ Tuần tự Chi tiết (Sequence Diagrams cho các Luồng Nghiệp vụ Chính)
 6. [CHƯƠNG 6: THIẾT KẾ TRIỂN KHAI, KIỂM THỬ VÀ ĐÁNH GIÁ](#chương-6-thiết-kế-triển-khai-kiểm-thử-và-đánh-giá)
-   - 6.1. Kiến trúc Triển khai Hạ tầng Đám mây & Quy trình CI/CD
+   - 6.1. Kiến trúc Triển khai Hạ tầng Đám mây & Lý do Lựa chọn Nền tảng
    - 6.2. Chiến lược Kiểm thử Tự động (Automated Testing Strategy)
    - 6.3. Khung Đánh giá Thực nghiệm (Empirical Evaluation Benchmark với Golden Dataset)
 7. [CHƯƠNG 7: KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN](#chương-7-kết-luận-và-hướng-phát-triển)
@@ -1036,33 +1036,80 @@ sequenceDiagram
 
 # CHƯƠNG 6: THIẾT KẾ TRIỂN KHAI, KIỂM THỬ VÀ ĐÁNH GIÁ
 
-## 6.1. Kiến trúc Triển khai Hạ tầng Đám mây & Quy trình CI/CD
+## 6.1. Kiến trúc Triển khai Hạ tầng Đám mây & Lý do Lựa chọn Nền tảng
 
-Dự án NextJob được thiết kế để triển khai tự động hóa hoàn toàn trên các nền tảng điện toán đám mây hiện đại:
+Hệ thống NextJob áp dụng mô hình kiến trúc đám mây phân tán (Distributed Cloud Architecture) tách biệt rõ ràng giữa Client-side SPA, Backend Application Server, AI Inference Engine và BaaS (Backend-as-a-Service):
 
 ```mermaid
 graph TB
-    subgraph VCS ["Quản Lý Mã Nguồn (GitHub)"]
+    subgraph VCS ["Quản Lý Mã Nguồn & CI/CD (GitHub)"]
         Repo["GitHub Repository<br/>team-Matikanefukukitaru"]
-        Actions["GitHub Actions CI/CD<br/>- Pytest & Ruff Linting<br/>- Frontend Typecheck & Build<br/>- Supabase DB Migrations"]
+        Actions["GitHub Actions Pipeline<br/>- Pytest & Ruff Linting<br/>- Frontend Typecheck & Build<br/>- Supabase Database Migrations<br/>- Docker Image Build & Push"]
     end
 
     subgraph ProductionInfra ["Hạ Tầng Điện Toán Đám Mây (Production)"]
-        Vercel["Frontend Deployment (Vercel)<br/>Single Page Application (Global CDN Edge)"]
-        Render["Backend Deployment (Render)<br/>Docker Containerized FastAPI (Python 3.11)"]
-        SupabaseCloud["Database & Storage (Supabase Cloud)<br/>PostgreSQL 15+ & pgvector + Auth + Storage"]
-        DashScopeCloud["AI Cloud (Alibaba Cloud DashScope)<br/>Qwen3.7-Flash & Qwen3.7-Embedding"]
+        Vercel["Frontend Deployment (Vercel)<br/>React 19 + Vite SPA (Global Edge CDN)"]
+        EC2["Backend API & Agents (AWS EC2 t4 family)<br/>Dockerized FastAPI + LangGraph Engine"]
+        SupabaseCloud["Data, Auth & Storage (Supabase Cloud)<br/>PostgreSQL 15+ (pgvector HNSW) + Auth (JWT RS256) + Storage"]
+        DashScopeCloud["AI Cloud (Alibaba Cloud DashScope)<br/>qwen3.7-flash & qwen3.7-text-embedding"]
     end
 
     Repo --> Actions
     Actions -->|Deploy Web App| Vercel
-    Actions -->|Build & Deploy Docker| Render
-    Actions -->|Run SQL Migrations| SupabaseCloud
+    Actions -->|Deploy Container Service| EC2
+    Actions -->|Auto Sync SQL Migrations| SupabaseCloud
     
-    Vercel -->|HTTPS API Requests| Render
-    Render -->|SQL Connection Pool & Service Role| SupabaseCloud
-    Render -->|HTTPS REST AI Queries| DashScopeCloud
+    Vercel -->|HTTPS REST API /api/v1| EC2
+    Vercel -->|Supabase JS SDK / Auth & RLS Queries| SupabaseCloud
+    EC2 -->|SQL Connection Pool & Service Role Client| SupabaseCloud
+    EC2 -->|HTTPS REST AI Invocations| DashScopeCloud
 ```
+
+### 6.1.1. Ma Trận Đánh Giá & Lựa Chọn Nền Tảng Hạ Tầng
+
+| Thành Phần Hệ Thống | Nền Tảng Lựa Chọn | Nền Tảng Cân Nhắc / Thay Thế | Lý Do Lựa Chọn Cốt Lõi |
+|---|---|---|---|
+| **Frontend Web App** | **Vercel** | Netlify, Cloudflare Pages, S3+CloudFront | **Nhanh, nhẹ, dễ dùng**, tối ưu hoàn hảo cho Vite/React SPA, Global Edge CDN, Zero-config CI/CD. |
+| **Backend & AI Multi-Agents** | **AWS EC2 (t4 family)** | Render, Railway, Heroku | Render chỉ có **500MB RAM** và **traffic giới hạn**; EC2 t4 vượt trội về RAM (1-2GB+), CPU burstable, network cao, chống OOM khi parse CV nặng. |
+| **Database, Vector, Auth & Storage** | **Supabase Cloud** | Tự dựng PostgreSQL + MinIO + Keycloak | Dễ tích hợp Agent/Backend, native `pgvector` HNSW 1536 dim, File Storage an toàn với Signed URLs, Auth & RLS đa tầng. |
+
+---
+
+### 6.1.2. Phân Tích Chi Tiết Lý Do Lựa Chọn Hạ Tầng
+
+#### 1. Frontend: Vercel (Nhanh — Nhẹ — Dễ Dùng)
+* **Tốc độ Triển khai Nhanh & Nhẹ (High Performance)**: Vercel được tối ưu hóa chuyên sâu cho hệ sinh thái React và bundler hiện đại (Vite 8). Quá trình build và đóng gói Single Page Application (SPA) diễn ra trong thời gian rất ngắn.
+* **Mạng lưới Global Edge Network (CDN)**: Toàn bộ static assets (HTML, JavaScript bundles, CSS Tailwind v4, Web Fonts) được tự động phân phối và lưu bộ nhớ đệm (caching) tại hàng trăm điểm PoP (Points of Presence) trên toàn cầu, mang lại độ trễ mạng cực thấp ($< 50\text{ms}$) cho người dùng tại Việt Nam và quốc tế.
+* **Trải nghiệm Phát triển & Tự động hóa CI/CD**: 
+  * Tích hợp sâu với GitHub repository: Mỗi commit hoặc Pull Request đều tự động kích hoạt pipeline build và sinh **Preview Deployment URL** độc lập giúp kiểm thử giao diện tức thì.
+  * Tự động quản lý và gia hạn chứng chỉ bảo mật **SSL/TLS**.
+  * Dễ dàng cấu hình định tuyến SPA thông qua `vercel.json` (rewrites), loại bỏ hoàn toàn lỗi 404 khi người dùng refresh các trang con (`/cv-builder`, `/ai-suggestions`, `/dashboard`).
+
+#### 2. Backend API & AI Agents: AWS EC2 (t4 family) vs Render
+* **Vì sao không chọn Render cho nhanh?**
+  * ❌ **Giới hạn Bộ nhớ Nghiêm ngặt (Chỉ 512MB / 500MB RAM)**: 
+    * Backend của NextJob không phải là CRUD API thông thường mà là hệ thống AI đa tầng tích hợp LangGraph Multi-Agents, bộ thư viện bóc tách tệp nhị phân chuyên sâu (`pymupdf4llm`, `pdfplumber`, `python-docx`), thuật toán đối soát mờ từ vựng (`rapidfuzz` trên 186 kỹ năng) và mô hình BM25 tokenization.
+    * Khi xử lý đồng thời nhiều tệp CV phức tạp (đặc biệt là PDF 2 cột dạng layout nhị phân), bộ nhớ tiến trình Python dễ dàng chạm ngưỡng 400MB–600MB RAM. Trên gói tiêu chuẩn của Render (512MB RAM), hệ điều hành sẽ kích hoạt bộ diệt tiến trình **Linux OOM Killer (Out-Of-Memory)** làm sập (crash) toàn bộ API server.
+  * ❌ **Giới hạn Băng thông & Lưu lượng mạng (Traffic Limits)**: Render áp dụng quota băng thông và giới hạn số kết nối đồng thời khắt khe hơn nhiều so với hạ tầng đám mây của AWS, dễ gây nghẽn cổ chai khi tải lên hàng loạt tài liệu CV dung lượng lớn hoặc khi truyền dữ liệu phản hồi dạng luồng (Server-Sent Events streaming).
+  * ❌ **Hiện tượng Cold Start (Sleep Mode)**: Gói free/starter của Render tự động chuyển sang chế độ ngủ (sleep) sau một khoảng thời gian không có request, gây độ trễ từ 30s đến 1 phút ở request đầu tiên, làm suy giảm nghiêm trọng trải nghiệm người dùng và gây timeout kết nối.
+* **Lợi thế Vượt trội của AWS EC2 (t4 family - t4g.micro/small/medium)**:
+  * ✅ **Tài nguyên Phần cứng Dồi dào & Ổn định**: Cung cấp cấu hình RAM từ 1GB đến 2GB+ cùng kiến trúc vi xử lý ARM Graviton2 (t4g) hoặc Intel/AMD (t4) với khả năng **Burstable CPU Performance**, đảm bảo xử lý mượt mà tác vụ bóc tách tài liệu nặng và đồ thị LangGraph mà không bao giờ gặp lỗi thiếu hụt bộ nhớ.
+  * ✅ **Băng thông Mạng & Lưu lượng Truy cập (Traffic) Cao**: Khả năng truyền tải dữ liệu ổn định với băng thông lên tới 5 Gbps, không bị bóp băng thông khi người dùng tải lên nhiều file cùng lúc.
+  * ✅ **Toàn quyền Kiểm soát Môi trường (Full System Control)**: Dễ dàng cấu hình môi trường Docker container, cài đặt các thư viện hệ thống ở tầng C (như `poppler-utils`, `tesseract` phục vụ xử lý tài liệu), quản lý biến môi trường, hệ thống logging và thiết lập cron jobs / health-check tự phục hồi.
+
+#### 3. Database, Vector, Auth & File Storage: Supabase Cloud (BaaS Toàn Diện)
+* **Dễ Tích Hợp vào Agent & Backend**: 
+  * Cung cấp **Supabase Python Client** cho phép Backend và LangGraph AI Agents sử dụng `service_role_key` để truy vấn và cập nhật dữ liệu với quyền ưu tiên (bypass Row Level Security khi AI cần tổng hợp dữ liệu toàn cục).
+  * Đồng thời hỗ trợ kết nối PostgreSQL trực tiếp thông qua **PgBouncer Connection Pooling**, tối ưu hóa việc tái sử dụng kết nối database trong môi trường bất đồng bộ (asyncio / FastAPI).
+* **Hỗ trợ Vector Storage Toàn Diện (`pgvector` + HNSW)**: 
+  * Tích hợp trực tiếp tiện ích mở rộng `pgvector` ngay trong hệ quản trị cơ sở dữ liệu PostgreSQL. Cho phép lưu trữ và truy vấn vector đặc trưng 1536 chiều với chỉ mục **HNSW (Hierarchical Navigable Small World)** đạt độ trễ truy vấn cực thấp ($< 15\text{ms}$).
+  * Cho phép thực hiện **Hybrid Search** kết hợp giữa tìm kiếm tương đồng vector (Cosine Similarity) và lọc metadata quan hệ (SQL WHERE conditions, BM25 text search) trong **duy nhất một câu truy vấn SQL**, loại bỏ sự phức tạp của việc phải duy trì một cơ sở dữ liệu vector độc lập (như Pinecone hay Milvus).
+* **File Storage Toàn Diện & An Toàn**: 
+  * Quản lý tập trung các bucket lưu trữ tệp tin (`resumes` cho CV, `avatars` cho ảnh đại diện).
+  * Hỗ trợ tạo **Signed URLs** tạm thời có thời hạn (time-bounded signed URLs) giúp Frontend xem trước file CV một cách an toàn mà không để lộ URL lưu trữ công khai.
+* **Authentication & Phân Quyền Đa Tầng (RLS)**: 
+  * Tích hợp sẵn hạ tầng Supabase Auth quản lý người dùng và phiên đăng nhập qua chuẩn **JWT (JSON Web Token)** (hỗ trợ giải mã HS256 ở local và RS256/JWKS trên Production Cloud).
+  * Kết hợp hoàn hảo với cơ chế **Row Level Security (RLS)** ở tầng cơ sở dữ liệu để thực thi phân quyền truy cập dữ liệu theo vai trò (*Candidate, Recruiter, Admin*), đảm bảo ứng viên chỉ xem được hồ sơ của chính mình và nhà tuyển dụng chỉ xem được hồ sơ ứng tuyển vào công việc của họ.
 
 ---
 

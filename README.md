@@ -219,7 +219,7 @@ Quy trình gợi ý việc làm cho ứng viên (CV ➔ JD):
 | **Styling & UI Components** | `Tailwind CSS v4`, `Framer Motion`, `Lucide React` | Giao diện Responsive hiện đại, hỗ trợ Dark/Light mode và chuyển động mượt mà |
 | **CV Builder Tooling** | `@dnd-kit`, `html2canvas`, `jsPDF` | Kéo thả sắp xếp nội dung và xuất file PDF chất lượng cao đa chế độ |
 | **Testing & Quality** | `pytest`, `pytest-asyncio`, `respx`, `ruff` | Kiểm thử tự động (98+ tests), mock HTTP client, linting & code formatting |
-| **DevOps & Infra** | `Docker`, `Docker Compose`, `Render`, `Vercel` | Container hóa dịch vụ, triển khai CI/CD qua GitHub Actions |
+| **DevOps & Infra** | `Docker`, `AWS EC2 (t4)`, `Vercel`, `Supabase Cloud` | Triển khai hạ tầng phân tán, container hóa dịch vụ & CI/CD tự động |
 
 ---
 
@@ -512,10 +512,11 @@ cd frontend && pnpm lint
 
 Dự án được cấu hình sẵn sàng triển khai trên hạ tầng điện toán đám mây:
 * **Database, Auth & Storage**: [Supabase Cloud](https://supabase.com) (tự động đẩy SQL Migration qua GitHub Actions).
-* **Backend API**: [Render](https://render.com) (triển khai tự động thông qua cấu hình `render.yaml` và Dockerfile).
-* **Frontend Web**: [Vercel](https://vercel.com) (triển khai Single Page Application tối ưu hóa toàn cầu).
+* **Backend API & AI Agents**: [AWS EC2 (t4 family)](https://aws.amazon.com/ec2/) / [Render](https://render.com) (Dockerized FastAPI Container).
+* **Frontend Web**: [Vercel](https://vercel.com) (Single Page Application tối ưu hóa toàn cầu).
 
-> Xem hướng dẫn chi tiết từng bước tại tài liệu [`DEPLOYMENT.md`](DEPLOYMENT.md).
+> 📖 Xem hướng dẫn triển khai chi tiết từng bước tại tài liệu [`DEPLOYMENT.md`](DEPLOYMENT.md).  
+> 📑 Xem phân tích kiến trúc hạ tầng & lý do lựa chọn chi tiết tại Báo cáo phân tích hệ thống [`reports/bao_cao_phan_tich_thiet_ke_he_thong.md`](reports/bao_cao_phan_tich_thiet_ke_he_thong.md).
 
 ---
 

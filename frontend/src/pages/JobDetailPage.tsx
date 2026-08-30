@@ -179,19 +179,19 @@ export default function JobDetailPage() {
   const company = job.company;
 
   return (
-    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <Link to="/jobs" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600 mb-6">
-          <ArrowLeft size={14} /> {t.jobs}
+    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
+        <Link to="/jobs" className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-indigo-600 mb-3.5 transition-colors">
+          <ArrowLeft size={13} /> {t.jobs}
         </Link>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="bg-white dark:bg-slate-800/90 rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-4 sm:p-5 shadow-xs">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs text-slate-500 mb-1">{company?.name}</p>
-                  <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">{job.title}</h1>
-                  <div className="flex flex-wrap gap-2 mt-3">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-0.5">{company?.name}</p>
+                  <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-tight">{job.title}</h1>
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
                     <Badge variant="primary">{enumLabels.employment_type[job.employment_type]}</Badge>
                     {expired ? <Badge variant="danger">{t.expired}</Badge> : <Badge variant="success">{t.hiring}</Badge>}
                   </div>
@@ -199,74 +199,75 @@ export default function JobDetailPage() {
                 <motion.button
                   whileTap={{ scale: 0.85 }}
                   onClick={() => void handleToggleSaved()}
-                  className={`p-2 rounded-xl transition-colors ${isSaved ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30" : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isSaved ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30" : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"}`}
                 >
-                  {isSaved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
+                  {isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
                 </motion.button>
               </div>
-              <div className="grid sm:grid-cols-3 gap-3 mt-5 text-sm text-slate-600 dark:text-slate-300">
-                <span className="flex items-center gap-1.5"><MapPin size={14} />{job.location || (lang === "en" ? "Nationwide" : "Toàn quốc")}</span>
-                <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400"><DollarSign size={14} />{salaryRange(job, lang)}</span>
-                <span className="flex items-center gap-1.5"><Calendar size={14} />{t.deadline} {formatDate(job.deadline_at, false, lang)}</span>
+              <div className="grid sm:grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-300">
+                <span className="flex items-center gap-1.5"><MapPin size={13} className="text-slate-400 shrink-0" />{job.location || (lang === "en" ? "Nationwide" : "Toàn quốc")}</span>
+                <span className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400"><DollarSign size={13} className="text-emerald-500 shrink-0" />{salaryRange(job, lang)}</span>
+                <span className="flex items-center gap-1.5"><Calendar size={13} className="text-slate-400 shrink-0" />{t.deadline} {formatDate(job.deadline_at, false, lang)}</span>
               </div>
             </div>
             {[[t.jobDescription, job.description], [t.requirements, job.requirements], [t.benefits, job.benefits]].map(([title, body]) => body ? (
-              <div key={title} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
-                <h2 className="font-semibold text-slate-900 dark:text-white mb-3">{title}</h2>
-                <div className="prose-content text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line">{body}</div>
+              <div key={title} className="bg-white dark:bg-slate-800/90 rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-4 sm:p-5 shadow-xs">
+                <h2 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white mb-2">{title}</h2>
+                <div className="prose-content text-xs sm:text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">{body}</div>
               </div>
             ) : null)}
             {similarJobs.length > 0 && (
-              <div>
-                <h2 className="font-semibold text-slate-900 dark:text-white mb-3">{t.similarJobs}</h2>
-                <div className="grid md:grid-cols-2 gap-4">
+              <div className="pt-2">
+                <h2 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white mb-2.5">{t.similarJobs}</h2>
+                <div className="grid md:grid-cols-2 gap-3">
                   {similarJobs.map((j) => <JobCard key={j.id} job={j} compact />)}
                 </div>
               </div>
             )}
           </div>
           <div>
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden sticky top-24">
+            <div className="bg-white dark:bg-slate-800/90 rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden sticky top-20 shadow-xs">
               {!user ? (
-                <div className="p-6 text-center">
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">{t.loginToApply}</p>
-                  <Button fullWidth onClick={() => navigate("/login")}>{t.login}</Button>
+                <div className="p-4 sm:p-5 text-center">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">{t.loginToApply}</p>
+                  <Button fullWidth size="sm" onClick={() => navigate("/login")}>{t.login}</Button>
                 </div>
               ) : profile?.role !== "candidate" ? (
-                <div className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                <div className="p-4 sm:p-5 text-center text-xs text-slate-500 dark:text-slate-400">
                   {t.candidateOnlyApply}
                 </div>
               ) : existingApp || success ? (
-                <div className="p-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <CheckCircle2 size={18} className="text-emerald-500" />
-                    <span className="font-semibold text-sm">{t.appliedSuccess}</span>
+                <div className="p-4 sm:p-5">
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                    <span className="font-semibold text-xs text-slate-800 dark:text-white">{t.appliedSuccess}</span>
                   </div>
                   {existingApp && (
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${APP_STATUS_COLORS[existingApp.current_status]}`}>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${APP_STATUS_COLORS[existingApp.current_status]}`}>
                       {enumLabels.application_status[existingApp.current_status]}
                     </span>
                   )}
                   {indexWarning && <p className="text-xs text-amber-600 mt-2">{INDEX_FAIL_COPY}</p>}
-                  <Link to="/applications" className="mt-4 block text-center text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:underline">{t.viewMyApps}</Link>
+                  <Link to="/applications" className="mt-3 block text-center text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">{t.viewMyApps}</Link>
                 </div>
               ) : expired ? (
-                <div className="p-6 text-sm text-slate-500">{t.jobExpiredDesc}</div>
+                <div className="p-4 sm:p-5 text-xs text-slate-500">{t.jobExpiredDesc}</div>
               ) : resumes.length === 0 ? (
-                <div className="p-6 text-center text-sm">
-                  <p className="mb-3">{t.noCVToApply}</p>
-                  <Link to="/cv-vault" className="text-indigo-600 font-medium">{t.goToCVVault}</Link>
+                <div className="p-4 sm:p-5 text-center text-xs">
+                  <p className="mb-2.5 text-slate-600 dark:text-slate-300">{t.noCVToApply}</p>
+                  <Link to="/cv-vault" className="text-indigo-600 dark:text-indigo-400 font-semibold">{t.goToCVVault}</Link>
                 </div>
               ) : (
-                <form onSubmit={handleApply} className="p-6 space-y-3">
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">{t.chooseCV}</label>
-                  <select value={selectedResumeId} onChange={(e) => setSelectedResumeId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
+                <form onSubmit={handleApply} className="p-4 sm:p-5 space-y-2.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">{t.chooseCV}</label>
+                  <select value={selectedResumeId} onChange={(e) => setSelectedResumeId(e.target.value)} className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs">
                     {resumes.map((r) => <option key={r.id} value={r.id}>{r.title || r.original_filename}</option>)}
                   </select>
-                  <textarea rows={4} value={coverLetter} onChange={(e) => setCoverLetter(e.target.value)} placeholder={t.coverLetterPlaceholder} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm resize-none" />
-                  {formErr && <p className="text-xs text-red-500">{formErr}</p>}
+                  <textarea rows={3} value={coverLetter} onChange={(e) => setCoverLetter(e.target.value)} placeholder={t.coverLetterPlaceholder} className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs resize-none" />
+                  {formErr && <p className="text-xs text-rose-500">{formErr}</p>}
                   <Button
                     type="submit"
+                    size="sm"
                     isLoading={submitting}
                     loadingText={t.submittingApp}
                     fullWidth

@@ -163,50 +163,54 @@ export default function JobListPage() {
   const locations = [...new Set(jobs.map((j) => j.location).filter(Boolean))] as string[];
 
   return (
-    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-2">{t.jobListTitle}</h1>
-          <p className="text-slate-500 dark:text-slate-400">
-            <span className="font-semibold text-indigo-600">{filtered.length}</span> {t.jobsCount(filtered.length)}
-          </p>
-          <div className="mt-6 flex gap-3">
+    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
+      <div className="bg-white dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <div>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{t.jobListTitle}</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400">{filtered.length}</span> {t.jobsCount(filtered.length)}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
             <div className="flex-1 relative">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t.searchPlaceholder}
-                className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50/70 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700"
               />
             </div>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowFilters((v) => !v)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-colors ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200"}`}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border font-semibold text-xs transition-colors cursor-pointer ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50"}`}
             >
-              <Filter size={16} /> {t.filter}
+              <Filter size={14} /> {t.filter}
             </motion.button>
           </div>
           <AnimatePresence>
             {showFilters && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-                  <div className="flex flex-wrap gap-2">
+                <div className="mt-3 p-3.5 bg-slate-50/80 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
                     {jobTypes.map((typeKey) => (
                       <motion.button
                         key={typeKey}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => toggleType(typeKey)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${selectedTypes.includes(typeKey) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${selectedTypes.includes(typeKey) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-indigo-300"}`}
                       >
                         {enumLabels.employment_type[typeKey]}
                       </motion.button>
                     ))}
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <select value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-3 py-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <select value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs">
                       <option value="">{t.allLocations}</option>
                       {locations.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
@@ -214,13 +218,13 @@ export default function JobListPage() {
                       <motion.button
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setSavedOnly((v) => !v)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${savedOnly ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${savedOnly ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}
                       >
-                        <Bookmark size={14} /> {t.savedJobsCount(savedIds.length)}
+                        <Bookmark size={13} /> {t.savedJobsCount(savedIds.length)}
                       </motion.button>
                     )}
                   </div>
-                  {hasFilters && <button onClick={clearFilters} className="text-xs text-red-500 font-medium hover:underline">{t.clearFilters}</button>}
+                  {hasFilters && <button onClick={clearFilters} className="text-xs text-rose-500 font-medium hover:underline cursor-pointer">{t.clearFilters}</button>}
                 </div>
               </motion.div>
             )}
@@ -228,20 +232,20 @@ export default function JobListPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <JobCardSkeleton count={6} />
           </div>
         ) : error ? (
-          <p className="text-sm text-red-500">{error}</p>
+          <p className="text-xs text-red-500">{error}</p>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <h3 className="font-display text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">{t.noJobsFound}</h3>
-            <button onClick={clearFilters} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl">{t.clearFilters}</button>
+          <div className="text-center py-14">
+            <h3 className="font-display text-base font-semibold text-slate-700 dark:text-slate-300 mb-2">{t.noJobsFound}</h3>
+            <button onClick={clearFilters} className="px-3.5 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg cursor-pointer">{t.clearFilters}</button>
           </div>
         ) : (
-          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((job) => {
               const compareIdx = selectedCompareJobs.findIndex((j) => j.id === job.id);
               const isSelected = compareIdx !== -1;

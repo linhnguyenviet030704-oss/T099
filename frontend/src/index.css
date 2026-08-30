@@ -33,6 +33,8 @@ body {
   background-color: #ffffff;
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {
@@ -40,10 +42,19 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Ẩn scrollbar khi cần thiết */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 /* Dark mode */
 .dark body, .dark {
@@ -51,17 +62,29 @@ h1, h2, h3, h4, h5, h6, .font-display {
   color: #f1f5f9;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
 /* Focus ring */
 *:focus-visible {
   outline: 2px solid #6366f1;
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline-offset: 1.5px;
+  border-radius: 6px;
+}
+
+/* Shadow bổ sung */
+.shadow-xs {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 /* Prose content */
-.prose-content p { margin-bottom: 0.75rem; }
-.prose-content ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
-.prose-content li { margin-bottom: 0.25rem; }
+.prose-content p { margin-bottom: 0.5rem; }
+.prose-content ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.prose-content li { margin-bottom: 0.2rem; }
 
 /* Gradient text */
 .gradient-text {
@@ -85,7 +108,7 @@ h1, h2, h3, h4, h5, h6, .font-display {
 /* Floating animation */
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+  50% { transform: translateY(-6px); }
 }
 .animate-float { animation: float 3s ease-in-out infinite; }
 

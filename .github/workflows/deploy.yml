@@ -78,7 +78,10 @@ jobs:
           IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           LATEST_URI="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
-          docker build -t "$IMAGE_URI" -t "$LATEST_URI" .
+          # 2. Build với cờ --platform linux/amd64 để tương thích tuyệt đối với AWS EC2
+          docker build --platform linux/amd64 -t "$IMAGE_URI" -t "$LATEST_URI" .
+          
+          # 4. Push Image lên Amazon ECR
           echo "🚀 Đang đẩy Docker Image lên Amazon ECR: $IMAGE_URI"
           docker push "$IMAGE_URI"
           docker push "$LATEST_URI"
@@ -105,7 +108,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT || 22 }}
           envs: |
-            AWS_REGION=${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+            AWS_REGION=${{ secrets.AWS_REGION || 'ap-southeast-2' }}
             ECR_REGISTRY=${{ needs.build-and-push-ecr.outputs.ecr_registry || secrets.ECR_REGISTRY }}
             ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}
           script: |
@@ -113,18 +116,31 @@ jobs:
             echo "🚀 BẮT ĐẦU CẬP NHẬT CONTAINER TRÊN AWS EC2 TỪ ECR"
             echo "=================================================="
 
-            AWS_REGION="${AWS_REGION:-ap-southeast-1}"
+            AWS_REGION="${AWS_REGION:-ap-southeast-2}"
 
-            # 1. Đăng nhập ECR trên máy chủ EC2 (nếu có AWS CLI & ECR Registry)
+            # 1. Đăng nhập AWS ECR trên EC2
             if [ -n "$ECR_REGISTRY" ] && [ -n "$ECR_REPOSITORY" ]; then
-              echo "🔐 Đăng nhập vào Amazon ECR trên EC2..."
+              echo "🔐 1. Đăng nhập AWS ECR trên EC2..."
               aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY" || true
 
               IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
-              echo "📥 Đang kéo Docker image mới nhất từ ECR: $IMAGE_NAME"
+
+              # 2. Dừng và xóa container cũ
+              echo "🛑 2. Dừng và xóa container cũ..."
+              docker rm -f backend 2>/dev/null || true
+
+              # 3. Xóa Image cũ trên EC2 để giải phóng dung lượng đĩa
+              echo "🧹 3. Xóa Image cũ trên EC2..."
+              docker rmi "$IMAGE_NAME" 2>/dev/null || true
+
+              # 4. Kéo Image mới vừa push từ ECR (BƯỚC KÉO TỪ ECR VỀ)
+              echo "📥 4. Kéo Image mới nhất từ ECR: $IMAGE_NAME"
               docker pull "$IMAGE_NAME"
 
-              # Tìm file .env để truyền vào container
+              # 5. Khởi chạy Container Backend mới với Volume mount dữ liệu
+              echo "🚀 5. Khởi chạy Container Backend mới..."
+              mkdir -p "$HOME/data"
+
               ENV_FILE=""
               if [ -f "$HOME/.env" ]; then
                 ENV_FILE="$HOME/.env"
@@ -132,31 +148,19 @@ jobs:
                 ENV_FILE="$HOME/team-Matikanefukukitaru/.env"
               elif [ -f "$HOME/app/.env" ]; then
                 ENV_FILE="$HOME/app/.env"
-              elif [ -f "/home/ubuntu/.env" ]; then
-                ENV_FILE="/home/ubuntu/.env"
-              elif [ -f "/home/ubuntu/app/.env" ]; then
-                ENV_FILE="/home/ubuntu/app/.env"
               fi
 
               ENV_ARG=""
-              if [ -n "$ENV_FILE" ]; then
-                echo "📄 Sử dụng file môi trường: $ENV_FILE"
-                ENV_ARG="--env-file $ENV_FILE"
-              else
-                echo "⚠️ Không tìm thấy file .env cố định, dùng biến môi trường hiện có."
-              fi
+              [ -n "$ENV_FILE" ] && ENV_ARG="--env-file $ENV_FILE"
 
-              echo "🛑 Dừng và xóa container backend cũ (nếu có)..."
-              docker stop backend 2>/dev/null || true
-              docker rm backend 2>/dev/null || true
-
-              echo "🚀 Khởi chạy container backend mới từ image ECR..."
               docker run -d \
                 --name backend \
                 --restart unless-stopped \
                 -p 8000:8000 \
+                -v "$HOME/data:/app/data" \
                 $ENV_ARG \
                 "$IMAGE_NAME"
+
 
               # Dọn dẹp images cũ không dùng để tiết kiệm ổ đĩa
               docker image prune -f || true

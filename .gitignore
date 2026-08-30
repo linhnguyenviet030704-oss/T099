@@ -102,3 +102,5 @@ supabase/.temp/
 # Keep AGENTS.md, .agents/ and the tracked .codex/.cursor hooks in Git.
 # Subagent-driven-development scratch workspace (ledgers, briefs, reports)
 .superpowers/
+
+report/

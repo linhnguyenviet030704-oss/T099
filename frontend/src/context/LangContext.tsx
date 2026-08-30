@@ -25,7 +25,7 @@ const translations = {
     account: "Tài khoản",
 
     // HomePage
-    heroTag: "Nền tảng tuyển dụng thông minh #1 Việt Nam",
+    heroTag: "Tuyển dụng thông minh – Tiết kiệm thời gian",
     heroTitle1: "Tìm việc làm",
     heroTitle2: "mơ ước của bạn",
     heroDesc: "Kết nối ứng viên tài năng với nhà tuyển dụng uy tín. AI thông minh gợi ý công việc phù hợp nhất với hồ sơ của bạn.",
@@ -717,7 +717,7 @@ const translations = {
     account: "Account",
 
     // HomePage
-    heroTag: "Vietnam's #1 Smart Recruitment Platform",
+    heroTag: "Smart Hiring – Fast & Effortless",
     heroTitle1: "Find your dream",
     heroTitle2: "job today",
     heroDesc: "Connect talented candidates with top employers. AI-powered job matching tailored to your profile.",

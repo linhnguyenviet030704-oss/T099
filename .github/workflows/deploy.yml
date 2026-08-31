@@ -45,6 +45,10 @@ jobs:
   build-and-push-ecr:
     name: "2. Build & Push Image (Amazon ECR)"
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
     outputs:
       ecr_registry: ${{ steps.login-ecr.outputs.registry }}
       image_tag: ${{ steps.build-image.outputs.image_tag }}
@@ -54,7 +58,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: "⚙️ Cấu hình thông tin xác thực AWS Credentials"
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -63,7 +67,7 @@ jobs:
 
       - name: "🔐 Đăng nhập vào Amazon ECR"
         id: login-ecr
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' }}
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: "🐳 Thiết lập Docker Buildx"
@@ -72,7 +76,7 @@ jobs:
 
       - name: "🔨 Build và Push Docker Image lên Amazon ECR"
         id: build-image
-        if: ${{ steps.login-ecr.outputs.registry != '' && secrets.ECR_REPOSITORY != '' }}
+        if: ${{ steps.login-ecr.outputs.registry != '' && env.ECR_REPOSITORY != '' }}
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
@@ -112,9 +116,12 @@ jobs:
     needs: [deploy-database, build-and-push-ecr]
     if: needs.build-and-push-ecr.result == 'success' || needs.build-and-push-ecr.result == 'skipped'
     runs-on: ubuntu-latest
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
     steps:
       - name: "🚀 Kết nối SSH và Rebuild Container trên EC2"
-        if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
+        if: ${{ env.EC2_HOST != '' && env.EC2_SSH_KEY != '' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -239,9 +246,12 @@ jobs:
     name: "4. Health Check & Diagnostics (AWS EC2)"
     needs: [deploy-ec2]
     runs-on: ubuntu-latest
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
     steps:
       - name: "🩺 Kiểm tra Health Check nội bộ trên EC2 (qua SSH)"
-        if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
+        if: ${{ env.EC2_HOST != '' && env.EC2_SSH_KEY != '' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}

@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Sparkles, Bot, User, FileText, ExternalLink,
   PanelLeft, PanelRight, X, MessageSquare, SlidersHorizontal, Loader2, Check, Plus,
-  Trash2, Clock, RotateCcw, CheckCircle2, ShieldCheck,
+  Trash2, Clock, RotateCcw, CheckCircle2, ShieldCheck, Mail,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiJson } from "../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../lib/api";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { getResumeSignedUrl } from "../lib/storage";
 import { ENUM_LABELS } from "../lib/format";
@@ -16,6 +16,7 @@ import AnimatedPage from "../components/AnimatedPage";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
+import SuggestionStatusIndicator, { type StatusStep } from "../components/SuggestionStatusIndicator";
 import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
 import CVComparisonModal from "../components/candidate/CVComparisonModal";
 
@@ -92,11 +93,13 @@ function groupCandidates(
   return buckets;
 }
 
+// Component thẻ hiển thị ứng viên tối ưu UI/UX
 function CandidateCard({
   candidate,
   opening,
   onOpen,
   isCompareSelected,
+  compareLabel,
   onToggleCompare,
   goodThreshold = DEFAULT_FIT_GOOD,
   okThreshold = DEFAULT_FIT_OK,
@@ -105,114 +108,136 @@ function CandidateCard({
   opening: boolean;
   onOpen: () => void;
   isCompareSelected?: boolean;
+  compareLabel?: string;
   onToggleCompare?: () => void;
   goodThreshold?: number;
   okThreshold?: number;
 }) {
-  const score = displayScore(candidate);
-  const band = getFitBand(score, goodThreshold, okThreshold);
-  const pct = Math.round(score * 100);
+  const { lang, t } = useLang();
+  const pct = Math.round(displayScore(candidate) * 100);
+  const band = pct >= goodThreshold ? "good" : pct >= okThreshold ? "ok" : "poor";
+
+  // Phân loại màu sắc theo độ phù hợp
   const badgeColor =
     band === "good"
-      ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-300"
+      ? "text-emerald-700 bg-emerald-50 border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
       : band === "ok"
-      ? "text-amber-600 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-300"
-      : "text-rose-600 bg-rose-50 dark:bg-rose-900/30 dark:text-rose-300";
+      ? "text-amber-700 bg-amber-50 border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800"
+      : "text-rose-700 bg-rose-50 border-rose-200/80 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800";
+
+  const reasonBgColor =
+    band === "good"
+      ? "bg-gradient-to-br from-emerald-50/60 to-teal-50/40 border-emerald-200/70 dark:from-emerald-950/20 dark:to-teal-950/20 dark:border-emerald-900/40"
+      : band === "ok"
+      ? "bg-gradient-to-br from-amber-50/60 to-orange-50/40 border-amber-200/70 dark:from-amber-950/20 dark:to-orange-950/20 dark:border-amber-900/40"
+      : "bg-slate-50 dark:bg-slate-700/50 border-slate-200/80 dark:border-slate-700/60";
+
+  const reasonTitleColor =
+    band === "good"
+      ? "text-emerald-800 dark:text-emerald-300"
+      : band === "ok"
+      ? "text-amber-800 dark:text-amber-300"
+      : "text-slate-700 dark:text-slate-300";
 
   const isJobSeeking = candidate.current_status === "job_seeking" || Boolean(candidate.is_public_candidate);
 
   return (
     <div
-      className={`bg-white dark:bg-slate-800 border rounded-xl p-4 w-72 sm:w-80 shrink-0 flex flex-col justify-between shadow-sm hover:shadow-md transition-all ${
+      className={`bg-white dark:bg-slate-800 border rounded-2xl p-4 w-full flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200 ${
         isCompareSelected
           ? "border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-700 bg-indigo-50/20 dark:bg-indigo-950/20"
-          : "border-slate-200 dark:border-slate-600"
+          : "border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
       }`}
     >
       <div>
-        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        {/* Hàng badge trên cùng */}
+        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
-            {onToggleCompare && (
-              <button
-                type="button"
-                onClick={onToggleCompare}
-                className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                  isCompareSelected
-                    ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
-                    : "border-slate-300 dark:border-slate-600 hover:border-indigo-400 bg-white dark:bg-slate-800"
-                }`}
-                title={isCompareSelected ? "Bỏ chọn so sánh" : "Chọn để so sánh trực quan (2-5 ứng viên)"}
-              >
-                {isCompareSelected && <Check size={10} strokeWidth={3} />}
-              </button>
-            )}
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badgeColor} flex items-center gap-1`}>
+              <Sparkles size={11} className={band === "good" ? "text-emerald-600 dark:text-emerald-400" : band === "ok" ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"} />
+              {pct}% {lang === "en" ? "match" : "phù hợp"}
+            </span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {candidate.has_verified_skills && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium flex items-center gap-0.5" title="Kỹ năng đã được xác minh">
-                <CheckCircle2 size={10} className="text-blue-500" /> Xác minh
+              <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-medium flex items-center gap-1" title={lang === "en" ? "Skills verified by AI" : "Kỹ năng đã được AI xác minh"}>
+                <ShieldCheck size={11} className="text-blue-500" /> {lang === "en" ? "Verified" : "Xác minh"}
               </span>
             )}
             {isJobSeeking ? (
               <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Đang tìm việc
+                {lang === "en" ? "Job Seeking" : "Đang tìm việc"}
               </span>
             ) : (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || ""}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 border ${APP_STATUS_COLORS[candidate.current_status as keyof typeof APP_STATUS_COLORS] || "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}>
                 {ENUM_LABELS.application_status[candidate.current_status as keyof typeof ENUM_LABELS.application_status] || candidate.current_status}
               </span>
             )}
           </div>
         </div>
 
-        <p className="font-semibold text-sm truncate">{candidate.full_name || "Ứng viên"}</p>
-        <p className="text-xs text-slate-500 truncate">{candidate.email}</p>
-        <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
-          <FileText size={11} />
-          <span className="truncate">{candidate.resume_title || "CV"}</span>
+        {/* Thông tin ứng viên */}
+        <p className="font-bold text-sm text-slate-900 dark:text-white truncate" title={candidate.full_name || (lang === "en" ? "Candidate" : "Ứng viên")}>
+          {candidate.full_name || (lang === "en" ? "Candidate" : "Ứng viên")}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5 mt-0.5" title={candidate.email || undefined}>
+          <Mail size={11} className="shrink-0 text-slate-400" />
+          <span className="truncate">{candidate.email || (lang === "en" ? "No email" : "Chưa có email")}</span>
+        </p>
+        <div className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-600 dark:text-slate-300">
+          <FileText size={12} className="shrink-0 text-purple-500" />
+          <span className="truncate font-medium">{candidate.resume_title || (lang === "en" ? "CV Resume" : "Hồ sơ CV")}</span>
         </div>
 
-        {/* Dynamic AI Match Reason / Score Explanation */}
-        <div className="mt-3 p-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl text-xs space-y-1">
-          <div className="flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300 text-[11px]">
-            <Sparkles size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
-            <span>Giải thích điểm phù hợp ({pct}%):</span>
+        {/* Khối giải thích điểm tương thích AI */}
+        <div className={`mt-3 p-3 rounded-xl border text-xs space-y-1 transition-colors ${reasonBgColor}`}>
+          <div className={`flex items-center gap-1.5 font-semibold text-[11px] ${reasonTitleColor}`}>
+            <Sparkles size={12} className="shrink-0" />
+            <span>{lang === "en" ? `Fit Score Breakdown (${pct}%):` : `Giải thích điểm phù hợp (${pct}%):`}</span>
           </div>
-          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
-            {candidate.match_reason || `Được AI đánh giá ${pct}% phù hợp JD dựa trên phân tích kỹ năng và kinh nghiệm trong CV.`}
+          <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal line-clamp-3 hover:line-clamp-none transition-all" title={candidate.match_reason || undefined}>
+            {candidate.match_reason || (lang === "en" ? `AI evaluated ${pct}% match with job requirements based on skills and experience analysis.` : `Được AI đánh giá ${pct}% phù hợp với yêu cầu vị trí tuyển dụng dựa trên phân tích kỹ năng và kinh nghiệm.`)}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-3">
+      {/* Nút hành động */}
+      <div className="flex items-center gap-2 mt-3.5 pt-1">
         <button
           onClick={onOpen}
           disabled={opening}
-          className="flex-1 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-center gap-1 disabled:opacity-50 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors"
+          className="flex-1 py-2 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50/60 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 rounded-xl flex items-center justify-center gap-1.5 disabled:opacity-50 hover:bg-purple-100/70 dark:hover:bg-purple-900/50 active:scale-[0.98] transition-all cursor-pointer"
         >
-          <ExternalLink size={11} /> Xem CV
+          {opening ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+          <span>{lang === "en" ? "View CV" : "Xem CV"}</span>
         </button>
         {onToggleCompare && (
           <button
             type="button"
             onClick={onToggleCompare}
-            className={`px-3 py-1.5 text-xs font-medium rounded-xl border flex items-center gap-1 transition-colors ${
+            className={`px-3 py-2 text-xs font-semibold rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
               isCompareSelected
-                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                : "text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                : "text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30"
             }`}
+            title={isCompareSelected ? (lang === "en" ? "Deselect comparison" : "Bỏ chọn so sánh") : (lang === "en" ? "Add to comparison" : "Thêm vào danh sách so sánh")}
           >
-            {isCompareSelected ? "Đã chọn" : "So sánh"}
+            {isCompareSelected ? (
+              <>
+                <Check size={12} className="stroke-[3]" />
+                <span>{compareLabel || (lang === "en" ? "Selected" : "Đã chọn")}</span>
+              </>
+            ) : (
+              <span>{lang === "en" ? "Compare" : "So sánh"}</span>
+            )}
           </button>
         )}
       </div>
     </div>
   );
 }
-
 export default function AICandidatePage() {
   const { user, session } = useAuth();
   const { error: toastError, success, info } = useToast();
@@ -248,6 +273,12 @@ export default function AICandidatePage() {
   const [deleteTargetSessionId, setDeleteTargetSessionId] = useState<string | null>(null);
   const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
+
+  // Trạng thái streaming tiến trình và văn bản thời gian thực
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
+  const [streamingText, setStreamingText] = useState<string>("");
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const handleResetDefaults = () => {
@@ -377,8 +408,12 @@ export default function AICandidatePage() {
       );
       setSessionId(sid);
       localStorage.setItem("chat_session_id_candidate", sid);
-    } catch (err) {
-      console.error("Failed to load session", err);
+    } catch (err: any) {
+      // Khi phiên chat ứng viên không tồn tại hoặc hết hạn, dọn sạch localStorage
+      console.warn("Phiên chat ứng viên không tồn tại hoặc đã bị xóa, khởi tạo lại session mới:", err?.message || err);
+      localStorage.removeItem("chat_session_id_candidate");
+      setSessionId(null);
+      setMessages([{ id: "welcome", role: "system", text: "Chọn một vị trí tuyển dụng, rồi bấm “Gợi ý ứng viên phù hợp”." }]);
     }
   }, [session]);
 
@@ -436,20 +471,40 @@ export default function AICandidatePage() {
   };
 
 
+  // Tải danh sách các lượt quét gợi ý ứng viên đã lưu
+  const loadHistory = useCallback(async (jobPostId: string) => {
+    if (!jobPostId || !supabase) {
+      setHistory([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("match_resume")
+        .select("id, created_at, rerank_mode, rerank_status, recruiter_message")
+        .eq("job_post_id", jobPostId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      setHistory((data || []) as HistoryRun[]);
+    } catch (err) {
+      console.error("Không thể tải lịch sử chạy gợi ý ứng viên", err);
+    }
+  }, []);
+
   const handleSelectJob = async (nextId: string) => {
     setJobId(nextId);
     setSelectedCompareCandidates([]);
     const job = jobs.find((j) => j.id === nextId);
-    setMessages([{ id: `welcome-${nextId}`, role: "system", text: nextId ? `Đã chọn tin: ${job?.title}` : "Chọn một vị trí tuyển dụng." }]);
-    setHistory([]);
-    if (!nextId || !supabase) return;
-    const { data } = await supabase
-      .from("match_resume")
-      .select("id, created_at, rerank_mode, rerank_status, recruiter_message")
-      .eq("job_post_id", nextId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    setHistory((data || []) as HistoryRun[]);
+    setMessages([
+      {
+        id: `welcome-${nextId}`,
+        role: "system",
+        text: nextId
+          ? `Đã chọn tin tuyển dụng: ${job?.title || ""}\nBấm “Gợi ý ứng viên phù hợp” hoặc nhập yêu cầu tuyển dụng để AI quét và đề xuất ứng viên tốt nhất.`
+          : "Chọn một vị trí tuyển dụng để bắt đầu.",
+      },
+    ]);
+    void loadHistory(nextId);
   };
 
   const openCv = async (candidate: ChatCandidate) => {
@@ -480,11 +535,20 @@ export default function AICandidatePage() {
     if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
+    setStreamingSteps([]);
+    setCurrentStatusLabel("Đang khởi tạo gợi ý ứng viên...");
+    setStreamingText("");
+
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);
     try {
-      const body = await apiJson<{ response: string; candidates?: ChatCandidate[] }>("/chat", session.access_token, {
-        method: "POST",
-        body: JSON.stringify({
+      let accumulatedText = "";
+      let rawCandidateList: ChatCandidate[] = [];
+      let finalSessionId = sessionId;
+
+      await apiStream(
+        "/chat/stream",
+        session.access_token,
+        {
           message: msgText,
           job_id: jobId,
           rerank,
@@ -494,30 +558,69 @@ export default function AICandidatePage() {
           max_results: maxCandidates,
           skill_weight: skillWeight,
           experience_weight: Number((1 - skillWeight).toFixed(2)),
-        }),
-      });
-      let candidateList = body.candidates || [];
+        },
+        (event: StreamEvent) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "token") {
+            accumulatedText += event.data.delta;
+            setStreamingText(accumulatedText);
+          } else if (event.event === "complete") {
+            rawCandidateList = (event.data.candidates || []) as ChatCandidate[];
+            accumulatedText = event.data.response || accumulatedText;
+            if (event.data.session_id && event.data.session_id !== sessionId) {
+              finalSessionId = event.data.session_id;
+              setSessionId(finalSessionId);
+              localStorage.setItem("chat_session_id_candidate", finalSessionId);
+            }
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Lỗi xử lý luồng gợi ý");
+          }
+        }
+      );
+
+      let candidateList = rawCandidateList;
       if (!includePublicCandidates) {
         candidateList = candidateList.filter((c) => c.current_status !== "job_seeking" && !c.is_public_candidate);
       }
       if (verifiedOnly) {
         candidateList = candidateList.filter((c) => c.has_verified_skills);
       }
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, candidates: candidateList }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          text: accumulatedText || `Đã quét hồ sơ của ${candidateList.length} ứng viên.`,
+          candidates: candidateList,
+        },
+      ]);
+      void loadHistory(jobId);
+      void loadChatHistory();
     } catch (err: unknown) {
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." },
+      ]);
     } finally {
       setSending(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
+      setStreamingText("");
     }
   };
-
-  const chatTurns = messages.filter((m) => m.id !== "welcome" && !m.id.startsWith("welcome-"));
+    const chatTurns = messages.filter((m) => m.id !== "welcome" && !m.id.startsWith("welcome-"));
 
   const historyPane = (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100 dark:border-slate-700">
         <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-          <MessageSquare size={13} /> Lịch sử trò chuyện
+          <MessageSquare size={13} /> {lang === "en" ? "Chat History" : "Lịch sử trò chuyện"}
         </p>
         <button type="button" onClick={() => setLeftOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Ẩn lịch sử">
           <X size={14} />
@@ -530,14 +633,14 @@ export default function AICandidatePage() {
           onClick={startNewChat}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
         >
-          <Plus size={14} /> Cuộc trò chuyện mới
+          <Plus size={14} /> {lang === "en" ? "New conversation" : "Cuộc trò chuyện mới"}
         </button>
 
         {/* Current Session */}
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Phiên hiện tại</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">{lang === "en" ? "Current Session" : "Phiên hiện tại"}</p>
           {chatTurns.length === 0 ? (
-            <p className="text-slate-400">Chưa có tin nhắn.</p>
+            <p className="text-slate-400">{lang === "en" ? "No messages yet." : "Chưa có tin nhắn."}</p>
           ) : (
             <ul className="space-y-1.5">
               {chatTurns.map((m) => (
@@ -552,7 +655,7 @@ export default function AICandidatePage() {
         {/* Saved Sessions */}
         <div>
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">
-            <span>Phiên đã lưu ({chatHistory.length})</span>
+            <span>{lang === "en" ? `Saved Sessions (${chatHistory.length})` : `Phiên đã lưu (${chatHistory.length})`}</span>
             {chatHistory.length > 0 && (
               <button
                 type="button"
@@ -569,7 +672,7 @@ export default function AICandidatePage() {
             )}
           </div>
           {chatHistory.length === 0 ? (
-            <p className="text-slate-400">Chưa có phiên nào được lưu.</p>
+            <p className="text-slate-400">{lang === "en" ? "No saved sessions yet." : "Chưa có phiên nào được lưu."}</p>
           ) : (
             <ul className="space-y-1.5">
               {chatHistory.map((sess) => (
@@ -583,7 +686,7 @@ export default function AICandidatePage() {
                   }`}
                 >
                   <p className="truncate line-clamp-1">{sess.first_message}</p>
-                  <p className="text-[10px] text-slate-400">{new Date(sess.created_at).toLocaleString("vi-VN")}</p>
+                  <p className="text-[10px] text-slate-400">{new Date(sess.created_at).toLocaleString(lang === "en" ? "en-US" : "vi-VN")}</p>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -606,14 +709,14 @@ export default function AICandidatePage() {
 
         {/* Lượt gợi ý */}
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">Lượt gợi ý</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1.5">{lang === "en" ? "Suggestion Runs" : "Lượt gợi ý"}</p>
           {history.length === 0 ? (
-            <p className="text-slate-400">Chọn tin tuyển dụng để xem lịch sử.</p>
+            <p className="text-slate-400">{lang === "en" ? "Select a job posting to view history." : "Chọn tin tuyển dụng để xem lịch sử."}</p>
           ) : (
             <ul className="space-y-1.5">
               {history.map((run) => (
                 <li key={run.id} className="rounded-lg px-2 py-1.5 bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300">
-                  <p>{new Date(run.created_at).toLocaleString("vi-VN")}</p>
+                  <p>{new Date(run.created_at).toLocaleString(lang === "en" ? "en-US" : "vi-VN")}</p>
                   <p className="text-[10px] text-slate-400">{run.rerank_mode || "—"}{run.recruiter_message ? ` · ${run.recruiter_message}` : ""}</p>
                 </li>
               ))}
@@ -624,11 +727,11 @@ export default function AICandidatePage() {
     </div>
   );
 
-  const paramsPane = (
+  const renderRightPanel = () => (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 overflow-hidden">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100 dark:border-slate-700">
         <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-          <SlidersHorizontal size={14} className="text-purple-600 dark:text-purple-400" /> Tham số tùy chỉnh AI
+          <SlidersHorizontal size={14} className="text-purple-600 dark:text-purple-400" /> {lang === "en" ? "Matching Settings" : "Cấu hình AI & Thuật toán"}
         </p>
         <button type="button" onClick={() => setRightOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Ẩn tham số">
           <X size={14} />
@@ -645,16 +748,16 @@ export default function AICandidatePage() {
             className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4 mt-0.5"
           />
           <div className="min-w-0">
-            <span className="font-bold block text-slate-900 dark:text-white text-xs">Rà soát ứng viên đang tìm việc</span>
+            <span className="font-bold block text-slate-900 dark:text-white text-xs">{lang === "en" ? "Scan active job-seeking candidates" : "Rà soát ứng viên đang tìm việc"}</span>
             <span className="text-[11px] text-slate-500 dark:text-slate-400 block leading-tight mt-0.5">
-              Tự động quét cả CV công khai trên toàn hệ thống chưa nộp đơn trực tiếp
+              {lang === "en" ? "Automatically scans public resumes in the system that haven't applied directly" : "Tự động quét cả CV công khai trên toàn hệ thống chưa nộp đơn trực tiếp"}
             </span>
           </div>
         </label>
 
         {/* Chế độ Rerank AI */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Chế độ Rerank AI</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">{lang === "en" ? "AI Rerank Mode" : "Chế độ Rerank AI"}</p>
           <div className="space-y-1.5">
             {(["qwen", "agent"] as const).map((mode) => (
               <button
@@ -669,7 +772,7 @@ export default function AICandidatePage() {
               >
                 <div>
                   <p className="capitalize text-xs">{mode === "qwen" ? "Qwen AI Reranker" : "RRF Fusion Match"}</p>
-                  <p className="text-[10px] text-slate-400 font-normal">{mode === "qwen" ? "Mô hình Deep Reranking chấm điểm sâu" : "Kết hợp điểm vector và từ khóa BM25"}</p>
+                  <p className="text-[10px] text-slate-400 font-normal">{mode === "qwen" ? (lang === "en" ? "Deep Reranking scoring model" : "Mô hình Deep Reranking chấm điểm sâu") : (lang === "en" ? "Combines vector scores & BM25 keywords" : "Kết hợp điểm vector và từ khóa BM25")}</p>
                 </div>
                 {rerank === mode ? (
                   <CheckCircle2 size={14} className="text-purple-600 dark:text-purple-400 shrink-0" />
@@ -684,21 +787,21 @@ export default function AICandidatePage() {
         {/* Algorithm Parameters */}
         <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tham số thuật toán</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{lang === "en" ? "Algorithm Parameters" : "Tham số thuật toán"}</p>
             <button
               type="button"
               onClick={handleResetDefaults}
               className="text-[10px] font-medium text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 transition-colors cursor-pointer"
-              title="Đặt lại các tham số về mặc định"
+              title={lang === "en" ? "Reset parameters to default" : "Đặt lại các tham số về mặc định"}
             >
-              <RotateCcw size={10} /> Đặt lại
+              <RotateCcw size={10} /> {lang === "en" ? "Reset" : "Đặt lại"}
             </button>
           </div>
 
           {/* Max Candidates */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Số ứng viên tối đa</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">{lang === "en" ? "Max candidates" : "Số ứng viên tối đa"}</span>
               <span className="font-bold text-purple-600 dark:text-purple-400">Top {maxCandidates}</span>
             </div>
             <div className="grid grid-cols-5 gap-1">
@@ -722,7 +825,7 @@ export default function AICandidatePage() {
           {/* High Fit Threshold */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng phù hợp cao</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">{lang === "en" ? "High fit threshold" : "Ngưỡng phù hợp cao"}</span>
               <span className="font-bold text-emerald-600 dark:text-emerald-400">{fitGoodThreshold}%</span>
             </div>
             <input
@@ -742,7 +845,7 @@ export default function AICandidatePage() {
             />
             <div className="flex justify-between text-[9px] text-slate-400">
               <span>20%</span>
-              <span>Khuyến nghị: 45%</span>
+              <span>{lang === "en" ? "Recommended: 45%" : "Khuyến nghị: 45%"}</span>
               <span>80%</span>
             </div>
           </div>
@@ -750,7 +853,7 @@ export default function AICandidatePage() {
           {/* Normal Fit Threshold */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng bình thường</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">{lang === "en" ? "Normal fit threshold" : "Ngưỡng bình thường"}</span>
               <span className="font-bold text-amber-600 dark:text-amber-400">{fitOkThreshold}%</span>
             </div>
             <input
@@ -770,7 +873,7 @@ export default function AICandidatePage() {
             />
             <div className="flex justify-between text-[9px] text-slate-400">
               <span>10%</span>
-              <span>Khuyến nghị: 30%</span>
+              <span>{lang === "en" ? "Recommended: 30%" : "Khuyến nghị: 30%"}</span>
               <span>60%</span>
             </div>
           </div>
@@ -778,7 +881,7 @@ export default function AICandidatePage() {
           {/* Skill vs Experience Weights */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Trọng số Kỹ năng / Kinh nghiệm</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">{lang === "en" ? "Skills / Experience Weight" : "Trọng số Kỹ năng / Kinh nghiệm"}</span>
               <span className="font-bold text-purple-600 dark:text-purple-400">
                 {Math.round(skillWeight * 100)}% / {Math.round((1 - skillWeight) * 100)}%
               </span>
@@ -793,9 +896,9 @@ export default function AICandidatePage() {
               className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
             />
             <div className="flex justify-between text-[9px] text-slate-400">
-              <span>Thiên kinh nghiệm</span>
-              <span>Cân bằng</span>
-              <span>Thiên kỹ năng</span>
+              <span>{lang === "en" ? "Experience-heavy" : "Thiên kinh nghiệm"}</span>
+              <span>{lang === "en" ? "Balanced" : "Cân bằng"}</span>
+              <span>{lang === "en" ? "Skill-heavy" : "Thiên kỹ năng"}</span>
             </div>
           </div>
 
@@ -809,9 +912,9 @@ export default function AICandidatePage() {
             />
             <div className="min-w-0">
               <span className="font-semibold block text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1">
-                <ShieldCheck size={13} className="text-blue-500" /> Chỉ CV có kỹ năng đã xác minh
+                <ShieldCheck size={13} className="text-blue-500" /> {lang === "en" ? "Only CVs with verified skills" : "Chỉ CV có kỹ năng đã xác minh"}
               </span>
-              <span className="text-[10px] text-slate-400 block">Lọc bỏ các CV chỉ có kỹ năng suy đoán</span>
+              <span className="text-[10px] text-slate-400 block">{lang === "en" ? "Filter out CVs with only inferred skills" : "Lọc bỏ các CV chỉ có kỹ năng suy đoán"}</span>
             </div>
           </label>
 
@@ -936,19 +1039,25 @@ export default function AICandidatePage() {
                                   {list.length}
                                 </span>
                               </h2>
-                              <div className="flex flex-row flex-wrap gap-3">
-                                {list.map((cand) => (
-                                  <CandidateCard
-                                    key={cand.application_id}
-                                    candidate={cand}
-                                    opening={openingId === cand.application_id}
-                                    onOpen={() => void openCv(cand)}
-                                    isCompareSelected={selectedCompareCandidates.some((c) => c.id === cand.application_id)}
-                                    onToggleCompare={() => handleToggleCompare(cand)}
-                                    goodThreshold={fitGoodThreshold}
-                                    okThreshold={fitOkThreshold}
-                                  />
-                                ))}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                                {list.map((cand) => {
+                                  const compareIdx = selectedCompareCandidates.findIndex((c) => c.id === cand.application_id);
+                                  const isSelected = compareIdx !== -1;
+                                  const letterLabel = isSelected ? String.fromCharCode(65 + compareIdx) : undefined;
+                                  return (
+                                    <CandidateCard
+                                      key={cand.application_id}
+                                      candidate={cand}
+                                      opening={openingId === cand.application_id}
+                                      onOpen={() => void openCv(cand)}
+                                      isCompareSelected={isSelected}
+                                      compareLabel={letterLabel}
+                                      onToggleCompare={() => handleToggleCompare(cand)}
+                                      goodThreshold={fitGoodThreshold}
+                                      okThreshold={fitOkThreshold}
+                                    />
+                                  );
+                                })}
                               </div>
                             </div>
                           );
@@ -959,10 +1068,29 @@ export default function AICandidatePage() {
                 })}
               </AnimatePresence>
               {sending && (
-                <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 py-1">
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>AI đang phân tích và tìm kiếm Top {maxCandidates} ứng viên phù hợp...</span>
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3"
+                >
+                  <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white bg-gradient-to-br from-purple-500 to-pink-600">
+                    <Bot size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0 max-w-[85%] flex flex-col gap-2">
+                    <SuggestionStatusIndicator
+                      currentLabel={currentStatusLabel}
+                      steps={streamingSteps}
+                      isGenerating={sending}
+                      theme="recruiter"
+                    />
+                    {streamingText && (
+                      <div className="rounded-2xl px-4 py-3 text-sm whitespace-pre-line w-fit max-w-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                        {streamingText}
+                        <span className="inline-block w-1.5 h-3.5 ml-1 bg-purple-600 animate-pulse align-middle" />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
               <div ref={bottomRef} />
             </div>
@@ -1035,7 +1163,7 @@ export default function AICandidatePage() {
           transition={SIDE_T}
           className="sticky top-16 h-[calc(100vh-4rem)] shrink-0 overflow-hidden z-20 self-start"
         >
-          <div className="h-full" style={{ width: RIGHT_W }}>{paramsPane}</div>
+          <div className="h-full" style={{ width: RIGHT_W }}>{renderRightPanel()}</div>
         </motion.aside>
       ) : (
         <AnimatePresence>
@@ -1060,7 +1188,7 @@ export default function AICandidatePage() {
                 transition={SIDE_T}
                 className="fixed z-40 right-0 top-16 bottom-0 w-72 shadow-xl"
               >
-                {paramsPane}
+                {renderRightPanel()}
               </motion.aside>
             </>
           )}
@@ -1131,4 +1259,3 @@ export default function AICandidatePage() {
     </AnimatedPage>
   );
 }
-

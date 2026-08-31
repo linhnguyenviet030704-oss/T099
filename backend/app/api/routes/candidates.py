@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from backend.app.agents.routing.compare_flags import (
     COMPARE_CANDIDATES_FLAGS,
@@ -20,8 +23,14 @@ from backend.app.core.security import AuthenticatedUser
 from backend.app.dependencies.services import get_profile_service
 from backend.app.guardrails.rate_limit import enforce_chat_rate_limit
 from backend.app.observability.logger import get_logger
-from backend.app.services.matching.compare import compare_candidates_for_job
-from backend.app.services.matching.compare_jobs import compare_jobs_for_candidate
+from backend.app.services.matching.compare import (
+    compare_candidates_for_job,
+    stream_compare_candidates_for_job,
+)
+from backend.app.services.matching.compare_jobs import (
+    compare_jobs_for_candidate,
+    stream_compare_jobs_for_candidate,
+)
 from backend.app.services.profile_service import ProfileService
 from backend.app.shared_brain.registry import get_brain
 from supabase import Client
@@ -87,6 +96,49 @@ async def compare_candidates(
     )
 
 
+@router.post("/candidates/compare/stream")
+async def compare_candidates_stream(
+    request: CompareCandidatesRequest,
+    current_user: AuthenticatedUser = Depends(enforce_chat_rate_limit),
+    client: Client = Depends(get_supabase_client),
+    profile_service: ProfileService = Depends(get_profile_service),
+) -> StreamingResponse:
+    """Phát luồng Server-Sent Events cho tiến trình so sánh CV các ứng viên."""
+    assert_compare_flow_is_pure(COMPARE_CANDIDATES_FLAGS)
+    profile = await profile_service.get_own_profile(current_user.id)
+    if profile.role != "recruiter" and profile.role != "admin":
+        raise ForbiddenError("Chỉ Nhà tuyển dụng mới có quyền so sánh CV ứng viên")
+
+    async def event_generator():
+        try:
+            async for event in stream_compare_candidates_for_job(
+                client=client,
+                actor_id=current_user.id,
+                job_id=request.job_id,
+                application_ids=request.application_ids,
+                complete=_make_eval_complete_fn(),
+                api_key=settings.qwen_api_key,
+                base_url=settings.qwen_base_url,
+            ):
+                event_name = event.get("event", "message")
+                event_data = json.dumps(event.get("data", {}), ensure_ascii=False)
+                yield f"event: {event_name}\ndata: {event_data}\n\n"
+        except Exception as e:
+            logger.error("Lỗi khi stream so sánh ứng viên: %s", e)
+            err_data = json.dumps({"error": str(e)}, ensure_ascii=False)
+            yield f"event: error\ndata: {err_data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/jobs/compare", response_model=CompareJobsResponse)
 async def compare_jobs(
     request: CompareJobsRequest,
@@ -117,5 +169,44 @@ async def compare_jobs(
         complete=_make_eval_complete_fn(),
         api_key=settings.qwen_api_key,
         base_url=settings.qwen_base_url,
+    )
+
+
+@router.post("/jobs/compare/stream")
+async def compare_jobs_stream(
+    request: CompareJobsRequest,
+    current_user: AuthenticatedUser = Depends(enforce_chat_rate_limit),
+    client: Client = Depends(get_supabase_client),
+) -> StreamingResponse:
+    """Phát luồng Server-Sent Events cho tiến trình so sánh việc làm."""
+    assert_compare_flow_is_pure(COMPARE_JOBS_FLAGS)
+
+    async def event_generator():
+        try:
+            async for event in stream_compare_jobs_for_candidate(
+                client=client,
+                actor_id=current_user.id,
+                job_ids=request.job_ids,
+                resume_id=request.resume_id,
+                complete=_make_eval_complete_fn(),
+                api_key=settings.qwen_api_key,
+                base_url=settings.qwen_base_url,
+            ):
+                event_name = event.get("event", "message")
+                event_data = json.dumps(event.get("data", {}), ensure_ascii=False)
+                yield f"event: {event_name}\ndata: {event_data}\n\n"
+        except Exception as e:
+            logger.error("Lỗi khi stream so sánh việc làm: %s", e)
+            err_data = json.dumps({"error": str(e)}, ensure_ascii=False)
+            yield f"event: error\ndata: {err_data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 

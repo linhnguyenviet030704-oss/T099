@@ -37,12 +37,17 @@ class Settings(BaseSettings):
     app_port: int = Field(default=8000, ge=1, le=65535)
     app_host: str = "0.0.0.0"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = (
+        "http://localhost:5173,http://localhost:3000,https://nextjob-matikanefukukitaru.vercel.app"
+    )
 
     supabase_url: str = "http://127.0.0.1:54321"
     supabase_service_role_key: str = ""
     supabase_jwt_secret: str = DEFAULT_JWT_SECRET
     supabase_anon_key: str = ""
+
+    # Cron secret (dùng cho internal endpoints gọi từ cron)
+    cron_secret: str = ""
 
     # GitHub API
     github_token: str = ""

@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, X } from "lucide-react";
+import { useLang } from "../context/LangContext";
 
 interface Props {
   open: boolean;
@@ -8,6 +9,7 @@ interface Props {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  isLoading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,12 +18,16 @@ export default function ConfirmModal({
   open,
   title,
   message,
-  confirmLabel = "Xác nhận",
-  cancelLabel = "Hủy",
+  confirmLabel,
+  cancelLabel,
   danger = false,
+  isLoading = false,
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useLang();
+  const finalConfirmLabel = confirmLabel || t.confirm;
+  const finalCancelLabel = cancelLabel || t.cancel;
   return (
     <AnimatePresence>
       {open && (
@@ -54,21 +60,25 @@ export default function ConfirmModal({
             </div>
             <div className="flex gap-3 mt-6 justify-end">
               <button
+                type="button"
+                disabled={isLoading}
                 onClick={onCancel}
-                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
               >
-                {cancelLabel}
+                {finalCancelLabel}
               </button>
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.97 }}
+                disabled={isLoading}
                 onClick={onConfirm}
-                className={`px-4 py-2 text-sm font-semibold rounded-xl text-white transition-colors ${
+                className={`px-4 py-2 text-sm font-semibold rounded-xl text-white transition-colors disabled:opacity-50 ${
                   danger
                     ? "bg-red-500 hover:bg-red-600"
                     : "bg-indigo-600 hover:bg-indigo-700"
                 }`}
               >
-                {confirmLabel}
+                {finalConfirmLabel}
               </motion.button>
             </div>
           </motion.div>

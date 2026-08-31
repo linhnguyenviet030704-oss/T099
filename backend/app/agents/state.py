@@ -38,3 +38,6 @@ class AgentState(TypedDict, total=False):
     kg_params: dict[str, Any]
     kg_context: dict[str, Any]
     target_entity: dict[str, Any]
+    allowed_result_ids: list[str]
+    deterministic_candidates: list[dict[str, Any]]
+    guardrail_codes: list[str]

@@ -1,34 +1,161 @@
-name: CI Pipeline
+# =============================================================================
+# Pipeline CI/CD: Tự động Kiểm thử, Build ECR, Rebuild AWS EC2 & Health Check
+# =============================================================================
+name: CI/CD Pipeline (Build, Test, ECR & Deploy EC2)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, phase2_mock]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  backend-ci:
-    name: Backend Lint & Test
+  # ===========================================================================
+  # Giai đoạn 1: Tải mã nguồn & Kiểm tra môi trường
+  # ===========================================================================
+  load-and-setup:
+    name: "1. Load & Setup"
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Tải mã nguồn (Checkout Repository)"
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: "🔍 Kiểm tra tính toàn vẹn của thư mục dự án"
+        run: |
+          echo "=== KIỂM TRA MÔI TRƯỜNG & TẬP TIN DỰ ÁN ==="
+          test -f requirements.txt || (echo "Lỗi: Không tìm thấy requirements.txt" && exit 1)
+          test -f frontend/package.json || (echo "Lỗi: Không tìm thấy frontend/package.json" && exit 1)
+          test -f frontend/pnpm-lock.yaml || (echo "Lỗi: Không tìm thấy frontend/pnpm-lock.yaml" && exit 1)
+          echo "Nhánh hiện tại: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Người kích hoạt: ${{ github.actor }}"
+          echo "Tất cả các tệp cấu hình cốt lõi đã sẵn sàng."
+
+  # ===========================================================================
+  # Giai đoạn 2: Tải & Lưu Cache Dependencies
+  # ===========================================================================
+  download-dependencies:
+    name: "2. Download Dependencies"
+    needs: [load-and-setup]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      # Khởi tạo & tải thư viện Python cho Backend
+      - name: "⚙️ Thiết lập môi trường Python 3.11"
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
+          cache: "pip"
 
-      - name: Install Python dependencies
+      - name: "📦 Cài đặt & lưu cache dependencies cho Python (Backend)"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Lint with ruff
+      # Khởi tạo & tải thư viện Node.js / pnpm cho Frontend
+      - name: "⚡ Cài đặt pnpm phiên bản 10"
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: "⚙️ Thiết lập môi trường Node.js 22"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: "📦 Cài đặt & lưu cache dependencies cho Frontend"
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+  # ===========================================================================
+  # Giai đoạn 3a: Kiểm tra Lint mã nguồn Backend (Ruff)
+  # ===========================================================================
+  backend-lint:
+    name: "3a. Backend Lint (Ruff)"
+    needs: [download-dependencies]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚙️ Thiết lập Python 3.11 với cache"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "📦 Cài đặt dependencies từ cache"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "🔍 Kiểm tra Lint mã nguồn Backend với Ruff"
         run: ruff check backend/ tests/
 
-      - name: Run Pytest suite
+  # ===========================================================================
+  # Giai đoạn 3b: Kiểm tra Lint & Typecheck Frontend (TypeScript)
+  # ===========================================================================
+  frontend-lint:
+    name: "3b. Frontend Lint (TypeScript)"
+    needs: [download-dependencies]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚡ Thiết lập pnpm 10"
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: "📦 Khôi phục Frontend dependencies"
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: "🔍 Kiểm tra TypeScript Typecheck"
+        working-directory: ./frontend
+        run: pnpm lint
+
+  # ===========================================================================
+  # Giai đoạn 4a: Chạy kiểm thử tự động Backend (Pytest)
+  # ===========================================================================
+  backend-test:
+    name: "4a. Backend Test Suite (Pytest)"
+    needs: [backend-lint]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚙️ Thiết lập Python 3.11 với cache"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "📦 Cài đặt dependencies từ cache"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "🧪 Chạy toàn bộ Pytest test suite"
         run: pytest tests/ -v --tb=short
         env:
           APP_ENV: test
@@ -36,35 +163,530 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: test-service-role-key-must-be-long-enough-32-chars
           QWEN_API_KEY: test-key
 
-  frontend-ci:
-    name: Frontend Typecheck & Build
+  # ===========================================================================
+  # Giai đoạn 4b: Chạy kiểm thử tự động Frontend
+  # ===========================================================================
+  frontend-test:
+    name: "4b. Frontend Test Suite"
+    needs: [frontend-lint]
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
 
-      - name: Install pnpm
+      - name: "⚡ Thiết lập pnpm 10"
         uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - name: Set up Node.js 20
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Install Frontend dependencies
+      - name: "📦 Khôi phục Frontend dependencies"
         working-directory: ./frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck TypeScript
+      - name: "🧪 Chạy Frontend Unit Tests"
         working-directory: ./frontend
-        run: pnpm lint
+        run: pnpm test
 
-      - name: Build Frontend bundle
+  # ===========================================================================
+  # Giai đoạn 5: Đóng gói & Build Frontend Bundle
+  # ===========================================================================
+  frontend-build:
+    name: "5. Frontend Build"
+    needs: [frontend-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚡ Thiết lập pnpm 10"
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: "📦 Khôi phục Frontend dependencies"
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: "🏗️ Biên dịch Frontend bundle (Vite Build)"
         working-directory: ./frontend
         run: pnpm build
         env:
           VITE_API_BASE_URL: https://recruitment-portal-backend.onrender.com
+
+      - name: "🚀 Lưu trữ Artifacts (dist)"
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  # ===========================================================================
+  # Giai đoạn 6: Deploy Database Migrations lên Supabase Cloud (chỉ chạy trên main/phase2_mock)
+  # ===========================================================================
+  deploy-database:
+    name: "6. Database Migrations (Supabase Cloud)"
+    needs: [backend-test]
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase2_mock') && needs.backend-test.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚙️ Thiết lập Supabase CLI"
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_ID != '' && env.SUPABASE_DB_PASSWORD != '' }}
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: "🚀 Đẩy DB Migrations lên Supabase Cloud"
+        if: ${{ env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_ID != '' && env.SUPABASE_DB_PASSWORD != '' }}
+        run: |
+          echo "=== KẾT NỐI VÀ ĐẨY MIGRATIONS ==="
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
+          supabase db push --include-all -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
+          echo "✅ Cập nhật Database Supabase thành công!"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  # ===========================================================================
+  # Giai đoạn 7: Build Docker Image & Push lên Amazon ECR
+  # ===========================================================================
+  build-and-push-ecr:
+    name: "7. Build & Push Image (Amazon ECR)"
+    needs: [backend-test]
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase2_mock') && needs.backend-test.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+    outputs:
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
+      image_tag: ${{ steps.build-image.outputs.image_tag }}
+      image_uri: ${{ steps.build-image.outputs.image_uri }}
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚙️ Cấu hình thông tin xác thực AWS Credentials"
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: "🔐 Đăng nhập vào Amazon ECR"
+        id: login-ecr
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: "🐳 Thiết lập Docker Buildx"
+        if: ${{ steps.login-ecr.outputs.registry != '' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: "🔨 Build và Push Docker Image lên Amazon ECR"
+        id: build-image
+        if: ${{ steps.login-ecr.outputs.registry != '' && env.ECR_REPOSITORY != '' }}
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "=================================================="
+          echo "🐳 BẮT ĐẦU BUILD DOCKER IMAGE CHO BACKEND"
+          echo "=================================================="
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          LATEST_URI="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+          echo "📦 Target Image URI: $IMAGE_URI"
+          echo "📦 Target Latest URI: $LATEST_URI"
+          echo "🖥️ Kiến trúc Platform: linux/amd64 (Tương thích chuẩn AWS EC2)"
+
+          # Build Image với Docker Buildx cho nền tảng linux/amd64
+          docker build --platform linux/amd64 \
+            -t "$IMAGE_URI" \
+            -t "$LATEST_URI" \
+            .
+
+          echo "=================================================="
+          echo "🚀 ĐẨY IMAGE LÊN AMAZON ECR"
+          echo "=================================================="
+          docker push "$IMAGE_URI"
+          docker push "$LATEST_URI"
+
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_uri=$LATEST_URI" >> $GITHUB_OUTPUT
+          echo "✅ BUILD VÀ PUSH ECR THÀNH CÔNG!"
+
+  # ===========================================================================
+  # Giai đoạn 8: SSH vào AWS EC2 và Rebuild / Khởi chạy Container Backend
+  # ===========================================================================
+  deploy-ec2:
+    name: "8. Rebuild & Run Container (AWS EC2)"
+    needs: [deploy-database, build-and-push-ecr]
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase2_mock') && (needs.build-and-push-ecr.result == 'success' || needs.build-and-push-ecr.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+    steps:
+      - name: "🚀 Kết nối SSH và Rebuild Container trên EC2"
+        if: ${{ env.EC2_HOST != '' && env.EC2_SSH_KEY != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-southeast-2' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          envs: AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,ECR_REPOSITORY,IMAGE_TAG
+          script: |
+            set -e
+            echo "=================================================="
+            echo "🖥️ 1. THÔNG TIN HỆ THỐNG MÁY CHỦ EC2"
+            echo "=================================================="
+            echo "Hostname: $(hostname)"
+            echo "User: $(whoami)"
+            echo "Dung lượng đĩa trống: $(df -h / | awk 'NR==2 {print $4}')"
+            echo "RAM khả dụng: $(free -h | awk 'NR==2 {print $7}')"
+            docker --version || echo "Docker đã được cài đặt"
+
+            AWS_REGION="${AWS_REGION:-ap-southeast-2}"
+
+            if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$ECR_REPOSITORY" ]; then
+              echo "=================================================="
+              echo "🔐 2. ĐĂNG NHẬP AMAZON ECR TRÊN EC2"
+              echo "=================================================="
+              aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+              aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+              aws configure set region "$AWS_REGION"
+              
+              aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com" || true
+
+              ECR_REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com"
+              IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+              echo "=================================================="
+              echo "📥 3. KÉO DOCKER IMAGE MỚI NHẤT TỪ ECR"
+              echo "=================================================="
+              echo "Đang kéo: $IMAGE_NAME"
+              docker pull "$IMAGE_NAME"
+
+              echo "=================================================="
+              echo "🛑 4. DỪNG VÀ XÓA CONTAINER BACKEND CŨ"
+              echo "=================================================="
+              if docker ps -a --format '{{.Names}}' | grep -Eq "^backend$"; then
+                echo "Đang dừng container backend hiện tại..."
+                docker stop backend || true
+                docker rm -f backend || true
+                echo "Đã dọn dẹp container backend cũ thành công."
+              else
+                echo "Chưa có container backend nào đang chạy."
+              fi
+
+              echo "=================================================="
+              echo "🚀 5. KHỞI CHẠY CONTAINER BACKEND MỚI (REBUILT)"
+              echo "=================================================="
+              mkdir -p "$HOME/data"
+
+              ENV_FILE=""
+              if [ -f "$HOME/.env" ]; then
+                ENV_FILE="$HOME/.env"
+              elif [ -f "$HOME/team-Matikanefukukitaru/.env" ]; then
+                ENV_FILE="$HOME/team-Matikanefukukitaru/.env"
+              elif [ -f "$HOME/app/.env" ]; then
+                ENV_FILE="$HOME/app/.env"
+              fi
+
+              ENV_ARG=""
+              if [ -n "$ENV_FILE" ]; then
+                echo "Sử dụng file môi trường: $ENV_FILE"
+                ENV_ARG="--env-file $ENV_FILE"
+              else
+                echo "⚠️ Cảnh báo: Không tìm thấy file .env tại các vị trí mặc định"
+              fi
+
+              docker run -d \
+                --name backend \
+                --restart unless-stopped \
+                -p 8000:8000 \
+                -v "$HOME/data:/app/data" \
+                $ENV_ARG \
+                "$IMAGE_NAME"
+
+              echo "=================================================="
+              echo "🧹 6. DỌN DẸP DOCKER IMAGES KHÔNG DÙNG"
+              echo "=================================================="
+              docker image prune -f || true
+
+              echo "=================================================="
+              echo "📊 7. TRẠNG THÁI CONTAINER HIỆN TẠI SAU KHI REBUILD"
+              echo "=================================================="
+              docker ps --filter name=backend --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+            else
+              echo "=================================================="
+              echo "ℹ️ FALLBACK: BUILD TRỰC TIẾP TỪ GIT TRÊN EC2"
+              echo "=================================================="
+              APP_DIR="${{ secrets.EC2_APP_DIR }}"
+              if [ -z "$APP_DIR" ]; then
+                if [ -d "$HOME/team-Matikanefukukitaru" ]; then
+                  APP_DIR="$HOME/team-Matikanefukukitaru"
+                elif [ -d "$HOME/app" ]; then
+                  APP_DIR="$HOME/app"
+                else
+                  APP_DIR="$(pwd)"
+                fi
+              fi
+              echo "Thư mục mã nguồn: $APP_DIR"
+              cd "$APP_DIR" || exit 1
+              echo "Đang kéo mã nguồn mới nhất từ Git..."
+              git pull origin main || git pull
+              echo "Đang build và restart bằng Docker Compose..."
+              docker compose down || true
+              docker compose up -d --build
+            fi
+
+            echo "=================================================="
+            echo "✅ HOÀN TẤT REBUILD VÀ KHỞI CHẠY CONTAINER TRÊN EC2!"
+            echo "=================================================="
+
+  # ===========================================================================
+  # Giai đoạn 9: Health Check & Chẩn đoán hệ thống Backend EC2
+  # ===========================================================================
+  health-check-ec2:
+    name: "9. Health Check & Diagnostics (AWS EC2)"
+    needs: [deploy-ec2]
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase2_mock') && needs.deploy-ec2.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+    steps:
+      - name: "🩺 Kiểm tra Health Check nội bộ trên EC2 (qua SSH)"
+        if: ${{ env.EC2_HOST != '' && env.EC2_SSH_KEY != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          script: |
+            echo "=================================================="
+            echo "🩺 BẮT ĐẦU KIỂM TRA HEALTH CHECK BACKEND NỘI BỘ"
+            echo "=================================================="
+
+            SUCCESS=0
+            for i in $(seq 1 10); do
+              echo "Lần thử $i/10: Kiểm tra http://127.0.0.1:8000/health ..."
+              STATUS=$(curl -s -o /tmp/health_resp.json -w "%{http_code}" http://127.0.0.1:8000/health || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "✅ Backend đã phản hồi 200 OK!"
+                echo "Response payload: $(cat /tmp/health_resp.json)"
+                SUCCESS=1
+                break
+              fi
+              echo "⏳ Backend chưa sẵn sàng (HTTP: $STATUS). Đợi 3 giây..."
+              sleep 3
+            done
+
+            echo "=================================================="
+            echo "📜 30 DÒNG LOG MỚI NHẤT TỪ BACKEND CONTAINER"
+            echo "=================================================="
+            docker logs backend --tail 30 2>&1 || true
+
+            if [ "$SUCCESS" -ne 1 ]; then
+              echo "❌ LỖI: Backend không vượt qua Health Check sau 10 lần thử!"
+              echo "Chi tiết log lỗi container:"
+              docker logs backend --tail 100 2>&1 || true
+              exit 1
+            fi
+
+            echo "=================================================="
+            echo "✅ BACKEND EC2 HEALTH CHECK THÀNH CÔNG!"
+            echo "=================================================="
+
+      - name: "🌐 Kiểm tra Health Check qua Public API Endpoint"
+        run: |
+          echo "=================================================="
+          echo "🌐 KIỂM TRA ENDPOINT CÔNG KHAI QUA INTERNET"
+          echo "=================================================="
+          PUBLIC_URL="https://api.clumsytryhard.id.vn/health"
+          echo "Đang gửi request tới: $PUBLIC_URL"
+
+          STATUS=$(curl -s -o /tmp/public_health.json -w "%{http_code}" "$PUBLIC_URL" || echo "000")
+          echo "HTTP Status Code: $STATUS"
+
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Public Domain phản hồi 200 OK!"
+            echo "Nội dung phản hồi: $(cat /tmp/public_health.json)"
+          else
+            echo "ℹ️ Lưu ý: Public domain trả về $STATUS (có thể Cloudflare/DNS đang cập nhật)"
+          fi
+
+  # ===========================================================================
+  # Giai đoạn 10: Deploy Frontend lên Vercel Production
+  # ===========================================================================
+  deploy-frontend:
+    name: "10. Deploy Frontend (Vercel)"
+    needs: [frontend-build, deploy-database]
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase2_mock') && needs.frontend-build.result == 'success'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "🚀 Deploy lên Vercel Production"
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./
+
+  # ===========================================================================
+  # Giai đoạn 11: Tổng kết CI/CD Pipeline & Dashboard Trạng thái EC2 Rebuild
+  # ===========================================================================
+  pipeline-summary:
+    name: "11. CI/CD Summary & EC2 Status"
+    needs:
+      - load-and-setup
+      - download-dependencies
+      - backend-lint
+      - frontend-lint
+      - backend-test
+      - frontend-test
+      - frontend-build
+      - deploy-database
+      - build-and-push-ecr
+      - deploy-ec2
+      - health-check-ec2
+      - deploy-frontend
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: "📊 Tạo bảng Dashboard tổng kết hiển thị trên GitHub Actions UI"
+        run: |
+          echo "=== XUẤT BẢNG TỔNG KẾT PIPELINE & TRẠNG THÁI EC2 ==="
+          
+          # Hàm chuyển đổi kết quả job sang biểu tượng trực quan
+          get_badge() {
+            case "$1" in
+              "success") echo "✅ Thành công" ;;
+              "failure") echo "❌ Thất bại" ;;
+              "cancelled") echo "🛑 Đã hủy" ;;
+              "skipped") echo "⚪ Bỏ qua" ;;
+              *) echo "❓ $1" ;;
+            esac
+          }
+
+          SETUP_RES=$(get_badge "${{ needs.load-and-setup.result }}")
+          DEPS_RES=$(get_badge "${{ needs.download-dependencies.result }}")
+          BE_LINT_RES=$(get_badge "${{ needs.backend-lint.result }}")
+          FE_LINT_RES=$(get_badge "${{ needs.frontend-lint.result }}")
+          BE_TEST_RES=$(get_badge "${{ needs.backend-test.result }}")
+          FE_TEST_RES=$(get_badge "${{ needs.frontend-test.result }}")
+          FE_BUILD_RES=$(get_badge "${{ needs.frontend-build.result }}")
+          DB_RES=$(get_badge "${{ needs.deploy-database.result }}")
+          ECR_RES=$(get_badge "${{ needs.build-and-push-ecr.result }}")
+          EC2_DEPLOY_RES=$(get_badge "${{ needs.deploy-ec2.result }}")
+          EC2_HEALTH_RES=$(get_badge "${{ needs.health-check-ec2.result }}")
+          VERCEL_RES=$(get_badge "${{ needs.deploy-frontend.result }}")
+
+          # Xác định trạng thái Rebuild EC2
+          if [ "${{ needs.deploy-ec2.result }}" = "success" ]; then
+            EC2_REBUILD_STATUS="🚀 **ĐÃ REBUILD & KHỞI CHẠY THÀNH CÔNG**"
+          elif [ "${{ needs.deploy-ec2.result }}" = "skipped" ]; then
+            EC2_REBUILD_STATUS="⚪ **BỎ QUA (Không phải nhánh main hoặc thiếu secrets)**"
+          elif [ "${{ needs.deploy-ec2.result }}" = "failure" ]; then
+            EC2_REBUILD_STATUS="❌ **REBUILD THẤT BẠI (Vui lòng kiểm tra log SSH)**"
+          else
+            EC2_REBUILD_STATUS="❓ **${{ needs.deploy-ec2.result }}**"
+          fi
+
+          # Xuất báo cáo Markdown vào $GITHUB_STEP_SUMMARY để hiển thị trên giao diện
+          cat << EOF >> $GITHUB_STEP_SUMMARY
+          # 🚀 CI/CD Pipeline & EC2 Deployment Dashboard
+
+          > **Thông tin phiên chạy Pipeline:**
+          > - **Nhánh kích hoạt**: \`${{ github.ref_name }}\` (\`${{ github.ref }}\`)
+          > - **Commit SHA**: \`${{ github.sha }}\`
+          > - **Người kích hoạt**: @${{ github.actor }}
+          > - **Sự kiện**: \`${{ github.event_name }}\`
+
+          ---
+
+          ## 🖥️ Trạng Thái Rebuild & Triển Khai AWS EC2
+
+          | Tiêu chí | Trạng thái / Chi tiết |
+          | :--- | :--- |
+          | **Trạng thái Rebuild EC2** | $EC2_REBUILD_STATUS |
+          | **Container Name** | \`backend\` (Cổng \`8000:8000\`) |
+          | **Docker Image Tag** | \`${{ github.sha }}\` / \`latest\` |
+          | **Kết nối SSH & Deploy** | $EC2_DEPLOY_RES |
+          | **Kiểm tra Health Check EC2** | $EC2_HEALTH_RES (\`http://127.0.0.1:8000/health\`) |
+          | **Public API Endpoint** | [https://api.clumsytryhard.id.vn/health](https://api.clumsytryhard.id.vn/health) |
+
+          ---
+
+          ## 📊 Bảng Tổng Hợp Chi Tiết Toàn Bộ Pipeline
+
+          | # | Giai đoạn | Công việc | Kết quả |
+          | :---: | :--- | :--- | :---: |
+          | **1** | Setup | Tải mã nguồn & Kiểm tra môi trường | $SETUP_RES |
+          | **2** | Dependencies | Cài đặt & Lưu cache phụ thuộc | $DEPS_RES |
+          | **3a** | Linting | Backend Lint (Ruff) | $BE_LINT_RES |
+          | **3b** | Linting | Frontend Lint & Typecheck (TypeScript) | $FE_LINT_RES |
+          | **4a** | Testing | Backend Test Suite (Pytest) | $BE_TEST_RES |
+          | **4b** | Testing | Frontend Test Suite (Unit tests) | $FE_TEST_RES |
+          | **5** | Packaging | Frontend Build (Vite Dist) | $FE_BUILD_RES |
+          | **6** | Database | Database Migrations (Supabase Cloud) | $DB_RES |
+          | **7** | Container Image | Build & Push Image (Amazon ECR) | $ECR_RES |
+          | **8** | **Deploy EC2** | **Rebuild & Run Container (AWS EC2)** | **$EC2_DEPLOY_RES** |
+          | **9** | **Health Check**| **Health Check & Diagnostics (AWS EC2)** | **$EC2_HEALTH_RES** |
+          | **10** | Deploy Web | Deploy Frontend Production (Vercel) | $VERCEL_RES |
+
+          ---
+
+          EOF
+
+          echo "Đã ghi bảng tổng kết thành công vào \$GITHUB_STEP_SUMMARY."
+
+          # Kiểm tra tổng thể nếu có lỗi ở các giai đoạn bắt buộc
+          if [ "${{ needs.backend-test.result }}" = "failure" ] || [ "${{ needs.frontend-build.result }}" = "failure" ] || [ "${{ needs.deploy-ec2.result }}" = "failure" ] || [ "${{ needs.health-check-ec2.result }}" = "failure" ]; then
+            echo "❌ Pipeline thất bại ở một hoặc nhiều giai đoạn trọng yếu."
+            exit 1
+          fi
+          echo "🎉 Toàn bộ Pipeline đã hoàn tất thành công!"
+

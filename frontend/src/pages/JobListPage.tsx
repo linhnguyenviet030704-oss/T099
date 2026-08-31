@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, X, Bookmark, Layers } from "lucide-react";
+import { Search, Filter, Bookmark, Layers } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { useLang } from "../context/LangContext";
 import { supabase } from "../lib/supabase";
 import type { EmploymentType, JobPost } from "../types";
-import { ENUM_LABELS } from "../lib/format";
+import { getEnumLabels } from "../lib/format";
 import JobCard from "../components/JobCard";
 import AnimatedPage, { staggerContainer, fadeUp } from "../components/AnimatedPage";
 import { JobCardSkeleton } from "../components/ui/Skeleton";
@@ -12,11 +13,10 @@ import { useToast } from "../context/ToastContext";
 import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
 import JobComparisonModal from "../components/candidate/JobComparisonModal";
 
-const JOB_TYPES = Object.keys(ENUM_LABELS.employment_type) as EmploymentType[];
-
 export default function JobListPage() {
   const { user } = useAuth();
-  const { success, info, error: toastError } = useToast();
+  const { lang, t } = useLang();
+  const { success, info } = useToast();
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +26,9 @@ export default function JobListPage() {
   const [location, setLocation] = useState("");
   const [savedOnly, setSavedOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  const enumLabels = getEnumLabels(lang);
+  const jobTypes = Object.keys(enumLabels.employment_type) as EmploymentType[];
 
   // Compare states
   const [selectedCompareJobs, setSelectedCompareJobs] = useState<JobPost[]>([]);
@@ -81,7 +84,7 @@ export default function JobListPage() {
           setSavedIds([]);
         }
       } catch {
-        if (!cancelled) setError("Không tải được danh sách việc làm.");
+        if (!cancelled) setError(lang === "en" ? "Failed to load job listings." : "Không tải được danh sách việc làm.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -89,7 +92,7 @@ export default function JobListPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, lang]);
 
   const handleToggleCompare = (job: JobPost) => {
     setSelectedCompareJobs((prev) => {
@@ -98,7 +101,7 @@ export default function JobListPage() {
         return prev.filter((j) => j.id !== job.id);
       }
       if (prev.length >= 5) {
-        info("Chỉ có thể so sánh tối đa 5 việc làm cùng lúc");
+        info(t.compareMax5);
         return prev;
       }
       return [...prev, job];
@@ -115,25 +118,24 @@ export default function JobListPage() {
 
   const handleOpenCompareModal = () => {
     if (!user) {
-      info("Vui lòng đăng nhập để sử dụng tính năng so sánh việc làm với CV");
+      info(t.compareLoginPrompt);
       return;
     }
     if (selectedCompareJobs.length < 2) {
-      info("Vui lòng chọn từ 2 đến 5 việc làm để so sánh");
+      info(t.compareMin2);
       return;
     }
     setIsCompareModalOpen(true);
   };
-
 
   const handleToggleSaved = async (jobId: string) => {
     if (!supabase || !user) return;
     const isSaved = savedIds.includes(jobId);
     setSavedIds((ids) => (isSaved ? ids.filter((id) => id !== jobId) : [...ids, jobId]));
     if (isSaved) {
-      info("Đã bỏ lưu việc làm");
+      info(t.unsavedJobToast);
     } else {
-      success("Đã lưu việc làm thành công!");
+      success(t.savedJobToast);
     }
     const { error: saveErr } = isSaved
       ? await supabase.from("saved_jobs").delete().eq("user_id", user.id).eq("job_post_id", jobId)
@@ -154,71 +156,76 @@ export default function JobListPage() {
     });
   }, [jobs, query, selectedTypes, location, savedOnly, savedIds]);
 
-  const toggleType = (t: EmploymentType) =>
-    setSelectedTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const toggleType = (typeKey: EmploymentType) =>
+    setSelectedTypes((prev) => (prev.includes(typeKey) ? prev.filter((x) => x !== typeKey) : [...prev, typeKey]));
   const clearFilters = () => { setQuery(""); setSelectedTypes([]); setLocation(""); setSavedOnly(false); };
   const hasFilters = query || selectedTypes.length || location || savedOnly;
   const locations = [...new Set(jobs.map((j) => j.location).filter(Boolean))] as string[];
 
   return (
-    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-2">Việc làm</h1>
-          <p className="text-slate-500 dark:text-slate-400">
-            <span className="font-semibold text-indigo-600">{filtered.length}</span> tin đang tuyển
-          </p>
-          <div className="mt-6 flex gap-3">
+    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors">
+      {/* Sticky Header & Search Bar - Bám theo màn hình khi người dùng cuộn */}
+      <div className="sticky top-14 z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80 shadow-xs transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2.5">
+            <div>
+              <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{t.jobListTitle}</h1>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400">{filtered.length}</span> {t.jobsCount(filtered.length)}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
             <div className="flex-1 relative">
-              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tiêu đề, công ty, địa điểm, mô tả..."
-                className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder={t.searchPlaceholder}
+                className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm bg-slate-50/80 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all"
               />
             </div>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowFilters((v) => !v)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-colors ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-semibold text-xs transition-colors cursor-pointer ${showFilters || hasFilters ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs" : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50"}`}
             >
-              <Filter size={16} /> Lọc
+              <Filter size={13} /> {t.filter}
             </motion.button>
           </div>
           <AnimatePresence>
             {showFilters && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <div className="mt-4 p-5 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                    {JOB_TYPES.map((t) => (
+                <div className="mt-2.5 p-3 bg-slate-50/90 dark:bg-slate-700/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2.5 shadow-2xs">
+                  <div className="flex flex-wrap gap-1.5">
+                    {jobTypes.map((typeKey) => (
                       <motion.button
-                        key={t}
+                        key={typeKey}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => toggleType(t)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${selectedTypes.includes(t) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
+                        onClick={() => toggleType(typeKey)}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${selectedTypes.includes(typeKey) ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-indigo-300"}`}
                       >
-                        {ENUM_LABELS.employment_type[t]}
+                        {enumLabels.employment_type[typeKey]}
                       </motion.button>
                     ))}
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <select value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-3 py-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
-                      <option value="">Tất cả địa điểm</option>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select value={location} onChange={(e) => setLocation(e.target.value)} className="flex-1 px-2.5 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs">
+                      <option value="">{t.allLocations}</option>
                       {locations.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                     {user && (
                       <motion.button
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setSavedOnly((v) => !v)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${savedOnly ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200"}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${savedOnly ? "bg-indigo-600 text-white border-indigo-600" : "bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}
                       >
-                        <Bookmark size={14} /> Đã lưu ({savedIds.length})
+                        <Bookmark size={13} /> {t.savedJobsCount(savedIds.length)}
                       </motion.button>
                     )}
                   </div>
-                  {hasFilters && <button onClick={clearFilters} className="text-xs text-red-500 font-medium hover:underline">Xóa tất cả bộ lọc</button>}
+                  {hasFilters && <button onClick={clearFilters} className="text-xs text-rose-500 font-medium hover:underline cursor-pointer">{t.clearFilters}</button>}
                 </div>
               </motion.div>
             )}
@@ -226,20 +233,20 @@ export default function JobListPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <JobCardSkeleton count={6} />
           </div>
         ) : error ? (
-          <p className="text-sm text-red-500">{error}</p>
+          <p className="text-xs text-red-500">{error}</p>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <h3 className="font-display text-xl font-semibold text-slate-700 dark:text-slate-300 mb-2">Không tìm thấy kết quả</h3>
-            <button onClick={clearFilters} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl">Xóa bộ lọc</button>
+          <div className="text-center py-14">
+            <h3 className="font-display text-base font-semibold text-slate-700 dark:text-slate-300 mb-2">{t.noJobsFound}</h3>
+            <button onClick={clearFilters} className="px-3.5 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg cursor-pointer">{t.clearFilters}</button>
           </div>
         ) : (
-          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map((job) => {
               const compareIdx = selectedCompareJobs.findIndex((j) => j.id === job.id);
               const isSelected = compareIdx !== -1;
@@ -289,4 +296,5 @@ export default function JobListPage() {
     </AnimatedPage>
   );
 }
+
 

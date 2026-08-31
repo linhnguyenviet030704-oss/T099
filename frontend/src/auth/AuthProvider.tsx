@@ -29,26 +29,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Capture initial session
+    // Capture initial session and validate with auth server
     let isMounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isMounted) {
-        setSession(session);
-        setUser(session?.user || null);
-        setLoading(false);
+    const initAuth = async () => {
+      if (!supabase) return;
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        if (currentSession?.user) {
+          // Verify if session/user actually exists in database (handles cases where DB was reset)
+          const { data: userData, error: userErr } = await supabase.auth.getUser();
+          if (userErr || !userData?.user) {
+            // User not found in DB or invalid token -> clear stale session
+            console.warn('Session is stale or user was not found in auth.users, signing out...');
+            await supabase.auth.signOut();
+            if (isMounted) {
+              setSession(null);
+              setUser(null);
+              setLoading(false);
+            }
+            return;
+          }
+
+          if (isMounted) {
+            setSession(currentSession);
+            setUser(userData.user);
+            setLoading(false);
+          }
+        } else {
+          if (isMounted) {
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error('Error initializing auth session:', err);
+        if (isMounted) setLoading(false);
       }
-    }).catch((err) => {
-      console.error('Error getting session:', err);
-      if (isMounted) setLoading(false);
-    });
+    };
+
+    void initAuth();
 
     // Handle listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-      if (isMounted) {
-        setSession(newSession);
-        setUser(newSession?.user || null);
+      if (!isMounted) return;
+
+      if (event === 'SIGNED_OUT' || !newSession) {
+        setSession(null);
+        setUser(null);
         setLoading(false);
+        return;
       }
+
+      setSession(newSession);
+      setUser(newSession?.user || null);
+      setLoading(false);
     });
 
     return () => {

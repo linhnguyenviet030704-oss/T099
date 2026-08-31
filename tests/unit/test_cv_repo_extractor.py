@@ -1,12 +1,14 @@
 """Unit tests for CV Project & GitHub Repository Extractor."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from backend.app.services.eval.cv_repo_extractor import (
-    extract_github_urls_from_text,
     extract_cv_project_items,
-    match_public_repos_with_cv_projects,
     extract_cv_repos_and_projects,
+    extract_github_urls_from_text,
+    match_public_repos_with_cv_projects,
 )
 
 
@@ -14,12 +16,12 @@ def test_extract_github_urls_direct():
     cv_text = """
     # Nguyen Van A - Software Engineer
     GitHub: https://github.com/nguyenvana
-    
+
     ## Projects
     ### E-Commerce Microservices
     Source: https://github.com/nguyenvana/ecommerce-microservices
     Built with FastAPI, Redis, PostgreSQL.
-    
+
     ### AI Chatbot
     Code: https://github.com/nguyenvana/ai-chatbot.git
     """
@@ -98,7 +100,7 @@ async def test_extract_cv_repos_and_projects_with_profile_fallback():
     cv_text = """
     # Tran Thi C
     GitHub: https://github.com/tranthic
-    
+
     ## Projects
     ### Portfolio Web
     Personal portfolio built with React.

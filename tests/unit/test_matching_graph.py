@@ -60,11 +60,13 @@ async def test_matching_graph_ranks_then_responds():
             ],
         }
 
-    graph = build_matching_graph(retrieve=retrieve)
+    # Truyền explain_complete=_complete để tránh gọi mạng ngoài trong unit test
+    graph = build_matching_graph(retrieve=retrieve, explain_complete=_complete)
     result = await graph.ainvoke(
         {"job_id": str(uuid4()), "query": "Gợi ý ứng viên", "rerank_mode": "agent"}
     )
-    assert result["response"] == "Gợi ý 2 ứng viên phù hợp."
+    # Kiểm tra phản hồi thông báo đã quét số lượng ứng viên
+    assert result["response"] == "Đã quét hồ sơ của 2 ứng viên."
     assert result["candidates"][0]["application_id"] == app_id
     assert result["candidates"][0]["rrf_score"] > result["candidates"][1]["rrf_score"]
     assert result["candidates"][0]["rerank_status"] == "not_requested"
@@ -128,7 +130,8 @@ async def test_matching_graph_qwen_rerank_reorders():
         assert documents == ["ada cv", "bob cv"]
         return [{"index": 1, "relevance_score": 0.95}, {"index": 0, "relevance_score": 0.1}]
 
-    graph = build_matching_graph(retrieve=retrieve, rerank_fn=rerank_fn)
+    # Truyền explain_complete=_complete để tránh gọi mạng ngoài trong unit test
+    graph = build_matching_graph(retrieve=retrieve, rerank_fn=rerank_fn, explain_complete=_complete)
     result = await graph.ainvoke(
         {"job_id": str(uuid4()), "query": "Gợi ý ứng viên", "rerank_mode": "qwen"}
     )
@@ -420,9 +423,7 @@ async def test_matching_graph_retrieve_node_pool_trace_defaults_when_absent():
 
 @pytest.mark.asyncio
 async def test_matching_graph_has_no_router_or_kg_retrieval_nodes():
-    """router/kg_retrieval write intent+kg_context into AgentState but no
-    node in this graph reads either — they were wired for the recommend
-    graph and never connected here. This locks in their removal."""
+    """Graph matching bỏ router/KG nhưng vẫn giữ các node bảo vệ kết quả."""
     async def retrieve(_job_id):
         return {"jd_skills": [], "candidates": []}
 
@@ -430,4 +431,13 @@ async def test_matching_graph_has_no_router_or_kg_retrieval_nodes():
     node_names = set(graph.get_graph().nodes) - {"__start__", "__end__"}
     assert "router" not in node_names
     assert "kg_retrieval" not in node_names
-    assert node_names == {"retrieve", "skill", "rrf", "rerank", "explain", "respond"}
+    assert node_names == {
+        "retrieve",
+        "skill",
+        "rrf",
+        "rerank",
+        "snapshot",
+        "explain",
+        "output_guard",
+        "respond",
+    }

@@ -96,3 +96,18 @@ def get_skill_gap(
     matched = [s for s in target_skills if s.lower() in candidate_set]
 
     return missing, matched
+
+
+def get_role_benchmark(role_name: str, level: str | None = None) -> Any:
+    """
+    Get standard role benchmark profile for a target career and seniority level.
+
+    Args:
+        role_name: Target career/role name
+        level: Optional seniority level ('intern', 'fresher', 'junior', 'middle', 'senior', 'lead')
+
+    Returns:
+        RoleBenchmark instance with standard skills and benchmark JD
+    """
+    client = get_kg_client()
+    return client.get_role_benchmark(role_name, level)

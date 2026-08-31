@@ -8,7 +8,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class DiversityViolation(Exception):
+class DiversityError(Exception):
     """Raised when generated questions violate hard diversity constraints."""
 
 
@@ -22,7 +22,7 @@ def enforce_diversity(
     """Enforce diversity constraints on generated interview questions.
 
     Rules:
-    1. Category spread: min 3 distinct categories used (raises DiversityViolation if not met)
+    1. Category spread: min 3 distinct categories used (raises DiversityError if not met)
     2. Exact text deduplication (case-insensitive & trimmed)
     3. Max 5 questions per category
     4. Difficulty check: logs warning if hard questions < 15%
@@ -47,7 +47,7 @@ def enforce_diversity(
     # 2. Check category spread
     categories = {q.get("category") for q in unique_questions if q.get("category")}
     if len(categories) < min_categories:
-        raise DiversityViolation(
+        raise DiversityError(
             f"Only {len(categories)} categories ({categories}), need at least {min_categories}"
         )
 

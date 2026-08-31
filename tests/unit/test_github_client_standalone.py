@@ -1,13 +1,13 @@
 """Tests for GitHub API client - standalone without app imports."""
 
 import asyncio
-import base64
 import time
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.app.core.github_client import (
     BINARY_EXTENSIONS,
+    MAX_CONTENT_SIZE,
     CircuitBreaker,
     FileType,
     GitHubAPIError,
@@ -15,7 +15,6 @@ from backend.app.core.github_client import (
     GitHubFile,
     GitHubNotFoundError,
     GitHubRateLimitError,
-    MAX_CONTENT_SIZE,
 )
 
 
@@ -225,7 +224,7 @@ class TestParseGitmodules(unittest.TestCase):
         self.assertFalse(result)
 
 
-class TestGetRepoTreeSubmodule(unittest.TestCase):
+class TestGetRepoTreeSubmodule(unittest.IsolatedAsyncioTestCase):
     async def test_get_repo_tree_detects_submodule_path(self):
         """Submodule detection via .gitmodules path."""
         client = GitHubClient(token="test")

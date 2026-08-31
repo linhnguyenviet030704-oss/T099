@@ -63,6 +63,10 @@ class TaxonomyKnowledgeGraphClient:
             f"Sẵn sàng đảm nhận vị trí {target_role}",
         ]
 
+    def get_role_benchmark(self, role_name: str, level: str | None = None) -> Any:
+        from backend.app.services.kg.benchmarks import build_role_benchmark
+        return build_role_benchmark(role_name, level)
+
 
 _DEFAULT_KG_CLIENT = TaxonomyKnowledgeGraphClient()
 

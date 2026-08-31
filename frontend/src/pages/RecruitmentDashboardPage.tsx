@@ -1,26 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles, Building2 } from "lucide-react";
+import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles, Building2, Calendar, Clock, Video, MapPin, Trash2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
+import { useLang } from "../context/LangContext";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { getResumeSignedUrl } from "../lib/storage";
+import {
+  type InterviewInvitation,
+  updateApplicationStatus,
+  recruiterConfirmReschedule,
+} from "../lib/api-applications";
 import type { Application, ApplicationStatus, CompanyMember, EmploymentType, JobPost, JobPostStatus, Profile } from "../types";
-import { ENUM_LABELS, formatDate } from "../lib/format";
-import { APP_STATUS_COLORS, JOB_STATUS_COLORS, salaryRange, TERMINAL_APP_STATUSES } from "../lib/ui";
+import { getEnumLabels, formatDate } from "../lib/format";
+import { APP_STATUS_COLORS, JOB_STATUS_COLORS, salaryRange, TERMINAL_APP_STATUSES, RECRUITER_STAGE_OPTIONS } from "../lib/ui";
 import AnimatedPage from "../components/AnimatedPage";
-
 import Button from "../components/ui/Button";
-import { Skeleton } from "../components/ui/Skeleton";
 import { useToast } from "../context/ToastContext";
 import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
 import CVComparisonModal from "../components/candidate/CVComparisonModal";
+import InterviewTimeSlotPicker, {
+  InterviewTimeSlot,
+  validateTimeSlots,
+  toSlotApiString,
+  formatSlotDisplay,
+} from "../components/interview/InterviewTimeSlotPicker";
 
 export default function RecruitmentDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { profile } = useCurrentProfile();
+  const { lang, t } = useLang();
   const { success, error: toastError } = useToast();
   const companySelectRef = useRef<HTMLSelectElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +41,7 @@ export default function RecruitmentDashboardPage() {
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
+  const [invitationsMap, setInvitationsMap] = useState<Record<string, InterviewInvitation>>({});
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [showCreateJob, setShowCreateJob] = useState(false);
@@ -37,12 +49,17 @@ export default function RecruitmentDashboardPage() {
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [stageNote, setStageNote] = useState("");
   const [newStatus, setNewStatus] = useState<ApplicationStatus>("screening");
+  const [interviewSlots, setInterviewSlots] = useState<InterviewTimeSlot[]>([]);
+  const [interviewMeetingLink, setInterviewMeetingLink] = useState("");
+  const [interviewLocation, setInterviewLocation] = useState("");
+
   const [selectedCompareCandidates, setSelectedCompareCandidates] = useState<SelectedCandidateItem[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobSaving, setJobSaving] = useState(false);
   const [updatingApp, setUpdatingApp] = useState(false);
+
   const [newJob, setNewJob] = useState({
     title: "",
     description: "",
@@ -56,6 +73,8 @@ export default function RecruitmentDashboardPage() {
     deadline: "",
     status: "published" as JobPostStatus,
   });
+
+  const enumLabels = getEnumLabels(lang);
 
   const fetchWorkspace = useCallback(async () => {
     if (!supabase || !user) return;
@@ -97,17 +116,36 @@ export default function RecruitmentDashboardPage() {
         const loadedApps = (appsData || []) as Application[];
         setApplications(loadedApps);
         if (loadedApps.length > 0) {
+          const appIds = loadedApps.map((a) => a.id);
           const { data: profilesData } = await supabase.from("profiles").select("*").in("id", Array.from(new Set(loadedApps.map((a) => a.applicant_user_id))));
           const map: Record<string, Profile> = {};
           (profilesData || []).forEach((p: Profile) => { map[p.id] = p; });
           setProfilesMap(map);
+
+          // Tải lời mời phỏng vấn cho các đơn đã nộp
+          const { data: invData } = await supabase
+            .from("interview_invitations")
+            .select("*")
+            .in("application_id", appIds)
+            .order("created_at", { ascending: false });
+
+          const invMap: Record<string, InterviewInvitation> = {};
+          (invData || []).forEach((inv: any) => {
+            if (!invMap[inv.application_id]) {
+              invMap[inv.application_id] = inv;
+            }
+          });
+          setInvitationsMap(invMap);
         } else {
           setProfilesMap({});
+          setInvitationsMap({});
         }
       } else {
         setApplications([]);
         setProfilesMap({});
+        setInvitationsMap({});
       }
+
     } catch (err: unknown) {
       setError(handleSupabaseError(err));
     } finally {
@@ -128,7 +166,7 @@ export default function RecruitmentDashboardPage() {
 
   const handleOpenCreateJob = () => {
     if (memberships.length === 0) {
-      toastError("Chưa có công ty được duyệt", "Bạn chưa có công ty được duyệt. Vui lòng gửi đơn Đăng ký Nhà tuyển dụng!");
+      toastError(t.noApprovedCompanyTitle, t.noApprovedCompanyDesc);
       navigate("/register-recruiter");
       return;
     }
@@ -161,7 +199,7 @@ export default function RecruitmentDashboardPage() {
     setFieldErrors({});
     if (!selectedCompanyId) {
       setFieldErrors({ company: true });
-      toastError("Chưa có công ty", "Tài khoản của bạn chưa có công ty được Admin phê duyệt.");
+      toastError(t.noApprovedCompanyTitle, t.noApprovedCompanyDesc);
       navigate("/register-recruiter");
       return;
     }
@@ -169,18 +207,18 @@ export default function RecruitmentDashboardPage() {
       setFieldErrors({ title: true });
       titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       titleInputRef.current?.focus();
-      toastError("Thiếu thông tin", "Vui lòng nhập tiêu đề công việc!");
+      toastError(t.missingField, t.enterJobTitle);
       return;
     }
     if (!newJob.description.trim()) {
       setFieldErrors({ description: true });
       descInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       descInputRef.current?.focus();
-      toastError("Thiếu thông tin", "Vui lòng nhập mô tả công việc!");
+      toastError(t.missingField, t.enterJobDesc);
       return;
     }
     if (!supabase || !user) {
-      toastError("Lỗi hệ thống", "Vui lòng đăng nhập lại để thực hiện.");
+      toastError(lang === "en" ? "System Error" : "Lỗi hệ thống", t.pleaseReLogin);
       return;
     }
     setJobSaving(true);
@@ -206,18 +244,18 @@ export default function RecruitmentDashboardPage() {
       if (editingJob) {
         const { error: err } = await supabase.from("job_posts").update(payload).eq("id", editingJob.id);
         if (err) throw err;
-        success("Đã cập nhật tin tuyển dụng!");
+        success(t.updateJobSuccess);
       } else {
         const { error: err } = await supabase.from("job_posts").insert(payload);
         if (err) throw err;
-        success("Đã tạo tin tuyển dụng mới!");
+        success(t.createJobSuccess);
       }
 
       setShowCreateJob(false);
       resetForm();
       await fetchWorkspace();
     } catch (err: unknown) {
-      toastError(editingJob ? "Cập nhật tin thất bại" : "Tạo tin thất bại", handleSupabaseError(err));
+      toastError(editingJob ? (lang === "en" ? "Update failed" : "Cập nhật tin thất bại") : (lang === "en" ? "Creation failed" : "Tạo tin thất bại"), handleSupabaseError(err));
     } finally {
       setJobSaving(false);
     }
@@ -233,13 +271,13 @@ export default function RecruitmentDashboardPage() {
       const { error: uErr } = await supabase.from("job_posts").update(payload).eq("id", jobId);
       if (uErr) throw uErr;
       if (status === "published") {
-        success("Đã đăng tin tuyển dụng! Tin đã hiển thị công khai trên trang Việc làm (/jobs).");
+        success(t.jobPublishedSuccess);
       } else {
-        success(`Đã chuyển trạng thái sang: ${ENUM_LABELS.job_post_status[status]}`);
+        success(`${lang === "en" ? "Changed status to:" : "Đã chuyển trạng thái sang:"} ${enumLabels.job_post_status[status]}`);
       }
       await fetchWorkspace();
     } catch (err: unknown) {
-      toastError("Cập nhật thất bại", handleSupabaseError(err));
+      toastError(lang === "en" ? "Update failed" : "Cập nhật thất bại", handleSupabaseError(err));
     } finally {
       setUpdatingStatusJobId(null);
     }
@@ -249,24 +287,102 @@ export default function RecruitmentDashboardPage() {
     if (!supabase || !user) return;
     setUpdatingApp(true);
     try {
-      const { error: sErr } = await supabase.from("application_stages").insert({
-        application_id: appId,
-        changed_by_user_id: user.id,
-        stage: newStatus,
-        note: stageNote.trim() || null,
-        is_system_generated: false,
-      });
-      if (sErr) throw sErr;
-      success("Đã cập nhật trạng thái đơn ứng tuyển!");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (newStatus === "interview") {
+        const valResult = validateTimeSlots(interviewSlots, lang);
+        if (!valResult.isValid) {
+          toastError(
+            valResult.error || (lang === "en" ? "Please verify interview slots" : "Vui lòng kiểm tra lại các khoảng thời gian phỏng vấn")
+          );
+          setUpdatingApp(false);
+          return;
+        }
+
+        const validSlots = interviewSlots.map(toSlotApiString);
+
+        if (token) {
+          await updateApplicationStatus(token, appId, {
+            new_status: "interview",
+            note: stageNote.trim() || undefined,
+            send_email: true,
+            interview_schedule: {
+              proposed_time_slots: validSlots,
+              meeting_link: interviewMeetingLink.trim() || undefined,
+              location: interviewLocation.trim() || undefined,
+              note: stageNote.trim() || undefined,
+            },
+          });
+        } else {
+          await supabase.from("application_stages").insert({
+            application_id: appId,
+            changed_by_user_id: user.id,
+            stage: "interview",
+            note: stageNote.trim() || null,
+            is_system_generated: false,
+          });
+          await supabase.from("interview_invitations").insert({
+            application_id: appId,
+            created_by_user_id: user.id,
+            proposed_time_slots: validSlots,
+            meeting_link: interviewMeetingLink.trim() || null,
+            location: interviewLocation.trim() || null,
+            note: stageNote.trim() || null,
+            status: "pending",
+          });
+        }
+      } else {
+        if (token) {
+          await updateApplicationStatus(token, appId, {
+            new_status: newStatus,
+            note: stageNote.trim() || undefined,
+            send_email: false,
+          });
+        } else {
+          const { error: sErr } = await supabase.from("application_stages").insert({
+            application_id: appId,
+            changed_by_user_id: user.id,
+            stage: newStatus,
+            note: stageNote.trim() || null,
+            is_system_generated: false,
+          });
+          if (sErr) throw sErr;
+        }
+      }
+
+      success(t.stageUpdatedSuccess);
       setSelectedApp(null);
       setStageNote("");
+      setInterviewSlots([]);
+      setInterviewMeetingLink("");
+      setInterviewLocation("");
       await fetchWorkspace();
     } catch (err: unknown) {
-      toastError("Cập nhật thất bại", handleSupabaseError(err));
+      toastError(lang === "en" ? "Update failed" : "Cập nhật thất bại", handleSupabaseError(err));
     } finally {
       setUpdatingApp(false);
     }
   };
+
+
+  const handleConfirmCandidateSlot = async (appId: string, slot: string) => {
+    if (!supabase) return;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) return;
+
+      await recruiterConfirmReschedule(token, appId, {
+        selected_slot: slot,
+      });
+      success(lang === "en" ? "Interview schedule confirmed!" : "Đã chốt lịch phỏng vấn theo mốc thời gian của ứng viên!");
+      await fetchWorkspace();
+    } catch (err: unknown) {
+      toastError(lang === "en" ? "Failed to confirm slot" : "Chốt lịch thất bại", handleSupabaseError(err));
+    }
+  };
+
 
   const handleToggleCompare = (app: Application, candName: string) => {
     setSelectedCompareCandidates((prev) => {
@@ -275,7 +391,7 @@ export default function RecruitmentDashboardPage() {
         return prev.filter((c) => c.id !== app.id);
       }
       if (prev.length >= 5) {
-        toastError("Tối đa 5 ứng viên", "Bạn chỉ có thể chọn tối đa 5 ứng viên để so sánh cùng lúc.");
+        toastError(t.compareMax5Title, t.compareMax5CandidateDesc);
         return prev;
       }
       return [
@@ -294,10 +410,10 @@ export default function RecruitmentDashboardPage() {
   const jobApps = selectedJobId ? applications.filter((a) => a.job_post_id === selectedJobId) : [];
 
   return (
-    <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white">Bàn tuyển dụng</h1>
+    <AnimatedPage className="min-h-[calc(100vh-3.5rem)] bg-slate-50 dark:bg-slate-900 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
+        <div className="flex items-center justify-between mb-3.5">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{t.recruiterWorkspace}</h1>
           {memberships.length > 0 && (
             <select
               ref={companySelectRef}
@@ -308,59 +424,59 @@ export default function RecruitmentDashboardPage() {
                 setSelectedCompareCandidates([]);
                 setFieldErrors((p) => ({ ...p, company: false }));
               }}
-              className={`px-3 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-sm transition-all ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
+              className={`px-3 py-1.5 bg-white dark:bg-slate-800 border rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-2xs ${fieldErrors.company ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-700"}`}
             >
               {memberships.map((m) => <option key={m.company_id} value={m.company_id}>{m.company?.name || m.company_id}</option>)}
             </select>
           )}
         </div>
         {memberships.length === 0 && !loading && (
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
-                <Building2 size={20} />
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <div className="w-9 h-9 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-300 shrink-0">
+                <Building2 size={18} />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white text-base">Chưa có công ty được phê duyệt</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                  Nhà tuyển dụng cần hoàn tất Đăng ký Nhà tuyển dụng và được Admin duyệt thông tin công ty trước khi đăng tin tuyển dụng.
+                <h3 className="font-semibold text-slate-900 dark:text-white text-sm">{t.noApprovedCompanyTitle}</h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                  {t.noApprovedCompanyDesc}
                 </p>
               </div>
             </div>
-            <Button onClick={() => navigate("/register-recruiter")} leftIcon={<Building2 size={15} />}>
-              Đăng ký Nhà tuyển dụng
+            <Button size="sm" onClick={() => navigate("/register-recruiter")} leftIcon={<Building2 size={14} />}>
+              {t.recruiterRegister}
             </Button>
           </div>
         )}
-        {error && <p className="text-sm text-red-500 mb-4">{error}</p>}
-        {loading ? <p className="text-sm text-slate-500">Đang tải...</p> : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="space-y-4">
+        {error && <p className="text-xs text-rose-500 mb-3">{error}</p>}
+        {loading ? <p className="text-xs text-slate-500">{lang === "en" ? "Loading..." : "Đang tải..."}</p> : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-sm">Tin tuyển dụng ({companyJobs.length})</h2>
-                <button onClick={handleOpenCreateJob} className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors">
-                  <Plus size={13} /> Tạo tin
+                <h2 className="font-semibold text-xs text-slate-700 dark:text-slate-300">{t.jobListings} ({companyJobs.length})</h2>
+                <button onClick={handleOpenCreateJob} className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer shadow-2xs">
+                  <Plus size={12} /> {t.createJob}
                 </button>
               </div>
               <AnimatePresence>
                 {showCreateJob && (
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-indigo-200 dark:border-indigo-800 p-5 space-y-4 shadow-sm">
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
-                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                          {editingJob ? <Pencil size={14} className="text-indigo-600" /> : <Plus size={14} className="text-indigo-600" />}
-                          {editingJob ? "Chỉnh sửa tin tuyển dụng" : "Tạo tin tuyển dụng mới"}
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border border-indigo-200 dark:border-indigo-800 p-4 space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-1.5">
+                        <h3 className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                          {editingJob ? <Pencil size={13} className="text-indigo-600" /> : <Plus size={13} className="text-indigo-600" />}
+                          {editingJob ? t.editJobListing : t.createNewJob}
                         </h3>
                         <button onClick={() => { setShowCreateJob(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-                          <X size={14} />
+                          <X size={13} />
                         </button>
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Tiêu đề công việc *</label>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{t.jobTitleLabel}</label>
                         <input
                           ref={titleInputRef}
-                          placeholder="Ví dụ: Kỹ sư AI, Frontend Developer..."
+                          placeholder={t.jobTitlePlaceholder}
                           value={newJob.title}
                           onChange={(e) => { setNewJob((p) => ({ ...p, title: e.target.value })); setFieldErrors((p) => ({ ...p, title: false })); }}
                           className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border rounded-xl text-sm transition-all ${fieldErrors.title ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-600"}`}
@@ -368,11 +484,11 @@ export default function RecruitmentDashboardPage() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Mô tả công việc *</label>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{t.jobDescLabel}</label>
                         <textarea
                           ref={descInputRef}
                           rows={3}
-                          placeholder="Mô tả chi tiết công việc, nhiệm vụ chính..."
+                          placeholder={t.jobDescPlaceholder}
                           value={newJob.description}
                           onChange={(e) => { setNewJob((p) => ({ ...p, description: e.target.value })); setFieldErrors((p) => ({ ...p, description: false })); }}
                           className={`w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border rounded-xl text-sm resize-none transition-all ${fieldErrors.description ? "border-red-500 ring-2 ring-red-400" : "border-slate-200 dark:border-slate-600"}`}
@@ -381,14 +497,14 @@ export default function RecruitmentDashboardPage() {
 
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs font-semibold text-purple-700 dark:text-purple-300">Yêu cầu ứng viên (AI Matching)</label>
+                          <label className="text-xs font-semibold text-purple-700 dark:text-purple-300">{t.candidateReqAIMatching}</label>
                           <span className="text-[11px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/40 px-2 py-0.5 rounded-full flex items-center gap-1 border border-purple-200 dark:border-purple-800">
-                            <Sparkles size={11} /> Cốt lõi cho AI Candidate Matching
+                            <Sparkles size={11} /> {t.coreForAIMatching}
                           </span>
                         </div>
                         <textarea
                           rows={4}
-                          placeholder="Kỹ năng bắt buộc, kinh nghiệm, bằng cấp... (Ví dụ: Python, FastAPI, 2 năm kinh nghiệm NLP, ReactJS...)"
+                          placeholder={t.candidateReqPlaceholder}
                           value={newJob.requirements}
                           onChange={(e) => setNewJob((p) => ({ ...p, requirements: e.target.value }))}
                           className="w-full px-3 py-2 bg-purple-50/30 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/60 rounded-xl text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
@@ -396,52 +512,52 @@ export default function RecruitmentDashboardPage() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Quyền lợi & Phúc lợi</label>
-                        <textarea rows={2} placeholder="Chế độ bảo hiểm, thưởng năm, du lịch, hỗ trợ máy tính..." value={newJob.benefits} onChange={(e) => setNewJob((p) => ({ ...p, benefits: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm resize-none" />
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{t.benefitsLabel}</label>
+                        <textarea rows={2} placeholder={t.benefitsPlaceholder} value={newJob.benefits} onChange={(e) => setNewJob((p) => ({ ...p, benefits: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm resize-none" />
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Địa điểm</label>
-                          <input placeholder="Hà Nội, TP.HCM..." value={newJob.location} onChange={(e) => setNewJob((p) => ({ ...p, location: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                          <label className="block text-xs text-slate-500 mb-1">{t.location}</label>
+                          <input placeholder={t.locationPlaceholder} value={newJob.location} onChange={(e) => setNewJob((p) => ({ ...p, location: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Hình thức</label>
+                          <label className="block text-xs text-slate-500 mb-1">{t.employmentType}</label>
                           <select value={newJob.employment_type} onChange={(e) => setNewJob((p) => ({ ...p, employment_type: e.target.value as EmploymentType }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
-                            {Object.entries(ENUM_LABELS.employment_type).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                            {Object.entries(enumLabels.employment_type).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Lương tối thiểu</label>
-                          <input type="number" placeholder="Ví dụ: 15000000" value={newJob.salaryMin} onChange={(e) => setNewJob((p) => ({ ...p, salaryMin: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                          <label className="block text-xs text-slate-500 mb-1">{t.minSalary}</label>
+                          <input type="number" placeholder={t.salaryPlaceholder} value={newJob.salaryMin} onChange={(e) => setNewJob((p) => ({ ...p, salaryMin: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Lương tối đa</label>
-                          <input type="number" placeholder="Ví dụ: 25000000" value={newJob.salaryMax} onChange={(e) => setNewJob((p) => ({ ...p, salaryMax: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
+                          <label className="block text-xs text-slate-500 mb-1">{t.maxSalary}</label>
+                          <input type="number" placeholder={t.salaryPlaceholder} value={newJob.salaryMax} onChange={(e) => setNewJob((p) => ({ ...p, salaryMax: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Hạn nộp</label>
+                          <label className="block text-xs text-slate-500 mb-1">{t.deadline}</label>
                           <input type="date" value={newJob.deadline} onChange={(e) => setNewJob((p) => ({ ...p, deadline: e.target.value }))} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Tiền tệ / Trạng thái</label>
+                          <label className="block text-xs text-slate-500 mb-1">{t.currencyStatus}</label>
                           <div className="grid grid-cols-2 gap-1">
                             <select value={newJob.currency} onChange={(e) => setNewJob((p) => ({ ...p, currency: e.target.value }))} className="w-full px-2 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-xs">
                               <option value="VND">VND</option>
                               <option value="USD">USD</option>
                             </select>
                             <select value={newJob.status} onChange={(e) => setNewJob((p) => ({ ...p, status: e.target.value as JobPostStatus }))} className="w-full px-2 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-xs">
-                              <option value="draft">Bản nháp</option>
-                              <option value="published">Đang tuyển</option>
+                              <option value="draft">{enumLabels.job_post_status.draft}</option>
+                              <option value="published">{enumLabels.job_post_status.published}</option>
                             </select>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex gap-2 justify-end pt-2 border-t border-slate-100 dark:border-slate-700">
-                        <Button variant="ghost" size="xs" onClick={() => { setShowCreateJob(false); resetForm(); }}>Hủy</Button>
-                        <Button size="xs" onClick={() => void handleSaveJob()} disabled={jobSaving} isLoading={jobSaving} loadingText="Đang lưu...">
-                          {editingJob ? "Lưu thay đổi" : "Tạo tin"}
+                        <Button variant="ghost" size="xs" onClick={() => { setShowCreateJob(false); resetForm(); }}>{t.cancel}</Button>
+                        <Button size="xs" onClick={() => void handleSaveJob()} disabled={jobSaving} isLoading={jobSaving} loadingText={t.savingJob}>
+                          {editingJob ? t.saveChanges : t.createJobAction}
                         </Button>
                       </div>
                     </div>
@@ -451,65 +567,77 @@ export default function RecruitmentDashboardPage() {
               {companyJobs.length === 0 ? (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-8 text-center">
                   <Briefcase size={32} className="text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có tin nào</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{t.noJobsInWorkspace}</p>
                 </div>
               ) : companyJobs.map((job) => {
                 const appCount = applications.filter((a) => a.job_post_id === job.id).length;
                 return (
-                  <motion.button
+                  <motion.div
                     key={job.id}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       setSelectedJobId(selectedJobId === job.id ? null : job.id);
                       setSelectedCompareCandidates([]);
                     }}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${selectedJobId === job.id ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300"}`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedJobId(selectedJobId === job.id ? null : job.id);
+                        setSelectedCompareCandidates([]);
+                      }
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer ${selectedJobId === job.id ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300"}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium line-clamp-2 text-slate-900 dark:text-white">{job.title}</p>
                       <div className="flex items-center gap-1 shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status]}`}>{ENUM_LABELS.job_post_status[job.status]}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status]}`}>{enumLabels.job_post_status[job.status]}</span>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleOpenEditJob(job); }}
-                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                          title="Sửa tin tuyển dụng"
+                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                          title={t.editJob}
                         >
                           <Pencil size={12} />
                         </button>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1"><Users size={11} />{appCount} đơn</span>
-                      <span>Hạn: {formatDate(job.deadline_at)}</span>
+                      <span className="flex items-center gap-1"><Users size={11} />{t.applicantCount(appCount)}</span>
+                      <span>{t.deadline}: {formatDate(job.deadline_at, false, lang)}</span>
                     </div>
                     {job.status === "published" ? (
                       <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-between">
-                        <span>✓ Đang phát hành trên /jobs</span>
+                        <span>✓ {t.publishedOnJobs}</span>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${job.id}`); }}
-                          className="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5"
+                          className="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5 cursor-pointer"
                         >
-                          Xem trên /jobs ↗
+                          {t.viewOnJobs}
                         </button>
                       </div>
                     ) : (
                       <div className="mt-2 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                        ⚠️ Đang ở dạng <b>{ENUM_LABELS.job_post_status[job.status]}</b>. Bấm <b>→ Đang tuyển</b> bên dưới để hiển thị lên /jobs.
+                        ⚠️ {t.draftStatusHint(enumLabels.job_post_status[job.status])}
                       </div>
                     )}
                     <div className="flex gap-1.5 mt-2 flex-wrap">
                       {(["published", "closed", "archived"] as JobPostStatus[]).filter((s) => s !== job.status).map((s) => (
-                        <motion.span
+                        <motion.button
                           key={s}
+                          type="button"
                           whileTap={{ scale: 0.92 }}
                           onClick={(e) => { e.stopPropagation(); void handleUpdateJobStatus(job.id, s); }}
                           className="text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-600 text-slate-600 dark:text-slate-300 rounded-full font-medium transition-colors cursor-pointer"
                         >
-                          → {ENUM_LABELS.job_post_status[s]}
-                        </motion.span>
+                          → {enumLabels.job_post_status[s]}
+                        </motion.button>
                       ))}
                     </div>
-                  </motion.button>
+                  </motion.div>
                 );
               })}
             </div>
@@ -517,7 +645,7 @@ export default function RecruitmentDashboardPage() {
               {!selectedJob ? (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center h-full flex flex-col items-center justify-center">
                   <Briefcase size={48} className="text-slate-200 dark:text-slate-700 mb-4" />
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">Chọn một tin tuyển dụng để xem đơn ứng viên</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">{t.selectJobPrompt}</p>
                 </div>
               ) : (
                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -525,35 +653,35 @@ export default function RecruitmentDashboardPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h2 className="font-semibold text-slate-900 dark:text-white">{selectedJob.title}</h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{jobApps.length} đơn • {salaryRange(selectedJob)} • {selectedJob.location || "Chưa có địa điểm"}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t.applicantCount(jobApps.length)} • {salaryRange(selectedJob, lang)} • {selectedJob.location || (lang === "en" ? "Location not set" : "Chưa có địa điểm")}</p>
                       </div>
                       <Button size="xs" variant="outline" leftIcon={<Pencil size={12} />} onClick={() => handleOpenEditJob(selectedJob)}>
-                        Sửa tin
+                        {t.editJob}
                       </Button>
                     </div>
                     {selectedJob.requirements ? (
                       <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 rounded-xl">
                         <div className="flex items-center justify-between text-xs font-semibold text-purple-700 dark:text-purple-300 mb-1">
-                          <span className="flex items-center gap-1.5"><Sparkles size={12} /> Yêu cầu ứng viên (AI Matching):</span>
+                          <span className="flex items-center gap-1.5"><Sparkles size={12} /> {t.candidateReqAIMatching}:</span>
                         </div>
                         <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">{selectedJob.requirements}</p>
                       </div>
                     ) : (
                       <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl flex items-center justify-between text-xs text-amber-800 dark:text-amber-300">
-                        <span>⚠️ Tin này chưa có <b>Yêu cầu ứng viên</b>. Thêm yêu cầu để AI matching chính xác hơn.</span>
-                        <button onClick={() => handleOpenEditJob(selectedJob)} className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-200 shrink-0 ml-2">Thêm ngay</button>
+                        <span>⚠️ {t.missingReqWarning}</span>
+                        <button onClick={() => handleOpenEditJob(selectedJob)} className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-200 shrink-0 ml-2">{t.addNow}</button>
                       </div>
                     )}
                   </div>
                   {jobApps.length === 0 ? (
-                    <div className="p-12 text-center text-sm text-slate-500 dark:text-slate-400">Chưa có ứng viên nào nộp đơn</div>
+                    <div className="p-12 text-center text-sm text-slate-500 dark:text-slate-400">{t.noApplicantsYet}</div>
                   ) : (
                     <div>
                       {jobApps.length >= 2 && (
                         <div className="px-4 py-2 bg-indigo-50/50 dark:bg-indigo-950/20 border-b border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-300">
                           <span className="flex items-center gap-1.5">
                             <Sparkles size={13} className="text-purple-600 dark:text-purple-400" />
-                            Chọn <b>2 đến 5 ứng viên</b> để so sánh trực quan bằng AI
+                            {t.compareHelperText}
                           </span>
                           {selectedCompareCandidates.length >= 2 && (
                             <button
@@ -561,7 +689,7 @@ export default function RecruitmentDashboardPage() {
                               onClick={() => setShowCompareModal(true)}
                               className="font-bold underline hover:text-indigo-900 dark:hover:text-indigo-100"
                             >
-                              So sánh ngay ({selectedCompareCandidates.length}) ↗
+                              {t.compareNow(selectedCompareCandidates.length)}
                             </button>
                           )}
                         </div>
@@ -590,7 +718,7 @@ export default function RecruitmentDashboardPage() {
                                       ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
                                       : "border-slate-300 dark:border-slate-600 hover:border-indigo-400 bg-white dark:bg-slate-800"
                                   }`}
-                                  title={isCompareSelected ? "Bỏ chọn so sánh" : "Chọn để so sánh trực quan (2-5 ứng viên)"}
+                                  title={isCompareSelected ? t.compareDeselect : t.compareCandidateHint}
                                 >
                                   {isCompareSelected && <Check size={12} strokeWidth={3} />}
                                 </button>
@@ -600,7 +728,7 @@ export default function RecruitmentDashboardPage() {
                                     <p className="text-sm font-medium text-slate-900 dark:text-white">{candName}</p>
                                     {isCompareSelected && (
                                       <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold px-2 py-0.2 rounded-full">
-                                        Đã chọn so sánh
+                                        {t.compareSelected}
                                       </span>
                                     )}
                                   </div>
@@ -610,29 +738,187 @@ export default function RecruitmentDashboardPage() {
                                       className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-1"
                                       onClick={() => void getResumeSignedUrl(app.resume_storage_path_snapshot!).then((url) => window.open(url, "_blank"))}
                                     >
-                                      Mở CV
+                                      {t.openCV}
                                     </button>
                                   )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>{ENUM_LABELS.application_status[app.current_status]}</span>
+                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>{enumLabels.application_status[app.current_status]}</span>
                                 {!TERMINAL_APP_STATUSES.includes(app.current_status) && (
-                                  <Button size="xs" variant="outline" onClick={() => setSelectedApp(isSelected ? null : app.id)}>Cập nhật</Button>
+                                  <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setSelectedApp(null);
+                                      } else {
+                                        // Nhà tuyển dụng không chuyển về 'pending' (Đã nộp đơn), mặc định 'screening' nếu đang pending
+                                        const initialStage: ApplicationStatus = app.current_status === "pending"
+                                          ? "screening"
+                                          : (RECRUITER_STAGE_OPTIONS.includes(app.current_status) ? app.current_status : "screening");
+                                        setSelectedApp(app.id);
+                                        setNewStatus(initialStage);
+                                        setStageNote("");
+                                        const tomorrow = new Date();
+                                        tomorrow.setDate(tomorrow.getDate() + 1);
+                                        tomorrow.setHours(9, 0, 0, 0);
+                                        const tomorrowEnd = new Date(tomorrow.getTime() + 60 * 60 * 1000);
+                                        setInterviewSlots([
+                                          {
+                                            start_time: tomorrow.toISOString().slice(0, 16),
+                                            end_time: tomorrowEnd.toISOString().slice(0, 16),
+                                          },
+                                        ]);
+                                        setInterviewMeetingLink("");
+                                        setInterviewLocation("");
+                                      }
+                                    }}
+                                  >
+                                    {t.updateStage}
+                                  </Button>
                                 )}
                               </div>
                             </div>
+
+                            {/* Hiển thị thông tin Lịch phỏng vấn & Phản hồi của ứng viên */}
+                            {invitationsMap[app.id] && (
+                              <div className="mt-3 text-xs">
+                                {invitationsMap[app.id].status === "confirmed" && invitationsMap[app.id].scheduled_at && (
+                                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                                    <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+                                      <CheckCircle2 size={14} />
+                                      <span>Đã chốt lịch phỏng vấn: {formatSlotDisplay(invitationsMap[app.id].scheduled_at!, lang)}</span>
+                                    </div>
+                                    {invitationsMap[app.id].meeting_link && (
+                                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 mt-1">
+                                        <Video size={13} />
+                                        <a href={invitationsMap[app.id].meeting_link!.startsWith("http") ? invitationsMap[app.id].meeting_link! : `https://${invitationsMap[app.id].meeting_link}`} target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+                                          {invitationsMap[app.id].meeting_link}
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {invitationsMap[app.id].status === "reschedule_requested" && (
+                                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
+                                    <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                                      <Clock size={14} />
+                                      <span>{lang === "en" ? "Candidate proposed interview reschedule:" : "Ứng viên đề xuất đổi lịch phỏng vấn:"}</span>
+                                    </div>
+                                    {invitationsMap[app.id].candidate_response_note && (
+                                      <p className="text-slate-600 dark:text-slate-300 italic">
+                                        "{invitationsMap[app.id].candidate_response_note}"
+                                      </p>
+                                    )}
+                                    {invitationsMap[app.id].candidate_proposed_slots && (
+                                      <div className="space-y-1.5 pt-1">
+                                        <p className="font-semibold text-slate-700 dark:text-slate-200">{lang === "en" ? "Select a slot to confirm:" : "Chọn 1 khoảng để chốt lịch:"}</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {invitationsMap[app.id].candidate_proposed_slots.map((s, sIdx) => (
+                                            <button
+                                              key={sIdx}
+                                              type="button"
+                                              onClick={() => void handleConfirmCandidateSlot(app.id, s)}
+                                              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                            >
+                                              <Check size={12} /> {formatSlotDisplay(s, lang)}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {invitationsMap[app.id].status === "pending" && (
+                                  <div className="p-2.5 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800 rounded-xl flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+                                    <Clock size={13} />
+                                    <span>{lang === "en" ? `Sent ${invitationsMap[app.id].proposed_time_slots?.length || 0} proposed slots (Awaiting candidate response)` : `Đã gửi ${invitationsMap[app.id].proposed_time_slots?.length || 0} khoảng thời gian đề xuất (Đang chờ ứng viên chọn)`}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {isSelected && (
-                              <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
-                                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ApplicationStatus)} className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white">
-                                  {(Object.keys(ENUM_LABELS.application_status) as ApplicationStatus[]).filter((s) => !TERMINAL_APP_STATUSES.includes(s) || s === "rejected").map((s) => (
-                                    <option key={s} value={s}>{ENUM_LABELS.application_status[s]}</option>
-                                  ))}
-                                </select>
-                                <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder="Ghi chú" className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
-                                <div className="col-span-2 flex justify-end gap-2">
-                                  <Button size="xs" variant="ghost" onClick={() => setSelectedApp(null)}>Hủy</Button>
-                                  <Button size="xs" leftIcon={<Check size={12} />} onClick={() => void handleAddStage(app.id)} isLoading={updatingApp} loadingText="Đang lưu...">Lưu</Button>
+                              <div className="mt-3 bg-slate-50 dark:bg-slate-700/40 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">{t.newStatus || (lang === "en" ? "New status:" : "Trạng thái mới:")}</label>
+                                    <select
+                                      value={newStatus}
+                                      onChange={(e) => {
+                                        const val = e.target.value as ApplicationStatus;
+                                        setNewStatus(val);
+                                        if (val === "interview" && interviewSlots.length === 0) {
+                                          const tm = new Date();
+                                          tm.setDate(tm.getDate() + 1);
+                                          tm.setHours(9, 0, 0, 0);
+                                          const tmEnd = new Date(tm.getTime() + 60 * 60 * 1000);
+                                          setInterviewSlots([
+                                            {
+                                              start_time: tm.toISOString().slice(0, 16),
+                                              end_time: tmEnd.toISOString().slice(0, 16),
+                                            },
+                                          ]);
+                                        }
+                                      }}
+                                      className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white"
+                                    >
+                                      {RECRUITER_STAGE_OPTIONS.map((s) => (
+                                        <option key={s} value={s}>{enumLabels.application_status[s]}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">{lang === "en" ? "Stage note:" : "Ghi chú tiến trình:"}</label>
+                                    <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder={t.stageNotePlaceholder} className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
+                                  </div>
+                                </div>
+
+                                {/* Form nhập các khoảng thời gian dùng chung InterviewTimeSlotPicker */}
+                                {newStatus === "interview" && (
+                                  <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-3">
+                                    <InterviewTimeSlotPicker
+                                      slots={interviewSlots}
+                                      onChange={setInterviewSlots}
+                                      label="Các khoảng thời gian đề xuất cho ứng viên:"
+                                      description="Chọn khoảng thời gian (Từ - Đến). Các khoảng thời gian khác nhau cần cách nhau ít nhất 4h và không trùng lặp."
+                                    />
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                          Link họp online (Google Meet / Zoom):
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={interviewMeetingLink}
+                                          onChange={(e) => setInterviewMeetingLink(e.target.value)}
+                                          placeholder="https://meet.google.com/..."
+                                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-900 dark:text-white"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                          Địa điểm trực tiếp (nếu có):
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={interviewLocation}
+                                          onChange={(e) => setInterviewLocation(e.target.value)}
+                                          placeholder="Phòng họp tầng 3..."
+                                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-900 dark:text-white"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex justify-end gap-2 pt-2">
+                                  <Button size="xs" variant="ghost" onClick={() => setSelectedApp(null)}>{t.cancel}</Button>
+                                  <Button size="xs" leftIcon={<Check size={12} />} onClick={() => void handleAddStage(app.id)} isLoading={updatingApp} loadingText={t.savingProfile}>{t.save}</Button>
                                 </div>
                               </div>
                             )}
@@ -641,6 +927,7 @@ export default function RecruitmentDashboardPage() {
                       })}
                     </div>
                   )}
+
                 </div>
               )}
             </div>
@@ -667,4 +954,5 @@ export default function RecruitmentDashboardPage() {
     </AnimatedPage>
   );
 }
+
 

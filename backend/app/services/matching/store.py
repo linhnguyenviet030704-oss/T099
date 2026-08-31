@@ -16,7 +16,7 @@ class SupabaseResumeStore:
         def _query() -> dict[str, Any] | None:
             result = (
                 self._client.table("embedded_resumes")
-                .select("resume_id, markdown, metadata, content_hash, storage_updated_at")
+                .select("resume_id, markdown, clean_markdown, metadata, content_hash, storage_updated_at")
                 .eq("resume_id", str(resume_id))
                 .maybe_single()
                 .execute()

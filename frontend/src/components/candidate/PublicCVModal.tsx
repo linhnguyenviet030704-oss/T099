@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Globe, AlertCircle, Clock, Check, X, Loader2 } from "lucide-react";
 import Button from "../ui/Button";
+import { useLang } from "../../context/LangContext";
 
 interface PublicCVModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export default function PublicCVModal({
   onConfirm,
   isSubmitting = false,
 }: PublicCVModalProps) {
+  const { lang, t } = useLang();
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
@@ -81,24 +83,24 @@ export default function PublicCVModal({
             <div className="space-y-3 mb-6">
               <div className="flex items-center gap-2">
                 <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-                  Công khai CV - Đang tìm việc
+                  {lang === "en" ? "Make CV Public - Job Seeking" : "Công khai CV - Đang tìm việc"}
                 </h3>
                 <span className="text-xs px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-full font-semibold">
-                  Đang tìm việc
+                  {lang === "en" ? "Job Seeking" : "Đang tìm việc"}
                 </span>
               </div>
 
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                CV đang chọn: <span className="text-slate-700 dark:text-slate-200 font-semibold">{cvTitle}</span>
+                {lang === "en" ? "Selected CV:" : "CV đang chọn:"} <span className="text-slate-700 dark:text-slate-200 font-semibold">{cvTitle}</span>
               </p>
 
               {/* Exact Requested Message */}
               <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex gap-3 text-amber-900 dark:text-amber-200 text-sm leading-relaxed shadow-sm">
                 <AlertCircle size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">Xác nhận công khai hồ sơ</p>
+                  <p className="font-semibold text-amber-800 dark:text-amber-300 mb-1">{t.publicCVConfirmTitle}</p>
                   <p className="text-slate-700 dark:text-slate-300">
-                    Nhà tuyển dụng có thể nhìn thấy CV của bạn, kể cả khi bạn không ứng tuyển, bạn đồng ý chứ?
+                    {t.publicCVConfirmDesc}
                   </p>
                 </div>
               </div>
@@ -107,7 +109,7 @@ export default function PublicCVModal({
               {!isSubmitting && countdown > 0 && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 px-1 pt-1">
                   <Clock size={14} className="text-indigo-500 animate-spin" style={{ animationDuration: "3s" }} />
-                  <span>Vui lòng đọc kỹ thông tin, nút đồng ý sẽ mở sau <strong className="text-indigo-600 dark:text-indigo-400 font-bold">{countdown}s</strong></span>
+                  <span>{t.publicCVWaitText(countdown)}</span>
                 </div>
               )}
             </div>
@@ -120,7 +122,7 @@ export default function PublicCVModal({
                 disabled={isSubmitting}
                 className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
-                Hủy
+                {t.cancel}
               </Button>
 
               <button
@@ -137,17 +139,17 @@ export default function PublicCVModal({
                 {isSubmitting ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    <span>Đang xác nhận...</span>
+                    <span>{lang === "en" ? "Confirming..." : "Đang xác nhận..."}</span>
                   </>
                 ) : canConfirm ? (
                   <>
                     <Check size={16} strokeWidth={2.5} />
-                    <span>Đồng ý</span>
+                    <span>{t.agree}</span>
                   </>
                 ) : (
                   <>
                     <Clock size={16} />
-                    <span>Đồng ý ({countdown}s)</span>
+                    <span>{t.agree} ({countdown}s)</span>
                   </>
                 )}
               </button>
@@ -158,3 +160,4 @@ export default function PublicCVModal({
     </AnimatePresence>
   );
 }
+

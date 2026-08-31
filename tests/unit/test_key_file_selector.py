@@ -1,14 +1,11 @@
 """Tests for key file selector."""
 
-import pytest
-
-from backend.app.core.github_client import GitHubFile, FileType
+from backend.app.core.github_client import FileType, GitHubFile
 from backend.app.core.key_file_selector import (
-    select_key_files,
-    SelectedFile,
     DEFAULT_BUDGET,
-    DEFAULT_MAX_CHARS_PER_FILE,
     DEFAULT_ENTRY_PATTERNS,
+    DEFAULT_MAX_CHARS_PER_FILE,
+    select_key_files,
 )
 
 

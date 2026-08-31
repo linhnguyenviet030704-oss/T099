@@ -30,3 +30,8 @@ create policy "Users can only delete their own chat messages"
     on public.chat_messages
     for delete
     using (auth.uid() = user_id);
+
+-- Phân quyền truy cập bảng chat_messages
+grant all on public.chat_messages to postgres, service_role;
+grant select, insert, update, delete on public.chat_messages to authenticated;
+grant select, insert, update, delete on public.chat_messages to anon;

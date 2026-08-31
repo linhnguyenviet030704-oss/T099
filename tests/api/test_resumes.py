@@ -301,5 +301,3 @@ async def test_delete_resume_success_for_owner():
     assert any("deleted_at" in upd and upd["is_public"] is False and upd["is_default"] is False for upd in fake_client.query_builder.updates)
     # Check embedded_resumes delete was called
     assert fake_client.query_builder.deleted is True
-
-

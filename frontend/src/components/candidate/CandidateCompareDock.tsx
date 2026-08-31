@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, X, Users, Trash2, ArrowRight } from "lucide-react";
+import { useLang } from "../../context/LangContext";
 
 export interface SelectedCandidateItem {
   id: string; // application_id
@@ -26,6 +27,7 @@ export const CandidateCompareDock: React.FC<CandidateCompareDockProps> = ({
   isComparing = false,
   maxAllowed = 5,
 }) => {
+  const { t } = useLang();
   const count = selectedCandidates.length;
   const isReady = count >= 2 && count <= maxAllowed;
 
@@ -45,7 +47,7 @@ export const CandidateCompareDock: React.FC<CandidateCompareDockProps> = ({
               <div className="flex items-center gap-1.5 shrink-0 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold text-xs px-3 py-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800">
                 <Users size={14} className="shrink-0" />
                 <span>
-                  Đã chọn: <b className="text-indigo-900 dark:text-indigo-100">{count}</b>/{maxAllowed}
+                  {t.dockSelected} <b className="text-indigo-900 dark:text-indigo-100">{count}</b>/{maxAllowed}
                 </span>
               </div>
 
@@ -68,7 +70,7 @@ export const CandidateCompareDock: React.FC<CandidateCompareDockProps> = ({
                       type="button"
                       onClick={() => onRemove(cand.id)}
                       className="p-0.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-full transition-colors"
-                      title="Bỏ chọn"
+                      title={t.compareDeselect}
                     >
                       <X size={12} />
                     </button>
@@ -83,9 +85,10 @@ export const CandidateCompareDock: React.FC<CandidateCompareDockProps> = ({
                 type="button"
                 onClick={onClear}
                 className="px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-1"
+                title={t.clearSelection}
               >
                 <Trash2 size={13} />
-                <span>Bỏ chọn</span>
+                <span>{t.clearSelection}</span>
               </button>
 
               <motion.button
@@ -101,7 +104,7 @@ export const CandidateCompareDock: React.FC<CandidateCompareDockProps> = ({
                 }`}
               >
                 <Sparkles size={14} className={isReady ? "text-amber-300 animate-pulse" : ""} />
-                <span>{isComparing ? "Đang phân tích..." : "So sánh trực quan (AI)"}</span>
+                <span>{isComparing ? t.analyzing : t.compareVisualAI}</span>
                 {isReady && <ArrowRight size={13} className="ml-0.5" />}
               </motion.button>
             </div>
@@ -112,3 +115,4 @@ export const CandidateCompareDock: React.FC<CandidateCompareDockProps> = ({
   );
 };
 export default CandidateCompareDock;
+

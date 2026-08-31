@@ -34,9 +34,12 @@ import {
   Check,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { useCurrentProfile } from "../profile/ProfileProvider";
 import { supabase } from "../lib/supabase";
-import { apiJson } from "../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../lib/api";
+import { canBrowseJobApplications } from "../lib/roleGuard";
 import AnimatedPage from "../components/AnimatedPage";
+import SuggestionStatusIndicator, { type StatusStep } from "../components/SuggestionStatusIndicator";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
 
@@ -248,14 +251,20 @@ type StatusPhase = "idle" | "starting" | "evaluating" | "complete" | "no_repos" 
 
 export default function RepoEvaluationPage() {
   const { session, user } = useAuth();
+  const { profile } = useCurrentProfile();
   const { success, error: toastError, info } = useToast();
   const { lang } = useLang();
+  const canBrowse = canBrowseJobApplications(profile?.role);
 
   // Mode Selection: "cv" vs "url"
   const [activeTab, setActiveTab] = useState<"cv" | "url">("cv");
 
   // CV Input Mode: "job_applications" (Recruiter workflow) | "vault" | "text" | "upload"
-  const [cvInputType, setCvInputType] = useState<"job_applications" | "vault" | "text" | "upload">("job_applications");
+  // Default = "job_applications" for recruiters, "vault" for candidates (who cannot
+  // see other applicants' CV submissions).
+  const [cvInputType, setCvInputType] = useState<"job_applications" | "vault" | "text" | "upload">(
+    canBrowse ? "job_applications" : "vault",
+  );
 
   // Recruiter Job & Application State
   const [recruiterJobs, setRecruiterJobs] = useState<RecruiterJobOption[]>([]);
@@ -280,6 +289,10 @@ export default function RepoEvaluationPage() {
   const [extractedRepos, setExtractedRepos] = useState<ExtractedRepoItem[]>([]);
   const [currentRepoIndex, setCurrentRepoIndex] = useState<number>(0);
   const [noReposReport, setNoReposReport] = useState<string | null>(null);
+
+  // Tiến trình streaming thời gian thực theo từng repo
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
 
   // Results state: appended in real-time as each repo finishes
   const [evaluatedResults, setEvaluatedResults] = useState<EvaluationResultData[]>([]);
@@ -415,17 +428,20 @@ export default function RepoEvaluationPage() {
     }
   }, []);
 
-  // Load recruiter jobs on mount
+  // Load recruiter jobs on mount — only for recruiter/admin; candidates
+  // must not see other applicants' CV submissions.
   useEffect(() => {
-    void loadRecruiterJobs();
-  }, [loadRecruiterJobs]);
+    if (canBrowse) {
+      void loadRecruiterJobs();
+    }
+  }, [loadRecruiterJobs, canBrowse]);
 
-  // Load applications whenever selected job changes
+  // Load applications whenever selected job changes — same role guard.
   useEffect(() => {
-    if (selectedJobId) {
+    if (canBrowse && selectedJobId) {
       void loadJobApplications(selectedJobId);
     }
-  }, [selectedJobId, loadJobApplications]);
+  }, [selectedJobId, loadJobApplications, canBrowse]);
 
   // Load user resumes from Supabase for personal vault tab
   useEffect(() => {
@@ -437,10 +453,14 @@ export default function RepoEvaluationPage() {
           .select("id, title, original_filename, is_default, created_at")
           .eq("user_id", user.id)
           .is("deleted_at", null)
+          .order("is_default", { ascending: false })
           .order("created_at", { ascending: false });
 
         if (!error && data && data.length > 0) {
-          setUserResumes(data as UserResumeOption[]);
+          const list = data as UserResumeOption[];
+          setUserResumes(list);
+          const defaultResume = list.find((r) => r.is_default) || list[0];
+          setSelectedResumeId((prev) => (prev && list.some((r) => r.id === prev) ? prev : defaultResume.id));
         }
       } catch (err) {
         console.warn("Could not load user resumes:", err);
@@ -601,6 +621,16 @@ export default function RepoEvaluationPage() {
 
     // 1. Recruiter Job Application flow (Selected Job -> Submitted CV)
     if (cvInputType === "job_applications") {
+      if (!canBrowse) {
+        // ponytail: defense-in-depth — even if a candidate forces the tab via devtools,
+        // the picker is unreachable for them. Reject with the user-facing policy message.
+        setStatusPhase("idle");
+        toastError(
+          "Không có quyền truy cập",
+          "Tính năng này chỉ dành cho nhà tuyển dụng — vui lòng liên hệ support nếu bạn là nhà tuyển dụng",
+        );
+        return;
+      }
       const selectedApp = jobApplications.find((a) => a.id === selectedApplicationId);
       const selectedJob = recruiterJobs.find((j) => j.id === selectedJobId);
 
@@ -616,13 +646,14 @@ export default function RepoEvaluationPage() {
     }
     // 2. Personal Vault CV flow
     else if (cvInputType === "vault") {
-      if (!selectedResumeId) {
+      const effectiveResumeId = selectedResumeId || userResumes.find((r) => r.is_default)?.id || userResumes[0]?.id;
+      if (!effectiveResumeId) {
         setStatusPhase("idle");
         toastError("Chưa chọn CV", "Vui lòng chọn CV từ kho CV đã lưu");
         return;
       }
-      payload.resume_id = selectedResumeId;
-      const foundResume = userResumes.find((r) => r.id === selectedResumeId);
+      payload.resume_id = effectiveResumeId;
+      const foundResume = userResumes.find((r) => r.id === effectiveResumeId);
       searchTitle = `Nghiên cứu CV: ${foundResume?.title || "CV đã lưu"}`;
     }
     // 3. Text / Upload flow
@@ -686,27 +717,56 @@ export default function RepoEvaluationPage() {
       for (let i = 0; i < total; i++) {
         const repoItem = reposList[i];
         setCurrentRepoIndex(i + 1);
+        setStreamingSteps([]);
+        setCurrentStatusLabel(`Đang khởi tạo đánh giá: ${repoItem.repo_full_name}...`);
         setStatusMessage(
           `Đang tìm kiếm & Đánh giá (${i + 1}/${total}): ${repoItem.repo_full_name} (${repoItem.project_name})...`
         );
 
         try {
-          const evalResp = await apiJson<EvaluationResultData>(
-            "/evaluations/evaluate-single",
+          let evalResp: EvaluationResultData | null = null;
+          await apiStream(
+            "/evaluations/evaluate-single/stream",
             token,
             {
-              method: "POST",
-              body: JSON.stringify({
-                candidate_id: candidateId,
-                repo_url: repoItem.repo_url,
-                project_name: repoItem.project_name,
-              }),
+              candidate_id: candidateId,
+              repo_url: repoItem.repo_url,
+              project_name: repoItem.project_name,
+            },
+            (event: StreamEvent) => {
+              if (event.event === "status") {
+                setCurrentStatusLabel(event.data.label);
+                setStreamingSteps((prev) => {
+                  const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+                  if (exists) return prev;
+                  return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+                });
+              } else if (event.event === "complete") {
+                evalResp = event.data as unknown as EvaluationResultData;
+              } else if (event.event === "error") {
+                throw new Error(event.data.error || "Lỗi xử lý đánh giá repository");
+              }
             }
           );
 
+          if (!evalResp) {
+            evalResp = await apiJson<EvaluationResultData>(
+              "/evaluations/evaluate-single",
+              token,
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  candidate_id: candidateId,
+                  repo_url: repoItem.repo_url,
+                  project_name: repoItem.project_name,
+                }),
+              }
+            );
+          }
+
           completedResults.push(evalResp);
           // IMMEDIATELY append this result to the list so user sees it right away!
-          setEvaluatedResults((prev) => [...prev, evalResp]);
+          setEvaluatedResults((prev) => [...prev, evalResp!]);
           success("Hoàn thành đánh giá", repoItem.repo_name);
         } catch (err: any) {
           console.error(`Lỗi khi đánh giá repo ${repoItem.repo_url}:`, err);
@@ -771,23 +831,51 @@ export default function RepoEvaluationPage() {
     setNoReposReport(null);
     setSelectedResultIndex(0);
     setStatusPhase("evaluating");
+    setStreamingSteps([]);
+    setCurrentStatusLabel(`Đang kết nối repository: ${directRepoUrl}...`);
     setStatusMessage(`Đang tìm kiếm & Đánh giá repository: ${directRepoUrl}...`);
 
     const token = session?.access_token || "";
     const candidateId = user?.id || "00000000-0000-0000-0000-000000000000";
 
     try {
-      const evalResp = await apiJson<EvaluationResultData>(
-        "/evaluations/evaluate-single",
+      let evalResp: EvaluationResultData | null = null;
+      await apiStream(
+        "/evaluations/evaluate-single/stream",
         token,
         {
-          method: "POST",
-          body: JSON.stringify({
-            candidate_id: candidateId,
-            repo_url: directRepoUrl.trim(),
-          }),
+          candidate_id: candidateId,
+          repo_url: directRepoUrl.trim(),
+        },
+        (event: StreamEvent) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "complete") {
+            evalResp = event.data as unknown as EvaluationResultData;
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || "Lỗi xử lý đánh giá repository");
+          }
         }
       );
+
+      if (!evalResp) {
+        evalResp = await apiJson<EvaluationResultData>(
+          "/evaluations/evaluate-single",
+          token,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              candidate_id: candidateId,
+              repo_url: directRepoUrl.trim(),
+            }),
+          }
+        );
+      }
 
       setEvaluatedResults([evalResp]);
       setStatusPhase("complete");
@@ -829,136 +917,133 @@ export default function RepoEvaluationPage() {
 
   return (
     <AnimatedPage>
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* Header Banner */}
-        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
-          <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="max-w-3xl space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-medium">
-                <Sparkles size={14} className="text-indigo-400" />
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-3">
+        {/* Header Banner - Super Compact */}
+        <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-900 rounded-2xl p-3.5 sm:p-4 text-white relative overflow-hidden shadow-sm">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[11px] font-medium">
+                <Sparkles size={12} className="text-indigo-400" />
                 Agent 1 • AI Repository Research & Evaluator
               </div>
-              <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight">
-                Agent Nghiên Cứu & Đánh Giá Git Repository
+              <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight">
+                {lang === "en" ? "Git Repository Research & Evaluator Agent" : "Agent Nghiên Cứu & Đánh Giá Git Repository"}
               </h1>
-              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                Dành cho Nhà tuyển dụng: Chọn vị trí công việc đã đăng, chọn CV ứng viên đã submit để tự động bóc tách dự án, 
-                truy vết repository GitHub và nghiên cứu đánh giá tuần tự theo 5 tiêu chí chuẩn quốc tế.
+              <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
+                {lang === "en" ? "Extract projects and trace GitHub repositories from candidate CVs with automated scoring across 5 standards." : "Bóc tách dự án, truy vết GitHub repository từ CV ứng viên và chấm điểm tự động theo 5 tiêu chuẩn quốc tế."}
               </p>
             </div>
 
             {/* History Trigger Button */}
-            <div className="shrink-0 flex items-center gap-3">
+            <div className="shrink-0 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   void loadSearchHistory();
                   setShowHistoryModal(true);
                 }}
-                className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs backdrop-blur-md transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <History size={18} className="text-indigo-300" />
-                <span>Lịch sử tìm kiếm ({searchHistory.length})</span>
+                <History size={14} className="text-indigo-300" />
+                <span>{lang === "en" ? `History (${searchHistory.length})` : `Lịch sử (${searchHistory.length})`}</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-1.5">
           <button
             type="button"
             onClick={() => { if (!isRunning) setActiveTab("cv"); }}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
               activeTab === "cv"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-indigo-600 text-white shadow-xs"
                 : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             }`}
           >
-            <FileText size={18} />
-            <span>Nghiên cứu từ CV (AI CV Repo Agent)</span>
+            <FileText size={14} />
+            <span>{lang === "en" ? "Analyze from CV (AI CV Repo Agent)" : "Nghiên cứu từ CV (AI CV Repo Agent)"}</span>
           </button>
 
           <button
             type="button"
             onClick={() => { if (!isRunning) setActiveTab("url"); }}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs transition-all cursor-pointer ${
               activeTab === "url"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                ? "bg-indigo-600 text-white shadow-xs"
                 : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
             }`}
           >
-            <LinkIcon size={18} />
-            <span>Nhập trực tiếp URL Repository</span>
+            <LinkIcon size={14} />
+            <span>{lang === "en" ? "Direct Repository URL" : "Nhập trực tiếp URL Repository"}</span>
           </button>
         </div>
 
-        {/* Mode 1: CV Input Form Box */}
+        {/* Mode 1: CV Input Form Box - Compact 1-Screen */}
         {activeTab === "cv" && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-6">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Briefcase size={18} className="text-indigo-600" />
-                Quy trình nghiên cứu CV ứng viên
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Chọn công việc đã đăng, chọn CV ứng viên đã submit để Agent bóc tách dự án và đánh giá các repository liên quan.
-              </p>
-            </div>
-
-            {/* Sub-inputs: Recruiter Job Application (Default) vs Saved Vault vs Direct Text vs Upload */}
-            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-700/60 pb-3 text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => setCvInputType("job_applications")}
-                className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  cvInputType === "job_applications"
-                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-                }`}
-              >
-                <Briefcase size={15} />
-                <span>1. Ứng viên nộp vào Job đã đăng ({recruiterJobs.length} Job)</span>
-              </button>
+          <div className="bg-white dark:bg-slate-800/95 rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3.5 sm:p-4 shadow-xs space-y-3">
+            {/* Sub-inputs Selector */}
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 dark:border-slate-700/60 pb-2 text-xs font-medium">
+              {canBrowse && (
+                <button
+                  type="button"
+                  onClick={() => setCvInputType("job_applications")}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
+                    cvInputType === "job_applications"
+                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <Briefcase size={13} />
+                  <span>{lang === "en" ? `1. Job Applicants (${recruiterJobs.length})` : `1. Ứng viên nộp vào Job (${recruiterJobs.length})`}</span>
+                </button>
+              )}
 
               {userResumes.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setCvInputType("vault")}
-                  className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  onClick={() => {
+                    setCvInputType("vault");
+                    if (!selectedResumeId && userResumes.length > 0) {
+                      const def = userResumes.find((r) => r.is_default) || userResumes[0];
+                      setSelectedResumeId(def.id);
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                     cvInputType === "vault"
-                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                      ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
                       : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
-                  <UserCheck size={15} />
-                  <span>2. Kho CV cá nhân ({userResumes.length})</span>
+                  <UserCheck size={13} />
+                  <span>{lang === "en" ? `2. CV Vault (${userResumes.length})` : `2. Kho CV (${userResumes.length})`}</span>
                 </button>
               )}
 
               <button
                 type="button"
                 onClick={() => setCvInputType("text")}
-                className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                   cvInputType === "text"
-                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                 }`}
               >
-                <Code2 size={15} />
-                <span>3. Dán văn bản / Markdown CV</span>
+                <Code2 size={13} />
+                <span>{lang === "en" ? "3. Paste CV Text" : "3. Dán văn bản CV"}</span>
               </button>
 
               <label
-                className={`px-3 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                   cvInputType === "upload"
-                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-xs"
+                    ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                 }`}
               >
-                <Upload size={15} />
-                <span>{uploadedFileName ? `Tệp: ${uploadedFileName}` : "4. Tải tệp CV lên (.md, .txt, .pdf)"}</span>
+                <Upload size={13} />
+                <span>{uploadedFileName ? (lang === "en" ? `File: ${uploadedFileName}` : `Tệp: ${uploadedFileName}`) : (lang === "en" ? "4. Upload CV File" : "4. Tải tệp CV lên")}</span>
                 <input
                   type="file"
                   accept=".md,.txt,.pdf,.docx,.doc"
@@ -969,172 +1054,123 @@ export default function RepoEvaluationPage() {
               </label>
             </div>
 
-            {/* Workflow 1: Recruiter selects Job -> selects submitted CV */}
+            {/* Workflow 1: Recruiter selects Job & selects submitted CV - 2 Columns Side-by-Side */}
             {cvInputType === "job_applications" && (
-              <div className="space-y-6">
-                {/* Step 1: Select Job */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[11px] font-black">
-                        1
-                      </span>
-                      <span>Chọn vị trí tuyển dụng (Job đã đăng):</span>
-                    </label>
-                    {isLoadingJobs && (
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Loader2 size={12} className="animate-spin" /> Đang tải danh sách job...
-                      </span>
-                    )}
-                  </div>
-
-                  {recruiterJobs.length === 0 && !isLoadingJobs ? (
-                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs">
-                      Chưa tìm thấy tin tuyển dụng nào. Bạn có thể chuyển sang tab <strong>Dán văn bản CV</strong> hoặc <strong>Tải tệp CV lên</strong>.
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedJobId}
-                      onChange={(e) => setSelectedJobId(e.target.value)}
-                      disabled={isRunning}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                    >
-                      {recruiterJobs.map((job) => (
-                        <option key={job.id} value={job.id}>
-                          {job.title} {job.location ? `(${job.location})` : ""} — {job.application_count || 0} ứng viên đã nộp CV
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* Step 2: Select Submitted CV from Candidates */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[11px] font-black">
-                        2
-                      </span>
-                      <span>Chọn CV ứng viên đã nộp vào Job này ({jobApplications.length} ứng viên):</span>
-                    </label>
-                    {isLoadingApps && (
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Loader2 size={12} className="animate-spin" /> Đang tải danh sách CV...
-                      </span>
-                    )}
-                  </div>
-
-                  {isLoadingApps ? (
-                    <div className="p-8 flex items-center justify-center gap-2 text-slate-400 text-xs">
-                      <Loader2 size={16} className="animate-spin text-indigo-600" />
-                      <span>Đang tải danh sách ứng viên đã nộp...</span>
-                    </div>
-                  ) : jobApplications.length === 0 ? (
-                    <div className="p-6 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-center space-y-2">
-                      <Users size={28} className="mx-auto text-slate-400" />
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        Chưa có ứng viên nào submit CV vào vị trí tuyển dụng này
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Bạn có thể chọn một vị trí tuyển dụng khác ở trên, hoặc chuyển sang tab <strong>Dán văn bản / Tải tệp CV lên</strong>.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {jobApplications.map((app) => {
-                        const isSelected = selectedApplicationId === app.id;
-
-                        return (
-                          <div
-                            key={app.id}
-                            onClick={() => {
-                              if (!isRunning) {
-                                setSelectedApplicationId(app.id);
-                                setSelectedResumeId(app.resume_id);
-                              }
-                            }}
-                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
-                              isSelected
-                                ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 dark:border-indigo-600 shadow-md ring-2 ring-indigo-500/20"
-                                : "bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div
-                                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                                    isSelected
-                                      ? "bg-indigo-600 text-white"
-                                      : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                                  }`}
-                                >
-                                  {app.applicant_name.slice(0, 2).toUpperCase()}
-                                </div>
-                                <div className="min-w-0">
-                                  <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                                    {app.applicant_name}
-                                  </h4>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                    {app.applicant_email || "Chưa có email"}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="shrink-0">
-                                {isSelected ? (
-                                  <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                                    <Check size={12} strokeWidth={3} />
-                                  </div>
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600" />
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                              <span className="truncate max-w-[140px]" title={app.resume_title_snapshot || "CV Ứng viên"}>
-                                📄 {app.resume_title_snapshot || "CV Ứng viên"}
-                              </span>
-                              <span className="capitalize px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 text-[10px] font-semibold">
-                                {app.current_status}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Active candidate summary pill */}
-                  {activeSelectedApp && activeSelectedJob && (
-                    <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
-                      <div className="flex items-center gap-2">
-                        <UserCheck size={16} className="text-indigo-600" />
-                        <span>
-                          Sẵn sàng nghiên cứu CV của <strong>{activeSelectedApp.applicant_name}</strong> cho vị trí <strong>{activeSelectedJob.title}</strong>
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Step 1: Select Job */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                        <span className="w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-black">
+                          1
                         </span>
-                      </div>
+                        <span>{lang === "en" ? "Job Position:" : "Vị trí tuyển dụng:"}</span>
+                      </label>
+                      {isLoadingJobs && (
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Loader2 size={10} className="animate-spin" /> {lang === "en" ? "Loading..." : "Đang tải..."}
+                        </span>
+                      )}
                     </div>
-                  )}
+
+                    {recruiterJobs.length === 0 && !isLoadingJobs ? (
+                      <div className="p-2.5 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-xs">
+                        {lang === "en" ? "No job postings yet." : "Chưa có tin tuyển dụng nào."}
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedJobId}
+                        onChange={(e) => setSelectedJobId(e.target.value)}
+                        disabled={isRunning}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-hidden focus:ring-1 focus:ring-indigo-500 font-medium cursor-pointer"
+                      >
+                        {recruiterJobs.map((job) => (
+                          <option key={job.id} value={job.id}>
+                            {job.title} {job.location ? `(${job.location})` : ""} — {job.application_count || 0} {lang === "en" ? "applicants" : "ứng viên"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Step 2: Select Submitted CV from Candidates */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                        <span className="w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-black">
+                          2
+                        </span>
+                        <span>{lang === "en" ? `Select Submitted Candidate CV (${jobApplications.length}):` : `Chọn CV ứng viên đã nộp (${jobApplications.length}):`}</span>
+                      </label>
+                      {isLoadingApps && (
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Loader2 size={10} className="animate-spin" /> {lang === "en" ? "Loading..." : "Đang tải..."}
+                        </span>
+                      )}
+                    </div>
+
+                    {isLoadingApps ? (
+                      <div className="p-2.5 flex items-center justify-center gap-1.5 text-slate-400 text-xs bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <Loader2 size={12} className="animate-spin text-indigo-600" />
+                        <span>{lang === "en" ? "Loading list..." : "Đang tải danh sách..."}</span>
+                      </div>
+                    ) : jobApplications.length === 0 ? (
+                      <div className="p-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 text-center text-xs text-slate-500">
+                        {lang === "en" ? "No candidates have applied to this job yet." : "Chưa có ứng viên nộp CV vào Job này."}
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedApplicationId || ""}
+                        onChange={(e) => {
+                          const app = jobApplications.find((a) => a.id === e.target.value);
+                          if (app && !isRunning) {
+                            setSelectedApplicationId(app.id);
+                            setSelectedResumeId(app.resume_id);
+                          }
+                        }}
+                        disabled={isRunning}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-hidden focus:ring-1 focus:ring-indigo-500 font-semibold cursor-pointer"
+                      >
+                        {jobApplications.map((app) => (
+                          <option key={app.id} value={app.id}>
+                            {app.applicant_name} ({app.applicant_email || (lang === "en" ? "No email" : "Không có email")}) — {app.resume_title_snapshot || (lang === "en" ? "Candidate CV" : "CV Ứng viên")}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
+
+                {/* Active candidate summary pill & Quick Action */}
+                {activeSelectedApp && activeSelectedJob && (
+                  <div className="p-2 rounded-lg bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60 flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <UserCheck size={14} className="text-indigo-600 shrink-0" />
+                      <span className="truncate">
+                        {lang === "en" ? "Candidate:" : "Ứng viên:"} <strong>{activeSelectedApp.applicant_name}</strong> • {lang === "en" ? "Position:" : "Vị trí:"} <strong>{activeSelectedJob.title}</strong>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Workflow 2: Personal Vault */}
             {cvInputType === "vault" && userResumes.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Chọn CV từ kho CV cá nhân của bạn:
+                  {lang === "en" ? "Select CV from personal vault:" : "Chọn CV từ kho CV cá nhân:"}
                 </label>
                 <select
                   value={selectedResumeId}
                   onChange={(e) => setSelectedResumeId(e.target.value)}
                   disabled={isRunning}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-hidden focus:ring-1 focus:ring-indigo-500"
                 >
                   {userResumes.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.title || r.original_filename} {r.is_default ? "(Mặc định)" : ""} — Tạo ngày {new Date(r.created_at).toLocaleDateString()}
+                      {r.title || r.original_filename} {r.is_default ? (lang === "en" ? "(Default)" : "(Mặc định)") : ""} — {lang === "en" ? "Created" : "Tạo ngày"} {new Date(r.created_at).toLocaleDateString()}
                     </option>
                   ))}
                 </select>
@@ -1143,14 +1179,14 @@ export default function RepoEvaluationPage() {
 
             {/* Workflow 3 & 4: Text & Upload */}
             {(cvInputType === "text" || cvInputType === "upload") && (
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Văn bản CV (Hỗ trợ Markdown hoặc Text):
+                    {lang === "en" ? "CV Content (Markdown or Plain Text supported):" : "Văn bản CV (Hỗ trợ Markdown hoặc Text):"}
                   </label>
                   {/* Sample Presets */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] text-slate-400">Mẫu thử:</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[10px] text-slate-400">{lang === "en" ? "Samples:" : "Mẫu:"}</span>
                     {SAMPLE_CVS.map((sample, idx) => (
                       <button
                         key={idx}
@@ -1159,7 +1195,7 @@ export default function RepoEvaluationPage() {
                           setCvTextInput(sample.text);
                           setCvInputType("text");
                         }}
-                        className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 text-[11px] text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors"
+                        className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 text-[10px] text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors"
                       >
                         {sample.label.split(" (")[0]}
                       </button>
@@ -1167,33 +1203,33 @@ export default function RepoEvaluationPage() {
                   </div>
                 </div>
                 <textarea
-                  rows={7}
+                  rows={3}
                   value={cvTextInput}
                   onChange={(e) => setCvTextInput(e.target.value)}
-                  placeholder="Dán nội dung CV có chứa thông tin dự án, link GitHub repo hoặc link GitHub Profile..."
+                  placeholder={lang === "en" ? "Paste CV content containing project info, GitHub repository URL or GitHub Profile link..." : "Dán nội dung CV có chứa thông tin dự án, link GitHub repo hoặc link GitHub Profile..."}
                   disabled={isRunning}
-                  className="w-full p-3.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500 leading-relaxed"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs font-mono outline-hidden focus:ring-1 focus:ring-indigo-500 leading-relaxed resize-none"
                 />
               </div>
             )}
 
-            {/* Submit Button */}
-            <div className="flex justify-end pt-2">
+            {/* Submit Button - Compact & Visible without scrolling */}
+            <div className="flex justify-end pt-1">
               <button
                 type="button"
                 onClick={() => void handleStartCVEvaluation()}
                 disabled={isRunning || (cvInputType === "job_applications" && jobApplications.length === 0)}
-                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow-md disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 {isRunning ? (
                   <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Đang nghiên cứu repos từ CV...</span>
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>{lang === "en" ? "Analyzing repos from CV..." : "Đang nghiên cứu repos từ CV..."}</span>
                   </>
                 ) : (
                   <>
-                    <Search size={18} />
-                    <span>Bắt đầu nghiên cứu từ CV</span>
+                    <Search size={14} />
+                    <span>{lang === "en" ? "Start Analyzing from CV" : "Bắt đầu nghiên cứu từ CV"}</span>
                   </>
                 )}
               </button>
@@ -1203,51 +1239,51 @@ export default function RepoEvaluationPage() {
 
         {/* Mode 2: Direct URL Input Box */}
         {activeTab === "url" && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm space-y-4">
-            <form onSubmit={handleStartDirectEvaluation} className="space-y-4">
-              <label className="block text-sm font-semibold text-slate-900 dark:text-white">
-                Đường dẫn GitHub Repository
+          <div className="bg-white dark:bg-slate-800/95 rounded-xl border border-slate-200/80 dark:border-slate-700/80 p-3.5 sm:p-4 shadow-xs space-y-2.5">
+            <form onSubmit={handleStartDirectEvaluation} className="space-y-2.5">
+              <label className="block text-xs font-bold text-slate-900 dark:text-white">
+                {lang === "en" ? "GitHub Repository URL" : "Đường dẫn GitHub Repository"}
               </label>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                  <GitBranch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <GitBranch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                   <input
                     type="text"
                     value={directRepoUrl}
                     onChange={(e) => setDirectRepoUrl(e.target.value)}
                     placeholder="https://github.com/owner/repository"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-1 focus:ring-indigo-500 transition-all outline-hidden"
                     disabled={isRunning}
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={isRunning}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg disabled:opacity-50 transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow-md disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                 >
                   {isRunning ? (
                     <>
-                      <Loader2 size={18} className="animate-spin" />
-                      <span>Đang đánh giá...</span>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>{lang === "en" ? "Evaluating..." : "Đang đánh giá..."}</span>
                     </>
                   ) : (
                     <>
-                      <Search size={18} />
-                      <span>Đánh giá trực tiếp</span>
+                      <Search size={14} />
+                      <span>{lang === "en" ? "Evaluate Directly" : "Đánh giá trực tiếp"}</span>
                     </>
                   )}
                 </button>
               </div>
 
               {/* Quick Samples */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-slate-500 dark:text-slate-400">
-                <span className="font-medium">Mẫu thử nghiệm:</span>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="font-medium">{lang === "en" ? "Samples:" : "Mẫu thử:"}</span>
                 {SAMPLE_REPOS.map((sample) => (
                   <button
                     type="button"
                     key={sample}
                     onClick={() => setDirectRepoUrl(sample)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 transition-colors"
+                    className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 text-slate-600 dark:text-slate-300 transition-colors"
                   >
                     {sample.replace("https://github.com/", "")}
                   </button>
@@ -1286,8 +1322,8 @@ export default function RepoEvaluationPage() {
                   </div>
                 )}
                 <div>
-                  <div className="text-xs uppercase tracking-wider font-bold">Giai đoạn 1</div>
-                  <div className="text-sm">Bắt đầu & Bóc tách CV</div>
+                  <div className="text-xs uppercase tracking-wider font-bold">{lang === "en" ? "Phase 1" : "Giai đoạn 1"}</div>
+                  <div className="text-sm">{lang === "en" ? "Start & CV Parsing" : "Bắt đầu & Bóc tách CV"}</div>
                 </div>
               </div>
 
@@ -1315,11 +1351,11 @@ export default function RepoEvaluationPage() {
                   </div>
                 )}
                 <div>
-                  <div className="text-xs uppercase tracking-wider font-bold">Giai đoạn 2</div>
+                  <div className="text-xs uppercase tracking-wider font-bold">{lang === "en" ? "Phase 2" : "Giai đoạn 2"}</div>
                   <div className="text-sm">
                     {statusPhase === "evaluating" && extractedRepos.length > 0
-                      ? `Đang đánh giá (${currentRepoIndex}/${extractedRepos.length})`
-                      : "Đang tìm kiếm & Đánh giá"}
+                      ? (lang === "en" ? `Evaluating (${currentRepoIndex}/${extractedRepos.length})` : `Đang đánh giá (${currentRepoIndex}/${extractedRepos.length})`)
+                      : (lang === "en" ? "Searching & Evaluating" : "Đang tìm kiếm & Đánh giá")}
                   </div>
                 </div>
               </div>
@@ -1342,8 +1378,8 @@ export default function RepoEvaluationPage() {
                   </div>
                 )}
                 <div>
-                  <div className="text-xs uppercase tracking-wider font-bold">Giai đoạn 3</div>
-                  <div className="text-sm">Đã xong & Báo cáo</div>
+                  <div className="text-xs uppercase tracking-wider font-bold">{lang === "en" ? "Phase 3" : "Giai đoạn 3"}</div>
+                  <div className="text-sm">{lang === "en" ? "Done & Report" : "Đã xong & Báo cáo"}</div>
                 </div>
               </div>
             </div>
@@ -1363,10 +1399,22 @@ export default function RepoEvaluationPage() {
 
               {extractedRepos.length > 0 && (
                 <span className="text-indigo-600 dark:text-indigo-400 font-semibold shrink-0">
-                  {evaluatedResults.length} / {extractedRepos.length} repo hoàn tất
+                  {evaluatedResults.length} / {extractedRepos.length} {lang === "en" ? "repos completed" : "repo hoàn tất"}
                 </span>
               )}
             </div>
+
+            {/* Live streaming status indicator for active repo evaluation */}
+            {statusPhase === "evaluating" && streamingSteps.length > 0 && (
+              <div className="pt-1">
+                <SuggestionStatusIndicator
+                  currentLabel={currentStatusLabel}
+                  steps={streamingSteps}
+                  isGenerating={true}
+                  theme="candidate"
+                />
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -1383,17 +1431,27 @@ export default function RepoEvaluationPage() {
               </div>
               <div className="space-y-2">
                 <h3 className="text-base font-bold text-amber-900 dark:text-amber-200">
-                  Báo cáo: Không tìm thấy GitHub Repository phù hợp
+                  {lang === "en" ? "Report: No matching GitHub repository found" : "Báo cáo: Không tìm thấy GitHub Repository phù hợp"}
                 </h3>
                 <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
                   {noReposReport}
                 </p>
                 <div className="pt-2 text-xs text-amber-700/80 dark:text-amber-400 space-y-1">
-                  <p className="font-semibold">Gợi ý khắc phục:</p>
+                  <p className="font-semibold">{lang === "en" ? "Suggestions:" : "Gợi ý khắc phục:"}</p>
                   <ul className="list-disc pl-5 space-y-0.5">
-                    <li>Thêm đường dẫn GitHub repository trực tiếp (ví dụ: <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">https://github.com/username/repo-name</code>) vào phần mô tả dự án trong CV.</li>
-                    <li>Hoặc thêm đường dẫn GitHub Profile (<code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">https://github.com/username</code>) và đảm bảo các repository công khai có tên hoặc mô tả trùng với dự án trong CV.</li>
-                    <li>Hoặc chuyển sang tab <strong>"Nhập trực tiếp URL Repository"</strong> ở trên để đánh giá nhanh.</li>
+                    {lang === "en" ? (
+                      <>
+                        <li>Add direct GitHub repository links (e.g. <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">https://github.com/username/repo-name</code>) in project descriptions within your CV.</li>
+                        <li>Or add your GitHub Profile link (<code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">https://github.com/username</code>) and make sure public repositories have matching project names or descriptions.</li>
+                        <li>Or switch to <strong>"Direct Repository URL"</strong> tab above for quick evaluation.</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>Thêm đường dẫn GitHub repository trực tiếp (ví dụ: <code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">https://github.com/username/repo-name</code>) vào phần mô tả dự án trong CV.</li>
+                        <li>Hoặc thêm đường dẫn GitHub Profile (<code className="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">https://github.com/username</code>) và đảm bảo các repository công khai có tên hoặc mô tả trùng với dự án trong CV.</li>
+                        <li>Hoặc chuyển sang tab <strong>"Nhập trực tiếp URL Repository"</strong> ở trên để đánh giá nhanh.</li>
+                      </>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -1410,17 +1468,17 @@ export default function RepoEvaluationPage() {
                 <div>
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <FolderGit2 size={20} className="text-indigo-600" />
-                    <span>Danh sách Repository Đã Nghiên Cứu ({evaluatedResults.length})</span>
+                    <span>{lang === "en" ? `Evaluated Repositories (${evaluatedResults.length})` : `Danh sách Repository Đã Nghiên Cứu (${evaluatedResults.length})`}</span>
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Kết quả hiển thị ngay lập tức khi từng repo hoàn tất đánh giá. Chọn repo bên dưới để xem chi tiết 5 tiêu chí.
+                    {lang === "en" ? "Results appear in real time as each repo completes evaluation. Select a repo below to view all 5 dimensions." : "Kết quả hiển thị ngay lập tức khi từng repo hoàn tất đánh giá. Chọn repo bên dưới để xem chi tiết 5 tiêu chí."}
                   </p>
                 </div>
 
                 {isRunning && (
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold shrink-0">
                     <Loader2 size={12} className="animate-spin" />
-                    <span>Đang phân tích thêm repo...</span>
+                    <span>{lang === "en" ? "Analyzing more repos..." : "Đang phân tích thêm repo..."}</span>
                   </div>
                 )}
               </div>
@@ -1484,14 +1542,14 @@ export default function RepoEvaluationPage() {
                             target="_blank"
                             rel="noreferrer"
                             className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 p-1 hover:bg-indigo-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                            title="Xem trên GitHub"
+                            title={lang === "en" ? "View on GitHub" : "Xem trên GitHub"}
                           >
                             <ExternalLink size={18} />
                           </a>
                         </div>
                         {activeResult.project_name && (
                           <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                            Khớp với dự án trong CV: {activeResult.project_name}
+                            {lang === "en" ? `Matched with project in CV: ${activeResult.project_name}` : `Khớp với dự án trong CV: ${activeResult.project_name}`}
                           </div>
                         )}
                         <p className="text-slate-600 dark:text-slate-300 text-sm max-w-2xl leading-relaxed">
@@ -1524,7 +1582,7 @@ export default function RepoEvaluationPage() {
                     {activeResult.heuristic_metrics && (
                       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 pt-6 text-center">
                         <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
-                          <div className="text-xs text-slate-500">Tổng số File</div>
+                          <div className="text-xs text-slate-500">{lang === "en" ? "Total Files" : "Tổng số File"}</div>
                           <div className="text-lg font-bold text-slate-900 dark:text-white">
                             {activeResult.heuristic_metrics.file_count}
                           </div>
@@ -1544,17 +1602,17 @@ export default function RepoEvaluationPage() {
                         <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
                           <div className="text-xs text-slate-500">CI/CD Pipeline</div>
                           <div className="text-lg font-bold text-slate-900 dark:text-white">
-                            {activeResult.heuristic_metrics.has_ci ? "✓ Có" : "✗ Không"}
+                            {activeResult.heuristic_metrics.has_ci ? (lang === "en" ? "✓ Yes" : "✓ Có") : (lang === "en" ? "✗ No" : "✗ Không")}
                           </div>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
                           <div className="text-xs text-slate-500">Docker Container</div>
                           <div className="text-lg font-bold text-slate-900 dark:text-white">
-                            {activeResult.heuristic_metrics.has_docker ? "✓ Có" : "✗ Không"}
+                            {activeResult.heuristic_metrics.has_docker ? (lang === "en" ? "✓ Yes" : "✓ Có") : (lang === "en" ? "✗ No" : "✗ Không")}
                           </div>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
-                          <div className="text-xs text-slate-500">Số Ngôn ngữ</div>
+                          <div className="text-xs text-slate-500">{lang === "en" ? "Languages" : "Số Ngôn ngữ"}</div>
                           <div className="text-lg font-bold text-slate-900 dark:text-white">
                             {activeResult.heuristic_metrics.language_count}
                           </div>
@@ -1599,7 +1657,7 @@ export default function RepoEvaluationPage() {
 
                             <div>
                               <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                                {dim.nameVi}
+                                {lang === "en" ? dim.nameEn : dim.nameVi}
                               </h3>
                               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                                 {reasonText}
@@ -1628,7 +1686,7 @@ export default function RepoEvaluationPage() {
                     <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 rounded-2xl p-6">
                       <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold text-base mb-3">
                         <AlertTriangle size={20} />
-                        <span>Cảnh báo bảo mật & Tiềm ẩn rủi ro (Red Flags)</span>
+                        <span>{lang === "en" ? "Security Warnings & Potential Risks (Red Flags)" : "Cảnh báo bảo mật & Tiềm ẩn rủi ro (Red Flags)"}</span>
                       </div>
                       <ul className="space-y-2 text-sm text-rose-600 dark:text-rose-300">
                         {activeResult.red_flags.map((flag, idx) => (
@@ -1664,10 +1722,10 @@ export default function RepoEvaluationPage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                        Lịch Sử Tìm Kiếm & Đánh Giá Repo
+                        {lang === "en" ? "Repo Evaluation & Search History" : "Lịch Sử Tìm Kiếm & Đánh Giá Repo"}
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Dữ liệu được lưu trữ tự động trong bảng Supabase <code className="bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded">repo_search_history</code>.
+                        {lang === "en" ? "Data is automatically stored in Supabase table " : "Dữ liệu được lưu trữ tự động trong bảng Supabase "}<code className="bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded">repo_search_history</code>.
                       </p>
                     </div>
                   </div>
@@ -1686,13 +1744,13 @@ export default function RepoEvaluationPage() {
                   {isLoadingHistory ? (
                     <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
                       <Loader2 size={28} className="animate-spin text-indigo-600" />
-                      <span className="text-xs">Đang tải lịch sử từ cơ sở dữ liệu...</span>
+                      <span className="text-xs">{lang === "en" ? "Loading history from database..." : "Đang tải lịch sử từ cơ sở dữ liệu..."}</span>
                     </div>
                   ) : searchHistory.length === 0 ? (
                     <div className="py-12 text-center text-slate-400 space-y-2">
                       <History size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
-                      <p className="text-sm font-medium">Chưa có lịch sử tìm kiếm nào được lưu.</p>
-                      <p className="text-xs text-slate-500">Mỗi khi bạn thực hiện nghiên cứu từ CV hoặc đánh giá repo, hệ thống sẽ tự động lưu lại vào Supabase.</p>
+                      <p className="text-sm font-medium">{lang === "en" ? "No search history saved yet." : "Chưa có lịch sử tìm kiếm nào được lưu."}</p>
+                      <p className="text-xs text-slate-500">{lang === "en" ? "Whenever you analyze a CV or evaluate a repository, results are automatically saved." : "Mỗi khi bạn thực hiện nghiên cứu từ CV hoặc đánh giá repo, hệ thống sẽ tự động lưu lại vào Supabase."}</p>
                     </div>
                   ) : (
                     searchHistory.map((item) => {
@@ -1714,7 +1772,7 @@ export default function RepoEvaluationPage() {
                                     : "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
                                 }`}
                               >
-                                {item.search_type === "cv" ? "Tìm theo CV" : "Nhập URL"}
+                                {item.search_type === "cv" ? (lang === "en" ? "CV Search" : "Tìm theo CV") : (lang === "en" ? "URL Search" : "Nhập URL")}
                               </span>
 
                               <span
@@ -1724,7 +1782,7 @@ export default function RepoEvaluationPage() {
                                     : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
                                 }`}
                               >
-                                {isNoRepos ? "Không có repo" : `${repoCount} Repo`}
+                                {isNoRepos ? (lang === "en" ? "No repos" : "Không có repo") : `${repoCount} Repo`}
                               </span>
 
                               <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
@@ -1733,7 +1791,7 @@ export default function RepoEvaluationPage() {
                             </div>
 
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                              {item.report_message || item.cv_preview || `Tìm kiếm ${repoCount} repository.`}
+                              {item.report_message || item.cv_preview || (lang === "en" ? `Search ${repoCount} repository.` : `Tìm kiếm ${repoCount} repository.`)}
                             </p>
 
                             <div className="flex items-center gap-2 text-[11px] text-slate-400">
@@ -1747,7 +1805,7 @@ export default function RepoEvaluationPage() {
                               type="button"
                               onClick={(e) => handleDeleteHistoryItem(item.id, e)}
                               className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                              title="Xóa bản ghi này"
+                              title={lang === "en" ? "Delete this record" : "Xóa bản ghi này"}
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1760,14 +1818,14 @@ export default function RepoEvaluationPage() {
 
                 {/* Modal Footer */}
                 <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-700/80 flex items-center justify-between text-xs text-slate-500">
-                  <span>Bấm vào một phiên để khôi phục lại kết quả đánh giá</span>
+                  <span>{lang === "en" ? "Click a session to restore evaluation results" : "Bấm vào một phiên để khôi phục lại kết quả đánh giá"}</span>
                   <button
                     type="button"
                     onClick={() => void loadSearchHistory()}
                     className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-indigo-600 flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <RefreshCw size={13} className={isLoadingHistory ? "animate-spin" : ""} />
-                    <span>Làm mới</span>
+                    <span>{lang === "en" ? "Refresh" : "Làm mới"}</span>
                   </button>
                 </div>
               </motion.div>

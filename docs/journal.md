@@ -145,3 +145,22 @@ Xây dựng Node `explain` tối ưu tại `backend/app/agents/matching/nodes/ex
 - Giảm số lượng gọi LLM từ $N$ cuộc gọi xuống còn **1 cuộc gọi duy nhất**, giảm 80% độ trễ sinh lời giải thích.
 - Đảm bảo $100\%$ trường hợp nhà tuyển dụng và ứng viên luôn nhận được lời giải thích rõ ràng, minh bạch, không bao giờ bị đứt gãy trải nghiệm.
 - **Bài học**: AI sinh nội dung (Generative AI) cần luôn đi kèm với phương án dự phòng tất định (Deterministic Fallback) để đảm bảo tính sẵn sàng cao (High Availability) cho hệ thống production.
+
+
+# 1 số Journal khác:
+
+## "Chạy được là được" không phải là 1 tiêu chí tốt.
+- Đây là Linh, Linh vibe ra quả web trong 12 giây, chạy rất mượt... cho đến khi mở F12.
+- Hãy luôn mở F12 và xem console ngay khi vừa bắt đầu. Có gì sai hãy sửa ngay, đừng bao giờ để 1 lỗi lặt vặt làm tốn thời gian của bạn sau này.
+
+
+## AWS EC2 với ECR mới là chân ái
+- Đây là Linh, Linh trước khi biết đến dịch vụ AWS thường thích dùng render/fly.io/ Railway.
+- Linh đã thử học AWS và Linh thích ngay từ khi hiểu. Rất dễ dùng, dễ kiểm soát.
+- Linh nhận ra mình quá nghèo để dùng AWS
+- Linh quay về dùng render :))))))))
+
+## Đồng đội là khái niệm khá mơ hồ
+- Đây là Linh, Linh làm nhóm trưởng. Linh thấy mọi người không nhiệt tình với dự án, ai cũng làm kiểu hời hợt, miễn là để cho qua cho xong chuyện.
+- Linh rất chán, nhưng Linh cũng kệ, vì Linh biết có nói cũng chẳng khác được gì nhiều, vì Linh từng ở vị trí của đồng đội hiện tại.
+- Linh mong mọi người tìm lại được lửa đam mê, có thể không phải ở ngành này nhưng ít nhất hãy làm với 100% nỗ lực.

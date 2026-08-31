@@ -8,11 +8,13 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 BINARY_EXTENSIONS = frozenset({
     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp", ".svg",
@@ -113,7 +115,7 @@ class CircuitBreaker:
             return False
         return False
 
-    async def execute[T](self, fn: Any) -> T:
+    async def execute(self, fn: Any) -> T:
         """Execute async function with circuit breaker protection."""
         if not self._can_execute():
             raise GitHubAPIError("Circuit breaker is OPEN, request blocked")
@@ -124,7 +126,7 @@ class CircuitBreaker:
             elif self._state == _CB_STATE_CLOSED and self._failures > 0:
                 self._record_success()
             return result
-        except Exception as exc:
+        except Exception:
             self._record_failure()
             raise
 
@@ -296,31 +298,26 @@ class GitHubClient:
         owner: str,
         repo: str,
         recursive: bool = True,
-        branch: str | None = None,
+        branch: str = "HEAD",
     ) -> list[GitHubFile]:
-        """Get repository file tree using GitHub Trees API.
+        """Lấy cây thư mục repository thông qua GitHub Trees API.
 
-        Uses recursive=true to get full tree in one request.
-        Filters binary files automatically.
-        Detects submodules via .gitmodules in tree.
+        Sử dụng recursive=true để lấy toàn bộ cây thư mục trong 1 request.
+        Tự động nhận diện submodule thông qua file .gitmodules.
         """
-        if not branch:
-            try:
-                info = await self.get_repo_info(owner, repo)
-                branch = info.get("default_branch") or "main"
-            except Exception:
-                branch = "main"
-
         url = f"/repos/{owner}/{repo}/git/trees/{branch}"
         params: dict[str, Any] = {"recursive": 1} if recursive else {}
 
         try:
             tree_data = await self._get(url, params=params)
         except GitHubNotFoundError:
-            # Fallback to alternate default branch
-            alt_branch = "master" if branch == "main" else "main"
-            url = f"/repos/{owner}/{repo}/git/trees/{alt_branch}"
-            tree_data = await self._get(url, params=params)
+            # Fallback nếu HEAD/branch cụ thể không tìm thấy
+            alt_branch = "master" if branch == "main" else ("main" if branch == "master" else None)
+            if alt_branch:
+                url = f"/repos/{owner}/{repo}/git/trees/{alt_branch}"
+                tree_data = await self._get(url, params=params)
+            else:
+                raise
 
         files: list[GitHubFile] = []
         has_submodules = self._parse_gitmodules(tree_data)

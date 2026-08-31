@@ -70,9 +70,10 @@ def persist_interview_session(
     coverage_ratio: float,
     coverage_threshold: float = 0.80,
     model_used: str = "qwen-plus",
+    session_id: str | None = None,
 ) -> str:
     """Save interview session and generated questions to Supabase. Returns session_id."""
-    session_id = str(uuid.uuid4())
+    session_id = session_id or str(uuid.uuid4())
 
     try:
         db = get_supabase_client()

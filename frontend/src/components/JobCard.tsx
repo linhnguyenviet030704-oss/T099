@@ -2,8 +2,9 @@ import { motion } from "framer-motion";
 import { MapPin, DollarSign, Calendar, Bookmark, BookmarkCheck, ExternalLink, Layers, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { useLang } from "../context/LangContext";
 import type { JobPost } from "../types";
-import { ENUM_LABELS, formatDate } from "../lib/format";
+import { getEnumLabels, formatDate } from "../lib/format";
 import { EMPLOYMENT_BADGE, isDeadlinePassed, salaryRange } from "../lib/ui";
 import Badge from "./Badge";
 
@@ -28,8 +29,10 @@ export default function JobCard({
 }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { lang, t } = useLang();
   const company = job.company;
   const expired = isDeadlinePassed(job.deadline_at);
+  const enumLabels = getEnumLabels(lang);
 
   const handleSave = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -45,56 +48,61 @@ export default function JobCard({
     onToggleCompare?.(job);
   };
 
-
   return (
     <motion.div
-      whileHover={{ y: -3, boxShadow: "0 12px 32px rgba(99,102,241,0.12)" }}
-      transition={{ duration: 0.2 }}
-      className="group bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 cursor-pointer relative overflow-hidden"
+      whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(99,102,241,0.12)" }}
+      transition={{ duration: 0.18 }}
+      className={`group bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 cursor-pointer relative overflow-hidden shadow-xs hover:border-indigo-200 dark:hover:border-indigo-700 transition-all ${
+        compact ? "p-2.5 sm:p-3 rounded-xl" : "p-3.5 sm:p-4 rounded-2xl"
+      }`}
       onClick={() => navigate(`/jobs/${job.id}`)}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/0 to-purple-50/0 group-hover:from-indigo-50/60 group-hover:to-purple-50/30 dark:group-hover:from-indigo-950/20 dark:group-hover:to-purple-950/10 transition-all duration-300 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/0 to-purple-50/0 group-hover:from-indigo-50/40 group-hover:to-purple-50/20 dark:group-hover:from-indigo-950/15 dark:group-hover:to-purple-950/10 transition-all duration-300 pointer-events-none" />
 
       <div className="relative">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-700 overflow-hidden flex-shrink-0">
+        <div className={`flex items-start justify-between gap-2 ${compact ? "mb-1.5" : "mb-2"}`}>
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className={`rounded-lg bg-slate-100 dark:bg-slate-700/70 overflow-hidden shrink-0 border border-slate-200/60 dark:border-slate-600/50 ${
+              compact ? "w-7 h-7 sm:w-8 sm:h-8" : "w-9 h-9 sm:w-10 sm:h-10"
+            }`}>
               {company?.logo_storage_path ? (
                 <img src={company.logo_storage_path} alt={company.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-lg font-bold text-indigo-600">
+                <div className="w-full h-full flex items-center justify-center text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400">
                   {(company?.name || "?")[0]}
                 </div>
               )}
             </div>
-            <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{company?.name || "Công ty"}</p>
-              <h3 className="font-semibold text-slate-900 dark:text-white leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">{company?.name || (lang === "en" ? "Company" : "Công ty")}</p>
+              <h3 className={`font-semibold text-slate-900 dark:text-white leading-snug line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
+                compact ? "text-xs" : "text-xs sm:text-sm font-bold"
+              }`}>
                 {job.title}
               </h3>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {onToggleCompare && (
               <motion.button
                 whileTap={{ scale: 0.88 }}
                 onClick={handleCompare}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                   selectedForCompare
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                    ? "bg-indigo-600 text-white shadow-xs"
                     : "text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700"
                 }`}
-                title={selectedForCompare ? "Bỏ chọn so sánh" : "Thêm vào so sánh việc làm"}
+                title={selectedForCompare ? t.compareDeselect : t.compareAdd}
               >
                 {selectedForCompare ? (
                   <>
-                    <Check size={12} className="stroke-[3]" />
-                    <span>{compareLabel ? `So sánh (${compareLabel})` : "Đã chọn"}</span>
+                    <Check size={11} className="stroke-[3]" />
+                    <span>{compareLabel ? `${t.compareJobAction} (${compareLabel})` : t.compareSelected}</span>
                   </>
                 ) : (
                   <>
-                    <Layers size={12} />
-                    <span>So sánh</span>
+                    <Layers size={11} />
+                    <span>{t.compareJobAction}</span>
                   </>
                 )}
               </motion.button>
@@ -104,57 +112,59 @@ export default function JobCard({
               <motion.button
                 whileTap={{ scale: 0.85 }}
                 onClick={handleSave}
-                className={`p-2 rounded-xl transition-all flex-shrink-0 ${
+                className={`p-1.5 rounded-lg transition-all shrink-0 ${
                   saved
                     ? "text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30"
                     : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
                 }`}
-                title={saved ? "Bỏ lưu việc làm" : "Lưu việc làm"}
+                title={saved ? t.unsaveJob : t.saveJob}
               >
-                {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                {saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
               </motion.button>
             )}
           </div>
         </div>
 
-
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className={`flex flex-wrap gap-1.5 ${compact ? "mb-1.5" : "mb-2"}`}>
           <Badge variant={EMPLOYMENT_BADGE[job.employment_type] || "muted"}>
-            {ENUM_LABELS.employment_type[job.employment_type] || job.employment_type}
+            {enumLabels.employment_type[job.employment_type] || job.employment_type}
           </Badge>
-          {expired ? <Badge variant="danger">Hết hạn</Badge> : <Badge variant="success">Đang tuyển</Badge>}
+          {expired ? <Badge variant="danger">{t.expired}</Badge> : <Badge variant="success">{t.hiring}</Badge>}
         </div>
 
-        <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <div className={`space-y-0.5 text-slate-500 dark:text-slate-400 ${compact ? "text-[11px]" : "text-xs"}`}>
           <div className="flex items-center gap-1.5">
-            <MapPin size={12} className="text-slate-400 flex-shrink-0" />
-            <span className="truncate">{job.location || "Toàn quốc"}</span>
+            <MapPin size={11} className="text-slate-400 shrink-0" />
+            <span className="truncate">{job.location || (lang === "en" ? "Nationwide" : "Toàn quốc")}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <DollarSign size={12} className="text-emerald-500 flex-shrink-0" />
-            <span className="font-medium text-emerald-700 dark:text-emerald-400">{salaryRange(job)}</span>
+            <DollarSign size={11} className="text-emerald-500 shrink-0" />
+            <span className="font-semibold text-emerald-700 dark:text-emerald-400">{salaryRange(job, lang)}</span>
           </div>
           {!compact && (
             <div className="flex items-center gap-1.5">
-              <Calendar size={12} className="text-slate-400 flex-shrink-0" />
-              <span>Hạn nộp: {formatDate(job.deadline_at)}</span>
+              <Calendar size={12} className="text-slate-400 shrink-0" />
+              <span>{t.deadline}: {formatDate(job.deadline_at, false, lang)}</span>
             </div>
           )}
         </div>
 
         {!compact && (
-          <p className="mt-3 text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
             {job.description}
           </p>
         )}
 
-        <div className="mt-4 flex items-center justify-between">
-          <span className="text-xs text-slate-400">Đăng ngày {formatDate(job.published_at || job.created_at)}</span>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 group-hover:gap-2 transition-all">
-            Xem chi tiết <ExternalLink size={11} />
+        <div className={`border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between ${
+          compact ? "mt-2 pt-1.5" : "mt-2.5 pt-2"
+        }`}>
+          <span className="text-[10px] text-slate-400">{t.postedAt(formatDate(job.published_at || job.created_at, false, lang))}</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 group-hover:gap-1.5 transition-all">
+            {t.viewDetails} <ExternalLink size={9} />
           </span>
         </div>
       </div>
     </motion.div>
   );
 }
+

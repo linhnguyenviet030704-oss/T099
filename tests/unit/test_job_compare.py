@@ -54,8 +54,9 @@ def test_clean_cv_text_redacts_pii():
     assert "tranthib@gmail.com" not in cleaned
     assert "0912345678" not in cleaned
     assert "+84987654321" not in cleaned
-    assert "[EMAIL ĐÃ ẨN]" in cleaned
-    assert "[SĐT ĐÃ ẨN]" in cleaned
+    assert "[REDACTED_EMAIL]" in cleaned
+    assert "[REDACTED_PHONE]" in cleaned
+    assert "Trần Thị B" not in cleaned
     assert "React, Next.js, TypeScript" in cleaned
 
 

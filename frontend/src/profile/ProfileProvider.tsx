@@ -22,10 +22,11 @@ const ProfileContext = createContext<ProfileContextType>({
 });
 
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
   
   // Prevent infinite loops by referencing the last loaded user ID
   const lastUserIdRef = useRef<string | null>(null);
@@ -93,13 +94,26 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .single();
 
         if (insertErr) {
+          // Lỗi foreign key constraint: user.id không tồn tại trong auth.users (do database đã reset / session cũ)
+          if (insertErr.code === '23503') {
+            console.warn('User does not exist in auth.users (stale session). Automatically signing out...');
+            if (signOut) {
+              await signOut();
+            } else if (supabase) {
+              await supabase.auth.signOut();
+            }
+            setProfile(null);
+            setError(null);
+            return;
+          }
+
           // If code is duplicate key or anything, we query again
           if (insertErr.code === '23505') {
             const { data: secondFetch } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', userId)
-              .single();
+              .maybeSingle();
             if (secondFetch) {
               setProfile(secondFetch as Profile);
             }
@@ -116,7 +130,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, signOut]);
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) {

@@ -44,7 +44,8 @@ async def test_recommend_graph_ranks_then_responds():
             ],
         }
 
-    graph = build_recommend_graph(retrieve=retrieve)
+    # Truyền explain_complete giả lập để tránh phụ thuộc LLM mạng ngoài trong unit test
+    graph = build_recommend_graph(retrieve=retrieve, explain_complete=lambda _p, **_k: "{}")
     result = await graph.ainvoke({"query": "Gợi ý việc phù hợp", "rerank_mode": "agent"})
 
     assert result["response"] == "Gợi ý 2 việc làm phù hợp."
@@ -144,7 +145,8 @@ async def test_recommend_graph_search_by_domain_logistic():
             ],
         }
 
-    graph = build_recommend_graph(retrieve=retrieve)
+    # Truyền explain_complete giả lập để tránh gọi LLM ngoài qua mạng
+    graph = build_recommend_graph(retrieve=retrieve, explain_complete=lambda _p, **_k: "{}")
     result = await graph.ainvoke({"query": "Logistic", "rerank_mode": "agent"})
 
     assert "Logistics" in result["response"] or "Logistic" in result["response"]
@@ -194,7 +196,8 @@ async def test_recommend_graph_list_available_jobs():
             ],
         }
 
-    graph = build_recommend_graph(retrieve=retrieve)
+    # Truyền explain_complete giả lập để tránh gọi LLM ngoài qua mạng
+    graph = build_recommend_graph(retrieve=retrieve, explain_complete=lambda _p, **_k: "{}")
     result = await graph.ainvoke({"query": "Các công việc hiện có", "rerank_mode": "agent"})
 
     assert "việc làm đang" in result["response"]

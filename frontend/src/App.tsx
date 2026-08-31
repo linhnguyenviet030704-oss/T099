@@ -18,13 +18,17 @@ import ProfilePage from "./pages/ProfilePage";
 import CVVaultPage from "./pages/CVVaultPage";
 import CVBuilderPage from "./pages/CVBuilderPage";
 import ApplicationsPage from "./pages/ApplicationsPage";
+import ApplicationDetailPage from "./pages/ApplicationDetailPage";
 import AISuggestionsPage from "./pages/AISuggestionsPage";
+
+import CVAssessmentPage from "./pages/CVAssessmentPage";
 import RecruiterRegisterPage from "./pages/RecruiterRegisterPage";
 import RecruitmentDashboardPage from "./pages/RecruitmentDashboardPage";
 import AICandidatePage from "./pages/AICandidatePage";
 import AdminRecruiterPage from "./pages/AdminRecruiterPage";
 import RepoEvaluationPage from "./pages/RepoEvaluationPage";
 import AIInterviewPage from "./pages/AIInterviewPage";
+import ContactPage from "./pages/ContactPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 import { ToastProvider } from "./context/ToastContext";
@@ -35,6 +39,7 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -71,17 +76,37 @@ function AnimatedRoutes() {
         <Route
           path="/applications"
           element={
-            <RoleRoute allowedRoles={["candidate"]}>
+            <RoleRoute allowedRoles={["candidate", "recruiter", "admin"]}>
               <ApplicationsPage />
             </RoleRoute>
           }
         />
+        <Route path="/application" element={<Navigate to="/applications" replace />} />
+        <Route
+          path="/applications/:id"
+          element={
+            <RoleRoute allowedRoles={["candidate", "recruiter", "admin"]}>
+              <ApplicationDetailPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/application/:id" element={<Navigate to="/applications/:id" replace />} />
+        <Route path="/interview-schedule/:id" element={<Navigate to="/applications/:id" replace />} />
         <Route path="/my-applications" element={<Navigate to="/applications" replace />} />
+
         <Route
           path="/ai-suggestions"
           element={
             <RoleRoute allowedRoles={["candidate"]}>
               <AISuggestionsPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/cv-assessment"
+          element={
+            <RoleRoute allowedRoles={["candidate"]}>
+              <CVAssessmentPage />
             </RoleRoute>
           }
         />
@@ -105,6 +130,17 @@ function AnimatedRoutes() {
           }
         />
         <Route path="/recruiter/jobs" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/recruiter/applications" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/recruiter/applications/:id"
+          element={
+            <RoleRoute allowedRoles={["recruiter", "admin"]}>
+              <ApplicationDetailPage />
+            </RoleRoute>
+          }
+        />
+        <Route path="/recruiter/application/:id" element={<Navigate to="/recruiter/applications/:id" replace />} />
+
         <Route
           path="/ai-candidates"
           element={
@@ -113,7 +149,14 @@ function AnimatedRoutes() {
             </RoleRoute>
           }
         />
-        <Route path="/repo-evaluation" element={<RepoEvaluationPage />} />
+        <Route
+          path="/repo-evaluation"
+          element={
+            <ProtectedRoute>
+              <RepoEvaluationPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/ai-interview"
           element={

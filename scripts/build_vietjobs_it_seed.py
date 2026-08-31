@@ -17,12 +17,12 @@ seed.sql untouched.
 
 from __future__ import annotations
 
+import csv
 import re
 import uuid
 from ast import literal_eval
 from pathlib import Path
-
-import pandas as pd
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT / "data_find" / "data" / "vietjobs" / "VietJobs_full.csv"
@@ -45,67 +45,67 @@ GROUPS = [
         "flutter developer", "react developer", "node developer", "java developer",
         ".net developer", "php developer", "lập trình viên", "software developer",
         "software engineer", "unity developer", "developer",
-    ], [], 12),
+    ], [], 1),
     (2, "DevOps/Infrastructure", [
         "devops", "site reliability", "sre", "release engineer", "platform engineer",
-    ], [], 8),
+    ], [], 1),
     (3, "System Administration", [
         "network administrator", "server administrator", "it support", "helpdesk",
         "help desk", "it operations", "system administrator", "quản trị hệ thống",
         "quản trị mạng", "nhân viên it", "it staff", "kỹ thuật mạng máy tính",
-    ], ["devops", "developer"], 7),
+    ], ["devops", "developer"], 1),
     (4, "Cybersecurity", [
         "security analyst", "penetration tester", "security engineer", "soc analyst",
         "incident response", "malware analyst", "grc", "an toàn thông tin",
         "bảo mật", "pentest", "redteam", "red team",
-    ], [], 8),
+    ], [], 1),
     (5, "Data", [
         "data analyst", "data engineer", "data scientist", "database administrator",
         " dba ", "bi developer", "business intelligence", "phân tích dữ liệu",
         "kỹ sư dữ liệu", "nhà phân tích dữ liệu",
-    ], [], 7),
+    ], [], 1),
     (6, "AI/ML", [
         "machine learning", "ai engineer", "ai leader", "ai research", "nlp engineer",
         "computer vision", "mlops", "trí tuệ nhân tạo", "ml engineer", "kỹ sư ai",
         "kỹ sư trí tuệ nhân tạo",
-    ], ["camera ai", "kinh doanh"], 7),
+    ], ["camera ai", "kinh doanh"], 1),
     (7, "QA/Testing", [
         "tester", " qa ", "qa engineer", "automation test", "performance tester",
         "kiểm thử", "quality assurance",
-    ], [], 6),
+    ], [], 1),
     (8, "Project/Product Management", [
         "project manager", "product manager", "scrum master", "product owner",
         "business analyst", "quản lý dự án", "phân tích nghiệp vụ",
         "nhà phân tích kinh doanh",
-    ], ["marketing", "bán hàng", "sales"], 6),
+    ], ["marketing", "bán hàng", "sales"], 1),
     (9, "Architecture", [
         "solution architect", "software architect", "enterprise architect",
         "cloud architect", "kiến trúc sư giải pháp", "kiến trúc sư hệ thống",
         "kiến trúc sư phần mềm", "kiến trúc sư web",
-    ], [], 5),
+    ], [], 1),
     (10, "Networking", [
         "network engineer", "network security engineer", "telecom engineer",
         "voip engineer", "kỹ sư mạng",
-    ], [], 5),
+    ], [], 1),
     (11, "Cloud Computing", [
         "cloud engineer", "cloud architect", "cloud consultant", "cloud security",
         "aws ", "azure", "đám mây",
-    ], ["marketing"], 3),
+    ], ["marketing"], 0),
     (12, "Blockchain & Web3", [
         "blockchain", "smart contract", "solidity", "web3",
-    ], ["marketing", "content", "video editor", "affiliate", "giám đốc", "giảng viên"], 2),
+    ], ["marketing", "content", "video editor", "affiliate", "giám đốc", "giảng viên"], 0),
     (13, "UI/UX & Design", [
         "ui/ux", "ui designer", "ux designer", "ux researcher", "interaction designer",
         "product designer",
-    ], [], 6),
+    ], [], 0),
     (14, "ERP/CRM", [
         "sap consultant", "sap fico", "sap fi", "sap mm", "sap abap", "salesforce",
         "odoo", "oracle erp", "erp consultant",
-    ], [], 6),
+    ], [], 0),
     (15, "IoT & Embedded", [
         "embedded", "firmware", "iot ", "robotics engineer", "kỹ sư nhúng",
         "lập trình nhúng", "hệ thống nhúng", "fpga", "vi mạch",
-    ], [], 7),
+    ], [], 0),
 ]
 
 CONTRACT_MAP = {
@@ -136,7 +136,7 @@ LOCATION_MAP = {
 COMPANY_NAMES = [
     "DataViet Solutions", "Bamboo Software", "Hanoi Cloud Labs", "Saigon Devtech",
     "Indigo Systems", "Northstar IT", "Fintech Wave", "Coral Reef Software",
-    "Emerald Data Works", "Falcon Security VN", "Mekong Digital", "Skyline Platform",
+    "Emerald Data Works", "Falcon Security VN",
 ]
 
 VN_NUM_RE = re.compile(r"[\'\"]")
@@ -242,31 +242,48 @@ def dedup_key(title: str) -> str:
 
 
 def main() -> None:
-    df = pd.read_csv(CSV_PATH)
-    df = df[df["category"].isin(
-        ["công_nghệ_thông_tin_kỹ_thuật_số", "kỹ_thuật_điện_điện_tử_viễn_thông"]
-    )].copy()
-    df["desc_len"] = df["description"].fillna("").str.len() + df["requirements_text"].fillna("").str.len()
-    df = df[df["desc_len"] > 120]
+    if not CSV_PATH.is_file():
+        print(f"CSV file not found: {CSV_PATH}")
+        return
+
+    with open(CSV_PATH, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        all_rows = list(reader)
+
+    target_categories = {"công_nghệ_thông_tin_kỹ_thuật_số", "kỹ_thuật_điện_điện_tử_viễn_thông"}
+    filtered_rows: list[dict[str, Any]] = []
+    for idx, row in enumerate(all_rows):
+        if row.get("category", "") not in target_categories:
+            continue
+        desc = row.get("description") or ""
+        req = row.get("requirements_text") or ""
+        desc_len = len(desc) + len(req)
+        if desc_len <= 120:
+            continue
+        row["_idx"] = idx
+        row["_desc_len"] = desc_len
+        filtered_rows.append(row)
 
     picked_ids: set[int] = set()
-    picked_rows: list[tuple[int, str, pd.Series]] = []
+    picked_rows: list[tuple[int, str, dict[str, Any]]] = []
     seen_keys: set[str] = set()
 
-    for gid, name, includes, excludes, quota in GROUPS:
-        candidates = df[~df.index.isin(picked_ids)].copy()
-        candidates["hits"] = candidates["job_title"].apply(classify)
-        candidates = candidates[candidates["hits"].apply(lambda hs: gid in hs)]
-        candidates = candidates.sort_values("desc_len", ascending=False)
+    for gid, name, _includes, _excludes, quota in GROUPS:
+        candidates = [
+            row for row in filtered_rows
+            if row["_idx"] not in picked_ids and gid in classify(row.get("job_title", ""))
+        ]
+        candidates.sort(key=lambda r: r["_desc_len"], reverse=True)
+
         count = 0
-        for idx, row in candidates.iterrows():
+        for row in candidates:
             if count >= quota:
                 break
-            key = dedup_key(row["job_title"])
+            key = dedup_key(row.get("job_title", ""))
             if key in seen_keys:
                 continue
             seen_keys.add(key)
-            picked_ids.add(idx)
+            picked_ids.add(row["_idx"])
             picked_rows.append((gid, name, row))
             count += 1
         print(f"group {gid:2d} {name:<28s} picked {count}/{quota} (pool {len(candidates)})")
@@ -298,7 +315,7 @@ def main() -> None:
     lines.append("  ];")
     lines.append("begin")
     lines.append("  for i in 1..array_length(company_names, 1) loop")
-    lines.append(f"    cid := ('f0000000-0000-4000-9000-' || lpad(i::text, 12, '0'))::uuid;")
+    lines.append("    cid := ('f0000000-0000-4000-9000-' || lpad(i::text, 12, '0'))::uuid;")
     lines.append("    insert into public.companies (")
     lines.append("      id, name, slug, website_url, description, created_by_user_id,")
     lines.append("      verification_status, verified_at")

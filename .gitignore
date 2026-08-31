@@ -3,19 +3,38 @@ __pycache__/
 *.py[cod]
 *.so
 *.egg-info/
-dist/
-build/
 .eggs/
+.pytest_cache/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
 
 # Virtual environments
 venv/
 .venv/
+.venv.*/
+.venv-*/
 env/
 
 # Environment variables
 .env
 .env.*
+gha.env
+*.env
 !.env.example
+!**/.env.example
+
+
+# Secrets and private credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
 
 # IDE
 .vscode/
@@ -30,47 +49,65 @@ Thumbs.db
 
 # Data (never commit large data)
 data/
+/data_find/
 *.db
+*.sqlite
 *.sqlite3
 
 # Logs
 logs/
 *.log
+.codex-log/
 
 # Test coverage
 htmlcov/
 .coverage
+.coverage.*
 coverage.xml
+coverage/
 
 # Docker
 docker-compose.override.yml
 
 # Node (frontend)
 node_modules/
+.pnpm-store/
+.vite/
 .next/
 out/
 .nuxt/
 
-# Build
-*.pyc
-*.pyo
+# Build artifacts
+dist/
+build/
 
-# AI logs — tracked structure, ignored content
-.ai-log/*.jsonl
-.ai-log/archive/
+# AI logs — keep only the tracked directory marker; hooks manage log content
+.ai-log/*
+!.ai-log/.gitkeep
 
-docs/superpowers/
+# Evaluation caches are reproducible and may contain sensitive model I/O.
+# Keep manifests, qrels, reviewed JSON artifacts and results/report.md tracked.
+/evaluation/**/.cache/
+/eval/**/.cache/
 
-/data_find
-/evaluation/.cache
-/evaluation/golden/.cache
+# Local slide-generation prompts
 */slides_generation_prompt.txt
 */slides_generation_prompt.md
-*.pem
 
 # Supabase local temp files (keep config.toml, migrations/, seed.sql tracked)
 supabase/.branches/
 supabase/.temp/
 
+# Worktrees (skill using-git-worktrees)
+.worktrees/
+
+# Project agent instructions/config are intentional source files.
+# Keep AGENTS.md, .agents/ and the tracked .codex/.cursor hooks in Git.
 # Subagent-driven-development scratch workspace (ledgers, briefs, reports)
 .superpowers/
+
+report/
+
+docs/superpowers/*
+docs/testing_scripts.md
+

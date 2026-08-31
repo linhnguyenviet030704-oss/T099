@@ -4,7 +4,8 @@ from backend.app.agents.ingest.graph import build_ingest_graph
 
 
 def _encode(text: str) -> list[float]:
-    return [0.0] * 1536
+    # A zero vector is not a valid embedding and is rejected by the output guard.
+    return [1.0, *([0.0] * 1535)]
 
 
 def _complete(_prompt: str, **_kwargs) -> str:

@@ -267,3 +267,36 @@ async def test_persist_match_resume_rows_calls_insert_rpc_once(monkeypatch):
     assert params["p_evidence"][0]["rrf_score"] == 0.4
     assert params["p_evidence"][0]["rerank_score"] == 0.9
     assert "score" not in params["p_evidence"][0]
+
+
+def test_apply_rerank_calibrates_and_penalizes_zero_skill_troll_cv():
+    rows = [
+        {
+            "application_id": "good_cand",
+            "skills": ["python", "fastapi"],
+            "skill_score": 1.0,
+            "markdown": "Python FastAPI developer",
+            "rrf_score": 0.8,
+        },
+        {
+            "application_id": "troll_cand",
+            "skills": [],
+            "verified_skills": [],
+            "skill_score": 0.0,
+            "markdown": "Ham an luoi lam an no ngu ky",
+            "rrf_score": 0.05,
+        },
+    ]
+
+    def rerank_fn(query: str, documents: list[str]):
+        return [{"index": 0, "relevance_score": 0.85}, {"index": 1, "relevance_score": 0.68}]
+
+    out = apply_rerank(
+        rows, jd_query="Python FastAPI Engineer", mode="qwen", rerank_fn=rerank_fn
+    )
+    assert out[0]["application_id"] == "good_cand"
+    assert out[0]["rerank_score"] >= 0.80
+    assert out[1]["application_id"] == "troll_cand"
+    # Troll candidate with 0 skills must be penalized below 0.10 (<= 0.08)
+    assert out[1]["rerank_score"] <= 0.08
+

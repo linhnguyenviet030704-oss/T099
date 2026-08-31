@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit, Globe, Trash2 } from "lucide-react";
+import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit, Globe, Trash2, Compass } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { apiJson } from "../lib/api";
 import { supabase, handleSupabaseError } from "../lib/supabase";
@@ -279,13 +279,13 @@ export default function CVVaultPage() {
                     {r.is_public && (
                       <span className="text-xs px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full font-semibold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-sm">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Đang tìm việc
+                        {lang === 'en' ? 'Job Seeking' : 'Đang tìm việc'}
                       </span>
                     )}
                   </div>
                 )}
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  {formatDate(r.created_at)} · {appCounts[r.id] || 0} {lang === 'en' ? 'applications' : 'đơn'}
+                  {formatDate(r.created_at, false, lang)} · {t.appsUsing(appCounts[r.id] || 0)}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">
@@ -304,23 +304,32 @@ export default function CVVaultPage() {
                     whileTap={{ scale: 0.85 }}
                     onClick={() => handleTogglePublic(r, false)}
                     className="px-2.5 py-1.5 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 hover:bg-rose-50 hover:text-rose-600 dark:bg-emerald-950/40 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 border border-emerald-200 dark:border-emerald-800 hover:border-rose-200 dark:hover:border-rose-800 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-medium"
-                    title="Bấm để tắt trạng thái công khai"
+                    title={lang === 'en' ? "Click to disable public status" : "Bấm để tắt trạng thái công khai"}
                   >
                     <Globe size={14} className="text-emerald-600 dark:text-emerald-400" />
-                    <span>Đang tìm việc</span>
+                    <span>{lang === 'en' ? 'Job Seeking' : 'Đang tìm việc'}</span>
                   </motion.button>
                 ) : (
                   <motion.button
                     whileTap={{ scale: 0.85 }}
                     onClick={() => handleTogglePublic(r, true)}
                     className="px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-slate-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-800 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-medium"
-                    title="Đặt làm CV công khai (Đang tìm việc)"
+                    title={lang === 'en' ? "Set as public CV (Job seeking)" : "Đặt làm CV công khai (Đang tìm việc)"}
                   >
                     <Globe size={14} />
-                    <span>Công khai</span>
+                    <span>{lang === 'en' ? 'Make Public' : 'Công khai'}</span>
                   </motion.button>
                 )}
 
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => navigate(`/cv-assessment?resumeId=${r.id}`)}
+                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  title={lang === "en" ? "Assess CV with AI" : "Đánh giá năng lực CV với AI"}
+                >
+                  <Compass size={14} />
+                  <span>{lang === "en" ? "Assess AI" : "Đánh giá AI"}</span>
+                </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.85 }}
                   onClick={() => navigate(`/cv-builder?id=${r.id}`)}
@@ -395,6 +404,4 @@ export default function CVVaultPage() {
     </AnimatedPage>
   );
 }
-
-
 

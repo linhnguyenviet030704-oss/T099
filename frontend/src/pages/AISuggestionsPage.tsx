@@ -7,7 +7,7 @@ import {
   Layers, Check, Plus, Trash2, Clock, RotateCcw, ChevronDown, Star, CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
-import { apiJson } from "../lib/api";
+import { apiJson, apiStream, type StreamEvent } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { ENUM_LABELS, formatCurrency } from "../lib/format";
 import AnimatedPage from "../components/AnimatedPage";
@@ -15,11 +15,12 @@ import Badge from "../components/Badge";
 import ConfirmModal from "../components/ConfirmModal";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
+import SuggestionStatusIndicator, { type StatusStep } from "../components/SuggestionStatusIndicator";
 import JobCompareDock, { type CandidateResumeOption } from "../components/candidate/JobCompareDock";
 import JobComparisonModal from "../components/candidate/JobComparisonModal";
 
 
-const QUICK_PROMPT = "Gợi ý việc phù hợp";
+const getQuickPrompt = (lang: "vi" | "en") => (lang === "en" ? "Suggest matching jobs" : "Gợi ý việc phù hợp");
 const DEFAULT_FIT_GOOD = 45;
 const DEFAULT_FIT_OK = 30;
 const DEFAULT_MAX_JOBS = 10;
@@ -65,7 +66,7 @@ type ResumeInfo = {
   storage_path?: string;
 };
 
-function formatSessionDate(dateStr: string) {
+function formatSessionDate(dateStr: string, lang: "vi" | "en" = "vi") {
   try {
     const d = new Date(dateStr);
     const now = new Date();
@@ -73,20 +74,19 @@ function formatSessionDate(dateStr: string) {
     const yesterday = new Date();
     yesterday.setDate(now.getDate() - 1);
     const isYesterday = d.toDateString() === yesterday.toDateString();
-    const timeStr = d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-    if (isToday) return `Hôm nay ${timeStr}`;
-    if (isYesterday) return `Hôm qua ${timeStr}`;
-    return `${d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} ${timeStr}`;
+    const timeStr = d.toLocaleTimeString(lang === "en" ? "en-US" : "vi-VN", { hour: "2-digit", minute: "2-digit" });
+    if (isToday) return lang === "en" ? `Today ${timeStr}` : `Hôm nay ${timeStr}`;
+    if (isYesterday) return lang === "en" ? `Yesterday ${timeStr}` : `Hôm qua ${timeStr}`;
+    return `${d.toLocaleDateString(lang === "en" ? "en-US" : "vi-VN", { day: "2-digit", month: "2-digit" })} ${timeStr}`;
   } catch {
     return dateStr;
   }
 }
 
-
-const FIT_GROUPS: { key: FitKey; label: string; className: string }[] = [
-  { key: "good", label: "Phù hợp cao", className: "text-emerald-600 dark:text-emerald-400" },
-  { key: "ok", label: "Bình thường", className: "text-amber-600 dark:text-amber-400" },
-  { key: "poor", label: "Chưa phù hợp", className: "text-rose-600 dark:text-rose-400" },
+const getFitGroups = (lang: "vi" | "en"): { key: FitKey; label: string; className: string }[] => [
+  { key: "good", label: lang === "en" ? "High Match" : "Phù hợp cao", className: "text-emerald-600 dark:text-emerald-400" },
+  { key: "ok", label: lang === "en" ? "Moderate Match" : "Bình thường", className: "text-amber-600 dark:text-amber-400" },
+  { key: "poor", label: lang === "en" ? "Low Match" : "Chưa phù hợp", className: "text-rose-600 dark:text-rose-400" },
 ];
 
 const displayScore = (job: ChatJob) =>
@@ -113,6 +113,7 @@ function JobRecommendationCard({
   onToggleCompare,
   goodThreshold = DEFAULT_FIT_GOOD,
   okThreshold = DEFAULT_FIT_OK,
+  lang = "vi",
 }: {
   job: ChatJob;
   onNavigate: (id: string) => void;
@@ -121,6 +122,7 @@ function JobRecommendationCard({
   onToggleCompare?: (job: ChatJob) => void;
   goodThreshold?: number;
   okThreshold?: number;
+  lang?: "vi" | "en";
 }) {
   const score = displayScore(job);
   const band = getFitBand(score, goodThreshold, okThreshold);
@@ -136,7 +138,9 @@ function JobRecommendationCard({
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl p-4 w-full flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
       <div>
         <div className="flex items-center justify-between mb-2 gap-2">
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>{pct}% phù hợp</span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>
+            {pct}% {lang === "en" ? "match" : "phù hợp"}
+          </span>
           {job.employment_type && (
             <Badge variant="primary" className="shrink-0">
               {ENUM_LABELS.employment_type[job.employment_type as keyof typeof ENUM_LABELS.employment_type] || job.employment_type}
@@ -144,20 +148,32 @@ function JobRecommendationCard({
           )}
         </div>
         <p className="font-semibold text-sm truncate" title={job.title}>{job.title}</p>
-        <p className="text-xs text-slate-500 truncate" title={job.company_name || "Công ty đối tác"}>{job.company_name || "Công ty đối tác"}</p>
+        <p className="text-xs text-slate-500 truncate" title={job.company_name || (lang === "en" ? "Partner Company" : "Công ty đối tác")}>
+          {job.company_name || (lang === "en" ? "Partner Company" : "Công ty đối tác")}
+        </p>
         <div className="flex items-center justify-between gap-2 mt-2.5 text-xs text-slate-500">
-          <span className="flex items-center gap-1 truncate"><MapPin size={11} className="shrink-0" />{job.location || "Toàn quốc"}</span>
-          <span className="flex items-center gap-1 text-emerald-600 font-medium shrink-0"><DollarSign size={11} />{formatCurrency(job.salary_min, job.currency)}</span>
+          <span className="flex items-center gap-1 truncate">
+            <MapPin size={11} className="shrink-0" />
+            {job.location || (lang === "en" ? "Nationwide" : "Toàn quốc")}
+          </span>
+          <span className="flex items-center gap-1 text-emerald-600 font-medium shrink-0">
+            <DollarSign size={11} />
+            {job.salary_min || job.salary_max
+              ? formatCurrency(job.salary_min, job.currency, lang)
+              : (lang === "en" ? "Negotiable" : "Thoả thuận")}
+          </span>
         </div>
 
         {/* Dynamic AI Match Reason / Score Explanation */}
         <div className="mt-3 p-2.5 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-800/60 rounded-xl text-xs space-y-1">
           <div className="flex items-center gap-1 font-semibold text-indigo-700 dark:text-indigo-300 text-[11px]">
             <Sparkles size={12} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
-            <span>Giải thích điểm phù hợp ({pct}%):</span>
+            <span>{lang === "en" ? `Match score explanation (${pct}%):` : `Giải thích điểm phù hợp (${pct}%):`}</span>
           </div>
           <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed font-normal line-clamp-3" title={job.match_reason || undefined}>
-            {job.match_reason || `Được AI đánh giá ${pct}% phù hợp với CV của bạn dựa trên phân tích kỹ năng và kinh nghiệm.`}
+            {job.match_reason || (lang === "en"
+              ? `AI assessed ${pct}% alignment with your CV competencies and experience background.`
+              : `Được AI đánh giá ${pct}% phù hợp với CV của bạn dựa trên phân tích kỹ năng và kinh nghiệm.`)}
           </p>
         </div>
       </div>
@@ -165,9 +181,9 @@ function JobRecommendationCard({
       <div className="mt-3 flex items-center gap-2">
         <button
           onClick={() => onNavigate(job.id)}
-          className="flex-1 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-center gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors"
+          className="flex-1 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl flex items-center justify-center gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors cursor-pointer"
         >
-          Xem chi tiết <ExternalLink size={11} />
+          {lang === "en" ? "View details" : "Xem chi tiết"} <ExternalLink size={11} />
         </button>
 
         {onToggleCompare && (
@@ -177,22 +193,22 @@ function JobRecommendationCard({
               e.stopPropagation();
               onToggleCompare(job);
             }}
-            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1 transition-all shrink-0 ${
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-xl border flex items-center gap-1 transition-all shrink-0 cursor-pointer ${
               selectedForCompare
                 ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                 : "text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
             }`}
-            title={selectedForCompare ? "Bỏ chọn so sánh" : "Thêm vào so sánh việc làm"}
+            title={selectedForCompare ? (lang === "en" ? "Deselect job" : "Bỏ chọn so sánh") : (lang === "en" ? "Add to comparison" : "Thêm vào so sánh việc làm")}
           >
             {selectedForCompare ? (
               <>
                 <Check size={12} className="stroke-[3]" />
-                <span>{compareLabel || "Đã chọn"}</span>
+                <span>{compareLabel || (lang === "en" ? "Selected" : "Đã chọn")}</span>
               </>
             ) : (
               <>
                 <Layers size={12} />
-                <span>So sánh</span>
+                <span>{lang === "en" ? "Compare" : "So sánh"}</span>
               </>
             )}
           </motion.button>
@@ -201,13 +217,14 @@ function JobRecommendationCard({
     </div>
   );
 }
-
-
 export default function AISuggestionsPage() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
   const { info, error: toastError, success } = useToast();
   const { lang, t } = useLang();
+
+  const quickPrompt = getQuickPrompt(lang);
+  const fitGroups = getFitGroups(lang);
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -230,8 +247,11 @@ export default function AISuggestionsPage() {
   const [rightOpen, setRightOpen] = useState(isDesktop);
   const [desktop, setDesktop] = useState(isDesktop);
 
+  const welcomeText = lang === "en"
+    ? "Hello! Click \"Suggest matching jobs\" or enter your prompt so AI can find ideal positions for you."
+    : "Xin chào! Bấm \"Gợi ý việc phù hợp\" hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn.";
   const [messages, setMessages] = useState<Message[]>([
-    { id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." },
+    { id: "welcome", role: "system", text: welcomeText },
   ]);
   const [sessionId, setSessionId] = useState<string | null>(() => localStorage.getItem("chat_session_id"));
   const [chatHistory, setChatHistory] = useState<ChatHistoryItem[]>([]);
@@ -239,8 +259,13 @@ export default function AISuggestionsPage() {
   const [isClearAllConfirm, setIsClearAllConfirm] = useState(false);
   const [isDeletingSession, setIsDeletingSession] = useState(false);
   const [isSettingDefaultCv, setIsSettingDefaultCv] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Trạng thái streaming tiến trình và văn bản thời gian thực
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
+  const [streamingText, setStreamingText] = useState<string>("");
+
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   // Ensure session exists
   useEffect(() => {
@@ -281,7 +306,7 @@ export default function AISuggestionsPage() {
                 id: sid,
                 created_at: m.created_at,
                 updated_at: m.created_at,
-                first_message: m.role === "user" ? m.content : "Cuộc trò chuyện",
+                first_message: m.role === "user" ? m.content : (lang === "en" ? "Conversation" : "Cuộc trò chuyện"),
                 message_count: 1,
               });
             } else {
@@ -296,7 +321,7 @@ export default function AISuggestionsPage() {
     } catch (err) {
       console.error("Failed to load chat history", err);
     }
-  }, [session, user]);
+  }, [session, user, lang]);
 
   useEffect(() => { void loadChatHistory(); }, [loadChatHistory]);
 
@@ -318,14 +343,18 @@ export default function AISuggestionsPage() {
           }))
         );
       } else {
-        setMessages([{ id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." }]);
+        setMessages([{ id: "welcome", role: "system", text: welcomeText }]);
       }
       setSessionId(sid);
       localStorage.setItem("chat_session_id", sid);
-    } catch (err) {
-      console.error("Failed to load session", err);
+    } catch (err: any) {
+      // Khi phiên chat không tồn tại (404) hoặc hết hạn, dọn sạch localStorage và reset về màn hình chào
+      console.warn("Phiên chat không tồn tại hoặc đã bị xóa, khởi tạo lại session mới:", err?.message || err);
+      localStorage.removeItem("chat_session_id");
+      setSessionId(null);
+      setMessages([{ id: "welcome", role: "system", text: welcomeText }]);
     }
-  }, [session]);
+  }, [session, welcomeText]);
 
   // Restore active session on mount
   useEffect(() => {
@@ -357,7 +386,7 @@ export default function AISuggestionsPage() {
         setIsClearAllConfirm(false);
       } catch (err) {
         console.error("Failed to clear chat history", err);
-        toastError(t.deleteChatFailed, "Không thể xóa toàn bộ lịch sử trò chuyện");
+        toastError(t.deleteChatFailed, lang === "en" ? "Cannot clear entire chat history" : "Không thể xóa toàn bộ lịch sử trò chuyện");
       } finally {
         setIsDeletingSession(false);
       }
@@ -381,19 +410,18 @@ export default function AISuggestionsPage() {
       setDeleteTargetSessionId(null);
     } catch (err) {
       console.error("Failed to delete session", err);
-      toastError(t.deleteChatFailed, "Không thể xóa cuộc trò chuyện");
+      toastError(t.deleteChatFailed, lang === "en" ? "Cannot delete conversation" : "Không thể xóa cuộc trò chuyện");
     } finally {
       setIsDeletingSession(false);
     }
   };
-
 
   // New chat
   const startNewChat = () => {
     const newId = crypto.randomUUID();
     setSessionId(newId);
     localStorage.setItem("chat_session_id", newId);
-    setMessages([{ id: "welcome", role: "system", text: "Xin chào! Bấm “Gợi ý việc phù hợp” hoặc nhập yêu cầu để AI tìm việc làm phù hợp cho bạn." }]);
+    setMessages([{ id: "welcome", role: "system", text: welcomeText }]);
   };
 
   // Load candidate default resume info and all resumes
@@ -412,7 +440,7 @@ export default function AISuggestionsPage() {
           const fn = r.original_filename || (r.storage_path ? r.storage_path.split("/").pop() : "CV.pdf");
           return {
             id: r.id,
-            title: r.title || "Hồ sơ CV",
+            title: r.title || (lang === "en" ? "CV Resume" : "Hồ sơ CV"),
             filename: fn || "CV.pdf",
             created_at: r.created_at,
             is_default: Boolean(r.is_default),
@@ -431,7 +459,7 @@ export default function AISuggestionsPage() {
     } catch (err) {
       console.error("Failed to load CVs", err);
     }
-  }, [user]);
+  }, [user, lang]);
 
   // Set selected CV as default
   const handleSetDefaultResume = async (resumeId: string) => {
@@ -441,11 +469,11 @@ export default function AISuggestionsPage() {
       await supabase.from("resumes").update({ is_default: false }).eq("user_id", user.id);
       const { error } = await supabase.from("resumes").update({ is_default: true }).eq("id", resumeId);
       if (error) throw error;
-      success("Đã đặt làm CV mặc định cho hệ thống AI");
+      success(lang === "en" ? "Set as default CV for AI matching" : "Đã đặt làm CV mặc định cho hệ thống AI");
       await loadDefaultCv();
     } catch (err) {
       console.error("Failed to set default CV", err);
-      toastError("Lỗi", "Không thể cập nhật CV mặc định");
+      toastError(lang === "en" ? "Error" : "Lỗi", lang === "en" ? "Cannot update default CV" : "Không thể cập nhật CV mặc định");
     } finally {
       setIsSettingDefaultCv(false);
     }
@@ -457,7 +485,7 @@ export default function AISuggestionsPage() {
     setFitOkThreshold(DEFAULT_FIT_OK);
     setSkillWeight(DEFAULT_SKILL_WEIGHT);
     setRerank("qwen");
-    info("Đã khôi phục các thông số thuật toán về mặc định.");
+    info(lang === "en" ? "Algorithm parameters restored to defaults." : "Đã khôi phục các thông số thuật toán về mặc định.");
   };
 
   const activeCv = resumes.find((r) => r.id === selectedResumeId) || defaultCv;
@@ -469,7 +497,7 @@ export default function AISuggestionsPage() {
         return prev.filter((j) => j.id !== job.id);
       }
       if (prev.length >= 5) {
-        info("Chỉ có thể so sánh tối đa 5 việc làm cùng lúc");
+        info(lang === "en" ? "You can compare up to 5 jobs at once" : "Chỉ có thể so sánh tối đa 5 việc làm cùng lúc");
         return prev;
       }
       return [...prev, job];
@@ -486,11 +514,11 @@ export default function AISuggestionsPage() {
 
   const handleOpenCompareModal = () => {
     if (!user) {
-      info("Vui lòng đăng nhập để sử dụng tính năng so sánh việc làm với CV");
+      info(lang === "en" ? "Please sign in to compare jobs with your CV" : "Vui lòng đăng nhập để sử dụng tính năng so sánh việc làm với CV");
       return;
     }
     if (selectedCompareJobs.length < 2) {
-      info("Vui lòng chọn từ 2 đến 5 việc làm để so sánh");
+      info(lang === "en" ? "Please select 2 to 5 jobs to compare" : "Vui lòng chọn từ 2 đến 5 việc làm để so sánh");
       return;
     }
     setIsCompareModalOpen(true);
@@ -509,12 +537,16 @@ export default function AISuggestionsPage() {
   const handleSend = async (text?: string) => {
     const msgText = (text || input).trim();
     if (!msgText) {
-      toastError("Nội dung trống", "Vui lòng nhập câu hỏi hoặc bấm nút gợi ý!");
+      toastError(lang === "en" ? "Empty prompt" : "Nội dung trống", lang === "en" ? "Please type a message or click suggested prompt!" : "Vui lòng nhập câu hỏi hoặc bấm nút gợi ý!");
       return;
     }
     if (sending || !session?.access_token) return;
     setInput("");
     setSending(true);
+    setStreamingSteps([]);
+    setCurrentStatusLabel(lang === "en" ? "Initializing job recommendations..." : "Đang khởi tạo gợi ý việc làm...");
+    setStreamingText("");
+
     let sid = sessionId;
     if (!sid) {
       sid = crypto.randomUUID();
@@ -523,9 +555,14 @@ export default function AISuggestionsPage() {
     }
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text: msgText }]);
     try {
-      const body = await apiJson<{ response: string; jobs?: ChatJob[]; session_id?: string }>("/chat", session.access_token, {
-        method: "POST",
-        body: JSON.stringify({
+      let accumulatedText = "";
+      let finalJobs: ChatJob[] = [];
+      let finalSessionId = sid;
+
+      await apiStream(
+        "/chat/stream",
+        session.access_token,
+        {
           message: msgText,
           rerank,
           session_id: sid,
@@ -533,19 +570,52 @@ export default function AISuggestionsPage() {
           max_results: maxJobs,
           skill_weight: skillWeight,
           experience_weight: Number((1 - skillWeight).toFixed(2)),
-        }),
-      });
-      if (body.session_id && body.session_id !== sessionId) {
-        setSessionId(body.session_id);
-        localStorage.setItem("chat_session_id", body.session_id);
-      }
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: body.response, jobs: body.jobs || [] }]);
-      // Refresh chat sessions in sidebar
+        },
+        (event: StreamEvent) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "token") {
+            accumulatedText += event.data.delta;
+            setStreamingText(accumulatedText);
+          } else if (event.event === "complete") {
+            finalJobs = (event.data.jobs || []) as ChatJob[];
+            accumulatedText = event.data.response || accumulatedText;
+            if (event.data.session_id && event.data.session_id !== sid) {
+              finalSessionId = event.data.session_id;
+              setSessionId(finalSessionId);
+              localStorage.setItem("chat_session_id", finalSessionId);
+            }
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || (lang === "en" ? "Error streaming suggestions" : "Lỗi xử lý luồng gợi ý"));
+          }
+        }
+      );
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "system",
+          text: accumulatedText || (lang === "en" ? "Found matching jobs:" : "Đã tìm thấy các công việc phù hợp:"),
+          jobs: finalJobs,
+        },
+      ]);
       void loadChatHistory();
     } catch (err: unknown) {
-      setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : "Không gửi được tin nhắn." }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "system", text: err instanceof Error ? err.message : (lang === "en" ? "Failed to send message." : "Không gửi được tin nhắn.") },
+      ]);
     } finally {
       setSending(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
+      setStreamingText("");
     }
   };
 
@@ -556,13 +626,13 @@ export default function AISuggestionsPage() {
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100 dark:border-slate-700">
         <p className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <MessageSquare size={15} className="text-indigo-600 dark:text-indigo-400" />
-          <span>Lịch sử trò chuyện</span>
+          <span>{lang === "en" ? "Chat History" : "Lịch sử trò chuyện"}</span>
         </p>
         <button
           type="button"
           onClick={() => setLeftOpen(false)}
-          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-          aria-label="Ẩn lịch sử"
+          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+          aria-label={t.cancel}
         >
           <X size={14} />
         </button>
@@ -573,17 +643,17 @@ export default function AISuggestionsPage() {
         <button
           type="button"
           onClick={startNewChat}
-          className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
+          className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer"
         >
           <Plus size={14} className="stroke-[2.5]" />
-          <span>Cuộc trò chuyện mới</span>
+          <span>{lang === "en" ? "New Conversation" : "Cuộc trò chuyện mới"}</span>
         </button>
       </div>
 
       {/* Sessions List */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-1 text-xs">
         <div className="px-1 py-1 flex items-center justify-between text-[10px] uppercase font-bold tracking-wider text-slate-400">
-          <span>Danh sách phiên chat ({chatHistory.length})</span>
+          <span>{lang === "en" ? "Chat Sessions" : "Danh sách phiên chat"} ({chatHistory.length})</span>
           {chatHistory.length > 0 && (
             <button
               type="button"
@@ -600,12 +670,15 @@ export default function AISuggestionsPage() {
           )}
         </div>
 
-
         {chatHistory.length === 0 ? (
           <div className="px-3 py-6 text-center text-slate-400 space-y-1">
             <MessageSquare size={22} className="mx-auto opacity-40 mb-2 text-indigo-400" />
-            <p className="font-semibold text-xs text-slate-600 dark:text-slate-300">Chưa có lịch sử chat</p>
-            <p className="text-[11px] text-slate-400">Gửi câu hỏi để tạo phiên trò chuyện mới.</p>
+            <p className="font-semibold text-xs text-slate-600 dark:text-slate-300">
+              {lang === "en" ? "No chat history yet" : "Chưa có lịch sử chat"}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {lang === "en" ? "Send a prompt to start a new chat session." : "Gửi câu hỏi để tạo phiên trò chuyện mới."}
+            </p>
           </div>
         ) : (
           <ul className="space-y-1">
@@ -616,7 +689,7 @@ export default function AISuggestionsPage() {
                   <button
                     type="button"
                     onClick={() => void loadSession(s.id)}
-                    className={`w-full text-left rounded-xl p-2.5 transition-all pr-8 flex flex-col gap-1 border ${
+                    className={`w-full text-left rounded-xl p-2.5 transition-all pr-8 flex flex-col gap-1 border cursor-pointer ${
                       isActive
                         ? "bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-700 text-slate-900 dark:text-white shadow-xs font-medium"
                         : "bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-700/60 border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300"
@@ -624,25 +697,24 @@ export default function AISuggestionsPage() {
                   >
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-400">
                       <Clock size={11} className="shrink-0 text-slate-400" />
-                      <span>{formatSessionDate(s.updated_at || s.created_at)}</span>
+                      <span>{formatSessionDate(s.updated_at || s.created_at, lang)}</span>
                       {s.message_count !== undefined && s.message_count > 0 && (
                         <span className="ml-auto text-[9px] px-1.5 py-0.2 rounded-md bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
-                          {s.message_count} tin
+                          {s.message_count} {lang === "en" ? "msgs" : "tin"}
                         </span>
                       )}
                     </div>
                     <p className="text-xs line-clamp-2 leading-snug break-words">
-                      {s.first_message || "Cuộc trò chuyện"}
+                      {s.first_message || (lang === "en" ? "Conversation" : "Cuộc trò chuyện")}
                     </p>
                   </button>
 
-                  {/* Delete button */}
                   <button
                     type="button"
                     onClick={(e) => void handleDeleteSession(e, s.id)}
-                    className="absolute right-2 top-2.5 p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Xóa cuộc trò chuyện này"
-                    aria-label="Xóa cuộc trò chuyện"
+                    className="absolute right-2 top-2.5 p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    title={lang === "en" ? "Delete this conversation" : "Xóa cuộc trò chuyện này"}
+                    aria-label={t.delete}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -660,9 +732,10 @@ export default function AISuggestionsPage() {
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 overflow-hidden">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100 dark:border-slate-700">
         <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-          <SlidersHorizontal size={14} className="text-indigo-600 dark:text-indigo-400" /> Thông tin CV & Cấu hình
+          <SlidersHorizontal size={14} className="text-indigo-600 dark:text-indigo-400" />
+          {lang === "en" ? "CV Info & Settings" : "Thông tin CV & Cấu hình"}
         </p>
-        <button type="button" onClick={() => setRightOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Ẩn thông số">
+        <button type="button" onClick={() => setRightOpen(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer" aria-label={t.cancel}>
           <X size={14} />
         </button>
       </div>
@@ -671,28 +744,29 @@ export default function AISuggestionsPage() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 dark:text-indigo-300 px-2 py-0.5 rounded-md">
-              CV dùng để matching AI
+              {lang === "en" ? "CV for AI Matching" : "CV dùng để matching AI"}
             </p>
             {resumes.length > 1 && (
-              <span className="text-[10px] text-slate-400">{resumes.length} CV sẵn sàng</span>
+              <span className="text-[10px] text-slate-400">{resumes.length} {lang === "en" ? "ready CVs" : "CV sẵn sàng"}</span>
             )}
           </div>
 
           {resumes.length > 0 ? (
             <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600 space-y-2.5">
-              {/* Selector dropdown if multiple resumes */}
               {resumes.length > 1 && (
                 <div className="space-y-1">
-                  <label className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Chọn CV phân tích:</label>
+                  <label className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                    {lang === "en" ? "Select CV for analysis:" : "Chọn CV phân tích:"}
+                  </label>
                   <div className="relative">
                     <select
                       value={selectedResumeId || ""}
                       onChange={(e) => setSelectedResumeId(e.target.value)}
-                      className="w-full appearance-none px-2.5 py-1.5 pr-7 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full appearance-none px-2.5 py-1.5 pr-7 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                     >
                       {resumes.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.title} {r.is_default ? "★ (Mặc định)" : ""}
+                          {r.title} {r.is_default ? `★ (${lang === "en" ? "Default" : "Mặc định"})` : ""}
                         </option>
                       ))}
                     </select>
@@ -711,22 +785,23 @@ export default function AISuggestionsPage() {
                     </div>
                     {activeCv.is_default && (
                       <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800 flex items-center gap-0.5">
-                        <Star size={9} className="fill-amber-500 text-amber-500" /> Mặc định
+                        <Star size={9} className="fill-amber-500 text-amber-500" /> {lang === "en" ? "Default" : "Mặc định"}
                       </span>
                     )}
                   </div>
                   <p className="text-[11px] text-slate-500 truncate" title={activeCv.filename}>{activeCv.filename}</p>
-                  <p className="text-[10px] text-slate-400">Cập nhật: {new Date(activeCv.created_at).toLocaleDateString("vi-VN")}</p>
+                  <p className="text-[10px] text-slate-400">
+                    {lang === "en" ? "Updated:" : "Cập nhật:"} {new Date(activeCv.created_at).toLocaleDateString(lang === "en" ? "en-US" : "vi-VN")}
+                  </p>
 
-                  {/* Set default button if not default */}
                   {!activeCv.is_default && (
                     <button
                       type="button"
                       disabled={isSettingDefaultCv}
                       onClick={() => void handleSetDefaultResume(activeCv.id)}
-                      className="w-full py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-100 transition-colors flex items-center justify-center gap-1"
+                      className="w-full py-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-100 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      <Star size={11} /> Đặt làm CV mặc định
+                      <Star size={11} /> {lang === "en" ? "Set as default CV" : "Đặt làm CV mặc định"}
                     </button>
                   )}
                 </div>
@@ -735,20 +810,24 @@ export default function AISuggestionsPage() {
               <button
                 type="button"
                 onClick={() => navigate("/cv-vault")}
-                className="w-full py-1.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors flex items-center justify-center gap-1"
+                className="w-full py-1.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
-                Quản lý CV kho <ExternalLink size={11} />
+                {lang === "en" ? "Manage CV Vault" : "Quản lý CV kho"} <ExternalLink size={11} />
               </button>
             </div>
           ) : (
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl text-amber-800 dark:text-amber-300 space-y-2">
-              <p className="text-[11px]">Bạn chưa tải CV lên kho. AI sẽ gợi ý dựa trên yêu cầu trò chuyện trực tiếp.</p>
+              <p className="text-[11px]">
+                {lang === "en"
+                  ? "You haven't uploaded a CV yet. AI will suggest jobs based on direct chat prompts."
+                  : "Bạn chưa tải CV lên kho. AI sẽ gợi ý dựa trên yêu cầu trò chuyện trực tiếp."}
+              </p>
               <button
                 type="button"
                 onClick={() => navigate("/cv-vault")}
-                className="w-full py-1.5 text-[11px] font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shadow-xs"
+                className="w-full py-1.5 text-[11px] font-semibold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shadow-xs cursor-pointer"
               >
-                Tải CV lên kho ngay
+                {lang === "en" ? "Upload CV to Vault now" : "Tải CV lên kho ngay"}
               </button>
             </div>
           )}
@@ -756,7 +835,9 @@ export default function AISuggestionsPage() {
 
         {/* Model & Reranker Config */}
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Chế độ Rerank AI</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            {lang === "en" ? "AI Rerank Mode" : "Chế độ Rerank AI"}
+          </p>
           <div className="space-y-1.5">
             {(["qwen", "agent"] as const).map((mode) => (
               <button
@@ -771,7 +852,11 @@ export default function AISuggestionsPage() {
               >
                 <div>
                   <p className="capitalize text-xs">{mode === "qwen" ? "Qwen AI Reranker" : "RRF Fusion Match"}</p>
-                  <p className="text-[10px] text-slate-400 font-normal">{mode === "qwen" ? "Dùng mô hình Deep Reranking" : "Trộn điểm vector + từ khóa BM25"}</p>
+                  <p className="text-[10px] text-slate-400 font-normal">
+                    {mode === "qwen"
+                      ? (lang === "en" ? "Uses Deep Reranking model" : "Dùng mô hình Deep Reranking")
+                      : (lang === "en" ? "Blends vector score + BM25 keywords" : "Trộn điểm vector + từ khóa BM25")}
+                  </p>
                 </div>
                 {rerank === mode ? (
                   <CheckCircle2 size={14} className="text-indigo-600 dark:text-indigo-400 shrink-0" />
@@ -786,21 +871,25 @@ export default function AISuggestionsPage() {
         {/* Interactive Algorithm Settings */}
         <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Thông số thuật toán</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {lang === "en" ? "Algorithm Parameters" : "Thông số thuật toán"}
+            </p>
             <button
               type="button"
               onClick={handleResetDefaults}
               className="text-[10px] font-medium text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors cursor-pointer"
-              title="Đặt lại các thông số về mặc định"
+              title={lang === "en" ? "Reset parameters to defaults" : "Đặt lại các thông số về mặc định"}
             >
-              <RotateCcw size={10} /> Đặt lại
+              <RotateCcw size={10} /> {lang === "en" ? "Reset" : "Đặt lại"}
             </button>
           </div>
 
           {/* Max Jobs Displayed */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Số việc làm hiển thị</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">
+                {lang === "en" ? "Displayed Jobs Count" : "Số việc làm hiển thị"}
+              </span>
               <span className="font-bold text-indigo-600 dark:text-indigo-400">Top {maxJobs}</span>
             </div>
             <div className="grid grid-cols-4 gap-1">
@@ -809,7 +898,7 @@ export default function AISuggestionsPage() {
                   type="button"
                   key={num}
                   onClick={() => setMaxJobs(num)}
-                  className={`py-1 text-xs font-semibold rounded-lg border transition-all ${
+                  className={`py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                     maxJobs === num
                       ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                       : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
@@ -824,7 +913,9 @@ export default function AISuggestionsPage() {
           {/* High Fit Threshold */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng Phù hợp cao</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">
+                {lang === "en" ? "High Match Threshold" : "Ngưỡng Phù hợp cao"}
+              </span>
               <span className="font-bold text-emerald-600 dark:text-emerald-400">{fitGoodThreshold}%</span>
             </div>
             <input
@@ -844,7 +935,7 @@ export default function AISuggestionsPage() {
             />
             <div className="flex justify-between text-[9px] text-slate-400">
               <span>20%</span>
-              <span>Khuyến nghị: 45%</span>
+              <span>{lang === "en" ? "Default: 45%" : "Khuyến nghị: 45%"}</span>
               <span>80%</span>
             </div>
           </div>
@@ -852,7 +943,9 @@ export default function AISuggestionsPage() {
           {/* Normal Fit Threshold */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Ngưỡng Bình thường</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">
+                {lang === "en" ? "Normal Match Threshold" : "Ngưỡng Bình thường"}
+              </span>
               <span className="font-bold text-amber-600 dark:text-amber-400">{fitOkThreshold}%</span>
             </div>
             <input
@@ -872,7 +965,7 @@ export default function AISuggestionsPage() {
             />
             <div className="flex justify-between text-[9px] text-slate-400">
               <span>10%</span>
-              <span>Khuyến nghị: 30%</span>
+              <span>{lang === "en" ? "Default: 30%" : "Khuyến nghị: 30%"}</span>
               <span>60%</span>
             </div>
           </div>
@@ -880,7 +973,9 @@ export default function AISuggestionsPage() {
           {/* Skill vs Experience / Semantic Weight */}
           <div className="space-y-1">
             <div className="flex justify-between items-center text-[11px]">
-              <span className="text-slate-600 dark:text-slate-300 font-medium">Trọng số kỹ năng vs Ngữ nghĩa</span>
+              <span className="text-slate-600 dark:text-slate-300 font-medium">
+                {lang === "en" ? "Skill vs Semantic Weight" : "Trọng số kỹ năng vs Ngữ nghĩa"}
+              </span>
               <span className="font-bold text-indigo-600 dark:text-indigo-400">
                 {Math.round(skillWeight * 100)}% / {Math.round((1 - skillWeight) * 100)}%
               </span>
@@ -895,9 +990,9 @@ export default function AISuggestionsPage() {
               className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600"
             />
             <div className="flex justify-between text-[9px] text-slate-400">
-              <span>Thiên ngữ nghĩa</span>
-              <span>Cân bằng</span>
-              <span>Thiên từ khóa kỹ năng</span>
+              <span>{lang === "en" ? "Semantic-biased" : "Thiên ngữ nghĩa"}</span>
+              <span>{lang === "en" ? "Balanced" : "Cân bằng"}</span>
+              <span>{lang === "en" ? "Skill-biased" : "Thiên từ khóa kỹ năng"}</span>
             </div>
           </div>
 
@@ -905,7 +1000,7 @@ export default function AISuggestionsPage() {
           <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
             <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
               <Sparkles size={11} className="text-indigo-500" />
-              <span>Mô hình & Không gian Vector</span>
+              <span>{lang === "en" ? "Model & Vector Space" : "Mô hình & Không gian Vector"}</span>
             </div>
             <p className="text-[10px] text-slate-500 dark:text-slate-400">
               Qwen3.7 Embed 1536d + BM25 Hybrid Reciprocal Rank Fusion.
@@ -940,7 +1035,7 @@ export default function AISuggestionsPage() {
                 exit={{ opacity: 0 }}
                 transition={SIDE_T}
                 className="fixed inset-0 z-30 bg-black/40"
-                aria-label="Đóng lịch sử"
+                aria-label={t.cancel}
                 onClick={() => setLeftOpen(false)}
               />
               <motion.aside
@@ -968,8 +1063,12 @@ export default function AISuggestionsPage() {
                 <Sparkles size={18} className="text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="font-display text-lg font-bold text-slate-900 dark:text-white truncate">Gợi ý việc làm AI</h1>
-                <p className="text-xs text-slate-500 hidden sm:block">Chat matching theo kỹ năng & trải nghiệm CV</p>
+                <h1 className="font-display text-lg font-bold text-slate-900 dark:text-white truncate">
+                  {lang === "en" ? "AI Job Recommendations" : "Gợi ý việc làm AI"}
+                </h1>
+                <p className="text-xs text-slate-500 hidden sm:block">
+                  {lang === "en" ? "Chat-based matching with CV skills & experience" : "Chat matching theo kỹ năng & trải nghiệm CV"}
+                </p>
               </div>
             </div>
 
@@ -977,9 +1076,9 @@ export default function AISuggestionsPage() {
               <button
                 type="button"
                 onClick={() => setRightOpen((v) => !v)}
-                className={`p-2 rounded-xl border transition-colors ${rightOpen ? "bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500"}`}
+                className={`p-2 rounded-xl border transition-colors cursor-pointer ${rightOpen ? "bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-300" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500"}`}
                 aria-pressed={rightOpen}
-                aria-label="Hiện/ẩn thông tin CV & cấu hình"
+                aria-label={lang === "en" ? "Toggle CV Info & Settings" : "Hiện/ẩn thông tin CV & cấu hình"}
               >
                 <PanelRight size={16} />
               </button>
@@ -1007,7 +1106,7 @@ export default function AISuggestionsPage() {
                           {msg.text}
                         </div>
 
-                        {groups && FIT_GROUPS.map((g) => {
+                        {groups && fitGroups.map((g) => {
                           const list = groups[g.key];
                           if (list.length === 0) return null;
                           return (
@@ -1034,6 +1133,7 @@ export default function AISuggestionsPage() {
                                       onToggleCompare={handleToggleCompare}
                                       goodThreshold={fitGoodThreshold}
                                       okThreshold={fitOkThreshold}
+                                      lang={lang}
                                     />
                                   );
                                 })}
@@ -1044,15 +1144,33 @@ export default function AISuggestionsPage() {
                       </div>
                     </motion.div>
                   );
-
                 })}
               </AnimatePresence>
 
               {sending && (
-                <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 py-1">
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>AI đang phân tích và tìm kiếm Top {maxJobs} việc làm phù hợp...</span>
-                </div>
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3"
+                >
+                  <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-white bg-gradient-to-br from-indigo-500 to-purple-600">
+                    <Bot size={14} />
+                  </div>
+                  <div className="flex-1 min-w-0 max-w-[85%] flex flex-col gap-2">
+                    <SuggestionStatusIndicator
+                      currentLabel={currentStatusLabel}
+                      steps={streamingSteps}
+                      isGenerating={sending}
+                      theme="candidate"
+                    />
+                    {streamingText && (
+                      <div className="rounded-2xl px-4 py-3 text-sm whitespace-pre-line w-fit max-w-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                        {streamingText}
+                        <span className="inline-block w-1.5 h-3.5 ml-1 bg-indigo-600 animate-pulse align-middle" />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
               <div ref={bottomRef} />
             </div>
@@ -1064,10 +1182,10 @@ export default function AISuggestionsPage() {
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   disabled={sending}
-                  onClick={() => void handleSend(QUICK_PROMPT)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-semibold rounded-full border border-indigo-200 dark:border-indigo-800 disabled:opacity-50 transition-colors"
+                  onClick={() => void handleSend(quickPrompt)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-semibold rounded-full border border-indigo-200 dark:border-indigo-800 disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {QUICK_PROMPT}
+                  <Sparkles size={13} className={sending ? "animate-pulse" : ""} /> {quickPrompt}
                 </motion.button>
                 {(["qwen", "agent"] as const).map((mode) => (
                   <motion.button
@@ -1075,7 +1193,7 @@ export default function AISuggestionsPage() {
                     whileTap={{ scale: 0.95 }}
                     disabled={sending}
                     onClick={() => setRerank(mode)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${rerank === mode ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors cursor-pointer ${rerank === mode ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-slate-50 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600"}`}
                   >
                     {mode === "qwen" ? "Qwen Rerank" : "Agent Match"}
                   </motion.button>
@@ -1089,14 +1207,14 @@ export default function AISuggestionsPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void handleSend()}
                   disabled={sending}
-                  placeholder="Nhắn tin với AI (VD: Tìm việc Backend Python Remote...)"
+                  placeholder={lang === "en" ? "Message AI (e.g., Find remote Python backend jobs...)" : "Nhắn tin với AI (VD: Tìm việc Backend Python Remote...)"}
                   className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm"
                 />
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={() => void handleSend()}
                   disabled={!input.trim() || sending}
-                  className="p-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white rounded-xl transition-colors shadow-md shadow-indigo-200 dark:shadow-none"
+                  className="p-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white rounded-xl transition-colors shadow-md shadow-indigo-200 dark:shadow-none cursor-pointer"
                 >
                   {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                 </motion.button>
@@ -1128,7 +1246,7 @@ export default function AISuggestionsPage() {
                 exit={{ opacity: 0 }}
                 transition={SIDE_T}
                 className="fixed inset-0 z-30 bg-black/40"
-                aria-label="Đóng thông số"
+                aria-label={t.cancel}
                 onClick={() => setRightOpen(false)}
               />
               <motion.aside
@@ -1153,10 +1271,10 @@ export default function AISuggestionsPage() {
         animate={{ left: leftOpen && desktop ? LEFT_W : 0 }}
         transition={SIDE_T}
         onClick={() => setLeftOpen((v) => !v)}
-        className="fixed top-20 z-30 p-2.5 bg-white dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 shadow-md rounded-r-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
+        className="fixed top-20 z-30 p-2.5 bg-white dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 shadow-md rounded-r-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center cursor-pointer"
         aria-pressed={leftOpen}
-        aria-label={leftOpen ? "Thu gọn lịch sử trò chuyện" : "Hiện lịch sử trò chuyện"}
-        title={leftOpen ? "Thu gọn lịch sử trò chuyện" : "Hiện lịch sử trò chuyện"}
+        aria-label={leftOpen ? (lang === "en" ? "Collapse chat history" : "Thu gọn lịch sử trò chuyện") : (lang === "en" ? "Show chat history" : "Hiện lịch sử trò chuyện")}
+        title={leftOpen ? (lang === "en" ? "Collapse chat history" : "Thu gọn lịch sử trò chuyện") : (lang === "en" ? "Show chat history" : "Hiện lịch sử trò chuyện")}
       >
         <PanelLeft size={18} />
       </motion.button>
@@ -1168,10 +1286,10 @@ export default function AISuggestionsPage() {
         animate={{ right: rightOpen && desktop ? RIGHT_W : 0 }}
         transition={SIDE_T}
         onClick={() => setRightOpen((v) => !v)}
-        className="fixed top-20 z-30 p-2.5 bg-white dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 shadow-md rounded-l-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
+        className="fixed top-20 z-30 p-2.5 bg-white dark:bg-slate-800 border border-r-0 border-slate-200 dark:border-slate-700 shadow-md rounded-l-xl text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center cursor-pointer"
         aria-pressed={rightOpen}
-        aria-label={rightOpen ? "Thu gọn thông tin & cấu hình" : "Hiện thông tin & cấu hình"}
-        title={rightOpen ? "Thu gọn thông tin & cấu hình" : "Hiện thông tin & cấu hình"}
+        aria-label={rightOpen ? (lang === "en" ? "Collapse CV Info & Settings" : "Thu gọn thông tin & cấu hình") : (lang === "en" ? "Show CV Info & Settings" : "Hiện thông tin & cấu hình")}
+        title={rightOpen ? (lang === "en" ? "Collapse CV Info & Settings" : "Thu gọn thông tin & cấu hình") : (lang === "en" ? "Show CV Info & Settings" : "Hiện thông tin & cấu hình")}
       >
         <PanelRight size={18} />
       </motion.button>
@@ -1217,5 +1335,3 @@ export default function AISuggestionsPage() {
     </AnimatedPage>
   );
 }
-
-

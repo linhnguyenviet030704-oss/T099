@@ -1,179 +1,137 @@
-# Kiến trúc Agent & Backend
+# Đặc Tả Kỹ Thuật Agent & Backend
+### NextJob — AI-Powered Two-Way Recruitment Platform
+### Đồ án Chuyên ngành P-099 | Team Matikanefukukitaru
 
-> Tài liệu này mô tả **hệ thống thật đang chạy** (đọc trực tiếp từ code), không phải bản thiết kế dự kiến.
-> Xem thêm: [`docs/ai_agent_matching_system_spec.md`](ai_agent_matching_system_spec.md) (spec chi tiết cho hướng phát triển matching engine), `.cursor/rules/backend-architecture.mdc` (quy ước layer bắt buộc khi code backend).
+---
 
-## 0. Lưu ý quan trọng: thư mục "agent" chết
+## 1. Tổng Quan Kiến Trúc Vận Hành
 
-Repo có **3 nơi** trông giống agent code, nhưng chỉ 1 nơi được dùng thật:
+Hệ thống NextJob là nền tảng tuyển dụng hai chiều kết hợp giữa **FastAPI Backend (AI Orchestration)** và **Supabase Cloud (PostgreSQL + pgvector + Auth + Storage)**:
 
-| Thư mục | Trạng thái | Ghi chú |
-|---|---|---|
-| `backend/app/agents/` | ✅ **Đang dùng** | Agent thật, được `backend/app/main.py` → `dependencies/services.py` import và chạy |
-| `/agent/` (gốc repo) | ❌ Chết | File scaffold mẫu (`example_node.py`, `example_tool.py`), không có nơi nào trong `backend/` import nó |
-| `/src/agents/` (gốc repo) | ❌ Chết | Chỉ còn `__pycache__/*.pyc`, **file `.py` gốc đã bị xoá** — tàn dư build cũ |
-
-Khi đọc/sửa "agent", luôn thao tác trong `backend/app/agents/`.
-
-## 1. Tổng quan hệ thống
-
-Nền tảng tuyển dụng: candidate xây CV, nộp đơn (`job_submits`) vào `job_posts`; recruiter đăng job và nhận gợi ý ứng viên phù hợp qua AI matching. Frontend đọc/ghi dữ liệu nghiệp vụ **trực tiếp qua Supabase** (RLS bảo vệ), backend chỉ lo phần cần server-side: xác thực JWT, chạy AI agent (ingest CV, matching), và các thao tác cần `service_role` (bypass RLS).
+- **Ứng viên (Candidate)**: Xây dựng hồ sơ trực tuyến, tải lên CV (PDF/DOCX); hệ thống kích hoạt **Ingest Agent** để bóc tách layout, làm sạch PII, trích xuất kỹ năng và vector hóa vào `pgvector`. Khi ứng viên tìm việc, **Recommend Agent** sẽ đối chiếu CV với pool việc làm đang mở và gợi ý các công việc phù hợp kèm phân tích khoảng trống kỹ năng.
+- **Nhà tuyển dụng (Recruiter)**: Đăng tin tuyển dụng (JD); hệ thống kích hoạt **Matching Agent** quét pool ứng viên, tính toán độ phù hợp theo mô hình lai (Hybrid Ranking RRF) và sinh giải thích chi tiết với danh tính ẩn danh (`CAND_001`...).
 
 ```mermaid
 graph TB
-    UI[Frontend<br/>React 19 + Vite + TS] -->|REST /api/v1| API[FastAPI Backend]
-    UI -->|Supabase JS SDK<br/>CRUD trực tiếp, RLS| SB[(Supabase<br/>Postgres + Auth + Storage)]
+    UI["Frontend<br/>React 19 + Vite + TypeScript"] -->|REST /api/v1| API["FastAPI Backend"]
+    UI -->|Supabase JS SDK<br/>CRUD trực tiếp, RLS| SB[("Supabase<br/>Postgres + Auth + Storage")]
 
-    API --> Ingest[Ingest Agent<br/>LangGraph]
-    API --> Matching[Matching Agent<br/>LangGraph]
-    Ingest --> LLM[Qwen Cloud<br/>DashScope API]
+    API --> Ingest["Ingest Agent<br/>LangGraph"]
+    API --> Matching["Matching Agent<br/>LangGraph"]
+    API --> Recommend["Recommend Agent<br/>LangGraph"]
+
+    Ingest --> LLM["Qwen Cloud<br/>DashScope API"]
     Matching --> LLM
+    Recommend --> LLM
+
     Ingest --> SB
     Matching --> SB
+    Recommend --> SB
     API -->|service_role, bypass RLS| SB
 ```
 
-## 2. Backend — layer bắt buộc
+---
+
+## 2. Phân Tầng Trách Nhiệm Backend (Backend Layered Architecture)
 
 ```
-api/routes + api/schemas   → HTTP (validate input, gọi service, trả response model)
-agents/                    → LangGraph: ingest + matching
-services/ + repositories/  → domain logic + persistence (Supabase)
-clients/                   → LLM (Qwen) + Supabase client
-config/ + observability/ + guardrails/ + core/
+backend/app/
+├── api/routes + api/schemas   → HTTP Layer (Validate input DTO, gọi Service, trả Response model)
+├── agents/                    → LangGraph Orchestration (Ingest, Matching, Recommend, Interview, Evaluation)
+├── services/ + repositories/  → Domain Logic + Ranking Algorithms + Data Access (Supabase)
+├── clients/                   → External Clients (Qwen LLM, Supabase Admin Client)
+└── config/ + guardrails/ + core/ → Settings tập trung, PII Redaction, JWT Security, Rate Limiter
 ```
 
-Route không chứa business logic hay query Supabase trực tiếp; repository không raise `HTTPException`. `settings` luôn import từ `config/env.py`, không rải `os.getenv()` (xem `.cursor/rules/backend-architecture.mdc`).
+### Nguyên Tắc Bắt Buộc:
+- **Routes Layer**: Tuyệt đối không chứa logic nghiệp vụ hay truy vấn Supabase trực tiếp; repository không bắn mã lỗi `HTTPException`.
+- **Cấu hình**: `settings` luôn import từ `config/env.py`, tuân thủ cơ chế Fail-Fast từ chối khởi động nếu thiếu key an toàn trên Production.
+- **Xác thực & Phân quyền**: Mọi route (trừ `/health`) xác thực Supabase JWT qua header `Authorization: Bearer`, giải mã bằng `backend/app/core/security.py` (hỗ trợ HS256 và RS256/ES256 qua JWKS). Service layer chịu trách nhiệm kiểm tra quyền sở hữu (`owner_id`, `recruiter_id`) trước khi truy xuất dữ liệu.
 
-**Auth**: mọi route (trừ `/health`) xác thực Supabase JWT qua header `Authorization: Bearer`, verify bằng `backend/app/core/security.py` (HS256 với secret local, hoặc RS256/ES256 qua JWKS khi dùng Supabase Cloud). Backend dùng `service_role` key nên **tự chịu trách nhiệm check quyền sở hữu/role** trong service layer — RLS không tự bảo vệ được vì service_role bypass nó.
+---
 
-**API surface** (`/api/v1/...`):
-- `GET /health`
-- `PATCH /profiles/*` — hồ sơ người dùng
-- `POST /chat` — job seeker: gợi ý job (hiện là mock ranking); recruiter kèm `job_id`: chạy **Matching Agent** thật để gợi ý ứng viên
-- `POST /resumes/{id}/ingest` — chạy **Ingest Agent** trên 1 CV đã upload
-- `PATCH /admin/profiles/{id}`, `POST /admin/recruiter-forms/{id}/review` — thao tác admin
+## 3. Ingest Agent Workflow (Xử Lý & Vector Hóa CV)
 
-## 3. Ingest Agent (LangGraph) — xử lý CV
-
-`backend/app/agents/ingest/graph.py`. Chạy khi candidate ingest 1 resume (PDF/DOC/DOCX đã ở Supabase Storage).
+Được triển khai tại `backend/app/agents/ingest/graph.py`. Tự động kích hoạt khi ứng viên tải lên hoặc cập nhật CV:
 
 ```mermaid
 graph LR
-    START --> parse[parse<br/>PDF/DOCX → markdown + quality flag]
-    parse --> clean[clean<br/>chuẩn hoá markdown]
-    clean --> extract[extract<br/>trích skill từ text gốc]
-    extract --> summarize[summarize<br/>LLM tóm tắt + redact PII]
-    summarize --> embed[embed<br/>tạo vector embedding]
-    embed --> END
+    START((Start)) --> parse["parse<br/>PDF/DOCX &rarr; markdown"]
+    parse --> clean["clean<br/>Chuẩn hoá format"]
+    clean --> extract["extract<br/>Trích skill gốc (Extract-First)"]
+    extract --> summarize["summarize<br/>LLM tóm tắt + Redact PII"]
+    summarize --> embed["embed<br/>Tạo vector embedding"]
+    embed --> END((End))
 ```
 
-| Node | Việc làm |
+| Node | Trách nhiệm chính |
 |---|---|
-| `parse` | `pymupdf4llm` đọc PDF (fallback OCR khi nghi ngờ hỏng, fallback `pdfplumber` đọc theo cột khi nội dung vẫn quá ít), `python-docx` đọc DOCX thật → markdown + `metadata.content_chars`/`low_content` (cờ chất lượng parse) |
-| `clean` | chuẩn hoá whitespace/format markdown |
-| `extract` | trích skill từ markdown **gốc** (trước khi LLM tóm tắt) — deterministic, taxonomy ~185 skill + fuzzy fallback (`services/matching/skills.py`) |
-| `summarize` | gọi LLM (Qwen, JSON mode) tóm tắt CV thành `summary` + `titles` (lọc bỏ title LLM tự bịa không có trong nguồn), rồi `redact_pii` xoá thông tin nhạy cảm khỏi body; **không** đụng tới `metadata.skills` đã có từ bước `extract` |
-| `embed` | gọi Qwen embedding API (có retry/backoff) → vector, lưu vào `public.embedded_resumes` (pgvector) |
+| `parse` | Sử dụng `pymupdf4llm` đọc PDF layout-aware (fallback `pdfplumber` đọc theo cột tọa độ khi nội dung $< 600$ ký tự), `python-docx` đọc DOCX &rarr; sinh Markdown + cờ `metadata.content_chars`/`low_content`. |
+| `clean` | Chuẩn hóa khoảng trắng, ký tự rác OCR (`\x00`, `\ufeff`) và chuẩn hóa cấu trúc đề mục. |
+| `extract` | **Extract-First Architecture**: Quét trực tiếp trên Markdown **gốc** với từ điển 186 kỹ năng chuẩn hóa + Fuzzy matching (`rapidfuzz`). Đảm bảo $100\%$ kỹ năng được bảo toàn trước khi cho LLM tóm tắt. |
+| `summarize` | Gọi LLM (`qwen3.7-flash`, JSON mode) tóm tắt kinh nghiệm làm việc, áp dụng `grounded_titles` chống bịa đặt và `redact_pii` che thông tin cá nhân. |
+| `embed` | Gọi mô hình `qwen3.7-text-embedding` tạo vector 1536 chiều và lưu trữ nguyên tử vào `public.embedded_resumes` (pgvector HNSW index). |
 
-Skill được trích từ CV **trước** khi LLM tóm tắt (không phải từ bản tóm tắt), để tránh mất skill khi LLM cắt bớt nội dung. Kết quả ghi vào `public.embedded_resumes` (embedding + markdown đã parse + metadata skills), phục vụ semantic search sau này. Bảng này **không** expose qua Supabase Data API — chỉ backend (service_role) đọc/ghi được.
+---
 
-## 4. Matching Agent (LangGraph) — gợi ý ứng viên
+## 4. Matching Agent Workflow (Khớp Nối Ứng Viên Cho Nhà Tuyển Dụng)
 
-`backend/app/agents/matching/graph.py`. Chạy khi recruiter chat để tìm ứng viên phù hợp cho 1 `job_post`.
+Được triển khai tại `backend/app/agents/matching/graph.py`. Vận hành khi nhà tuyển dụng yêu cầu gợi ý ứng viên cho tin tuyển dụng (`job_id`):
 
 ```mermaid
 graph LR
-    START --> retrieve[retrieve<br/>load job + candidates<br/>semantic search pgvector]
-    retrieve --> skill[skill<br/>coverage score theo skill taxonomy]
-    skill --> rrf[rrf<br/>Reciprocal Rank Fusion]
-    rrf --> respond[respond<br/>sinh câu trả lời tóm tắt]
-    respond --> END
+    START((Start)) --> retrieve["retrieve<br/>pgvector Cosine Search"]
+    retrieve --> skill["skill<br/>Skill Graph Coverage"]
+    skill --> rrf["rrf<br/>Reciprocal Rank Fusion k=60"]
+    rrf --> rerank["rerank<br/>Cross-Encoder / LLM Scoring"]
+    rerank --> explain["explain<br/>Sinh giải thích ẩn danh CAND_xxx"]
+    explain --> respond["respond<br/>Tổng hợp kết quả"]
+    respond --> END((End))
 ```
 
-| Node | Việc làm |
+| Node | Trách nhiệm chính |
 |---|---|
-| `retrieve` | (`services/matching/retrieve.py`) load `job_posts` + danh sách `job_submits` chưa rút đơn; với mỗi resume chưa ingest thì tự ingest on-the-fly; build 2 embedding query (gốc + mở rộng bằng đồng nghĩa skill), gọi RPC Postgres `match_resumes_for_job` (pgvector) để lấy khoảng cách semantic |
-| `skill` | tính `coverage_score` — skill ứng viên khớp bao nhiêu % skill JD yêu cầu, dựa trên skill taxonomy JSON nội bộ (không phải bảng DB) |
-| `rrf` | Reciprocal Rank Fusion kết hợp rank semantic (gốc + mở rộng) và skill score thành 1 điểm tổng, deterministic |
-| `respond` | sinh câu trả lời text ngắn ("Gợi ý N ứng viên phù hợp") |
+| `retrieve` | Tải thông tin JD và danh sách ứng viên (`job_submits`); tự động ingest on-the-fly nếu CV chưa vector hóa; sinh embedding kép và gọi RPC Postgres `match_resumes_for_job`. |
+| `skill` | Tính toán `coverage_score` và `soft_delta` (kỹ năng còn thiếu) đối chiếu với đồ thị `skill_graph.json`. |
+| `rrf` | Áp dụng Reciprocal Rank Fusion kết hợp xếp hạng Semantic (Dense) và Keyword (BM25) thành điểm tổng $[0.0, 1.0]$. |
+| `rerank` | Tái xếp hạng top ứng viên bằng mô hình chấm điểm chuyên sâu. |
+| `explain` | Ẩn danh hóa danh tính (`CAND_001`, `CAND_002`...) trước khi gửi vào LLM để sinh lý do phù hợp khách quan 1-2 câu tiếng Việt; tự động fallback deterministic nếu LLM gián đoạn. |
+| `respond` | Tổng hợp danh sách ứng viên kèm giải thích và lưu bằng chứng vào `public.match_evidence`. |
 
-Sau khi graph chạy xong, `dependencies/services.py` gọi `persist_match_resume_rows` ghi lịch sử vào `public.match_resume` + evidence từng cặp vào `public.match_evidence` (best-effort, lỗi ghi không làm fail response).
+---
 
-Lưu ý: nhánh gợi ý **job cho candidate** (`POST /chat` không kèm `job_id`) hiện **chưa** dùng agent thật — dùng `mock_recommend()` (ranking giả lập). Chỉ nhánh recruiter → candidate đã nối vào Matching Agent thật.
+## 5. Recommend Agent Workflow (Gợi Ý Việc Làm Cho Ứng Viên)
 
-## 5. LLM & Embedding
+Được triển khai tại `backend/app/agents/recommend/graph.py`. Vận hành khi ứng viên yêu cầu tìm kiếm việc làm phù hợp với hồ sơ CV mặc định:
 
-Client duy nhất: `backend/app/clients/llm.py`, gọi **Qwen Cloud qua DashScope** (OpenAI-compatible endpoint), dùng cho cả chat completion (tóm tắt CV) và text embedding (semantic search).
-
-- Model chat mặc định: `qwen3.7-flash`
-- Model embedding mặc định: `qwen3.7-text-embedding`, dimension 1536 (giới hạn HNSW pgvector index tối đa 2000)
-- `OPENAI_API_KEY` / `MODEL_NAME` trong `.env` là biến **legacy**, gần như không còn được dùng trong pipeline agent hiện tại.
-
-## 6. Data layer — Supabase
-
-Postgres (qua Supabase) là nguồn dữ liệu chính, migrations ở `supabase/migrations/`.
-
-**Bảng chính** (RLS bật, frontend đọc/ghi trực tiếp qua Supabase JS):
-```
-public.profiles        -- user: role (candidate/recruiter/admin) + default_resume_id
-public.profile_lines    -- name/value dùng dựng CV
-public.resumes           -- metadata CV, file PDF ở Storage bucket "resumes"
-public.companies / job_posts
-public.job_submits       -- candidate nộp resume vào job_post
-public.match_resume / match_job / match_evidence  -- lịch sử + bằng chứng matching
+```mermaid
+graph LR
+    START((Start)) --> retrieve["retrieve<br/>Load Resume + Active Jobs Pool"]
+    retrieve --> kg["kg_retrieval<br/>Mở rộng quan hệ Job - Skill"]
+    kg --> skill["skill<br/>Đo mức độ đáp ứng yêu cầu"]
+    skill --> rrf["rrf<br/>Fusion Dense + BM25 + Constraints"]
+    rrf --> rerank["rerank<br/>Cross-score & Must-have Gating"]
+    rerank --> explain["explain<br/>Sinh giải thích phù hợp"]
+    explain --> respond["respond<br/>Trả về kết quả"]
+    respond --> END((End))
 ```
 
-**Bảng nội bộ** (chỉ backend service_role, không qua Data API):
-```
-public.embedded_resumes  -- vector(1536) pgvector HNSW + markdown đã parse + skills
-```
+- Tận dụng cache vector `public.embedded_jobs` để tối ưu hóa thời gian phản hồi dưới 1 giây cho ứng viên.
+- Áp dụng bộ lọc ràng buộc tiên quyết (**Must-have Constraints Gating**) để phân loại việc làm (*Phù hợp cao, Bình thường, Cần bổ sung kỹ năng*).
 
-**Skill taxonomy/graph**: file JSON tĩnh trong `backend/app/services/matching/resources/`, agent load in-process — không phải bảng DB, không có REST endpoint.
+---
 
-## 7. Frontend
+## 6. Mô Hình Dữ Liệu & Bảo Mật Supabase
 
-React 19 + Vite + TypeScript + Tailwind v4, gọi Supabase trực tiếp (`@supabase/supabase-js`) cho CRUD nghiệp vụ và gọi FastAPI backend cho `/chat`, `/resumes/{id}/ingest`, `/admin/*`. Có module dựng/xuất CV (`@dnd-kit`, `jspdf`, `html2canvas`). Deploy qua Vercel (`frontend/vercel.json`).
+- **PostgreSQL 15+ & pgvector**: Chỉ mục HNSW `vector_cosine_ops` (dimension 1536) trên bảng `embedded_resumes` và `embedded_jobs`.
+- **Row Level Security (RLS)**: Bật trên toàn bộ bảng công khai (`profiles`, `job_posts`, `job_submits`, `resumes`). Bảng nội bộ `embedded_resumes` chỉ cấp quyền cho backend `service_role`.
+- **Skill Taxonomy**: Bộ dữ liệu 186 kỹ năng chuẩn hóa và đồ thị kỹ năng (`skill_graph.json`) nạp trực tiếp in-memory với thuật toán so khớp mờ `rapidfuzz`.
 
-> Ghi chú: `@google/genai` có trong `package.json` nhưng không thấy được import ở `frontend/src` — có thể là dependency thừa/chưa dùng, cần xác nhận lại nếu định dọn dẹp.
+---
 
-## 8. Danh sách biến `.env`
+## 7. Kiểm Thử & Đảm Bảo Chất Lượng
 
-### `backend/.env` (copy từ `backend/.env.example`)
-
-| Biến | Bắt buộc | Mặc định / Nguồn | Ghi chú |
-|---|---|---|---|
-| `APP_ENV` | Không | `development` | `production` bắt buộc `SUPABASE_JWT_SECRET` khác giá trị default (startup fail nếu không) |
-| `CORS_ORIGINS` | Không | `http://localhost:5173,http://localhost:3000` | danh sách origin, phân tách bằng dấu phẩy |
-| `SUPABASE_URL` | **Có** | `npx supabase status` (local) hoặc project settings (cloud) | |
-| `SUPABASE_ANON_KEY` | Có (nếu dùng) | `npx supabase status` | |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Có** | `npx supabase status` / project settings | bypass RLS — tuyệt đối không lộ ra frontend/logs |
-| `SUPABASE_JWT_SECRET` | **Có** (bắt buộc khác default khi production) | `npx supabase status` | dùng verify JWT thuật toán HS256 (local) |
-| `QWEN_API_KEY` | **Có** (để agent chạy thật) | DashScope console | thiếu key → ingest/matching agent gọi LLM sẽ lỗi |
-| `QWEN_BASE_URL` | Không | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` | |
-| `LLM_MODEL` | Không | `qwen3.7-flash` | |
-| `EMBEDDING_MODEL` | Không | `qwen3.7-text-embedding` | |
-| `OPENAI_API_KEY` | Không (legacy) | — | không còn dùng trong pipeline agent chính |
-| `MODEL_NAME` | Không (legacy) | `gpt-4o-mini` | đi kèm `OPENAI_API_KEY` legacy |
-
-### `frontend/.env` (copy từ `frontend/.env.example`)
-
-| Biến | Bắt buộc | Ghi chú |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | **Có** | Vite expose prefix `VITE_`/`NEXT_PUBLIC_` (xem `vite.config.ts`) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Có** | anon/publishable key — an toàn để lộ (RLS bảo vệ) |
-| `VITE_API_BASE_URL` | **Có** | mặc định `http://localhost:8000`, trỏ tới FastAPI backend |
-
-## 9. Chạy local
-
-```bash
-npx supabase start              # Postgres + Auth + Storage local
-uvicorn backend.app.main:app --reload --port 8000   # hoặc: uvicorn backend.main:app
-cd frontend && npm run dev      # Vite dev server, port 3000
-```
-
-Deploy: `Dockerfile` build image Python 3.11-slim chạy `uvicorn backend.main:app`; `docker-compose.yml` chạy container backend đơn (health check `/health`). Frontend deploy riêng qua Vercel.
-
-## 10. Test
-
-`tests/` (pytest) bao phủ: matching graph end-to-end, từng bước pipeline (`rrf`, `skills`, `parse`, `embed`, `retrieve`, `summarize`, `ingest`), API routes, rate limiting (`guardrails/rate_limit.py` — giới hạn 20 request/60s cho `/chat`, in-memory nên chỉ đúng khi chạy 1 process).
+Hệ thống sở hữu bộ kiểm thử tự động toàn diện với **hơn 803 test cases** (`pytest tests/ -v`):
+- **Unit Tests**: Kiểm tra từng node LangGraph (`parse`, `clean`, `extract`, `summarize`, `embed`, `rrf`, `anonymize`).
+- **Integration Tests**: Kiểm thử luồng matching end-to-end, API endpoints, bảo mật JWT và Rate Limiter.
+- **Linting & Code Style**: `ruff check backend/ tests/` đạt 100% không phát sinh lỗi.

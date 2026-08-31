@@ -5,11 +5,12 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from langgraph.graph import END, StateGraph
 
-from backend.app.agents.interview.diversity import DiversityViolation, enforce_diversity
+from backend.app.agents.interview.diversity import DiversityError, enforce_diversity
 from backend.app.agents.interview.state import Agent2State
 from backend.app.agents.interview.tools import (
     get_candidate_cv,
@@ -77,7 +78,7 @@ def build_agent2_graph(
     async def query_graph_node(state: Agent2State) -> dict[str, Any]:
         candidate_id = state.get("candidate_id", "")
         projects = get_candidate_projects.invoke({"candidate_id": candidate_id})
-        skills = get_candidate_skills.invoke({"candidate_id": candidate_id})
+        get_candidate_skills.invoke({"candidate_id": candidate_id})
         return {
             "project_profiles": projects,
         }
@@ -85,8 +86,6 @@ def build_agent2_graph(
     async def plan_distribution_node(state: Agent2State) -> dict[str, Any]:
         jd_analysis = state.get("jd_analysis") or {}
         seniority = str(jd_analysis.get("seniority", "mid")).lower()
-        count_range = state.get("question_count_range", (5, 15))
-        target_count = min(max(count_range[0], 8), count_range[1])
 
         if "senior" in seniority or "lead" in seniority or "principal" in seniority:
             distribution = {
@@ -189,7 +188,7 @@ Output only the valid JSON array with no markdown fences or other text.
         # Enforce diversity
         try:
             diverse_questions = enforce_diversity(questions)
-        except DiversityViolation as e:
+        except DiversityError as e:
             logger.warning("Diversity violation during generation, falling back: %s", e)
             diverse_questions = questions
 
@@ -250,8 +249,10 @@ Output only the valid JSON array with no markdown fences or other text.
         validation = state.get("validation_result") or {}
         coverage_ratio = validation.get("ratio", 1.0)
         threshold = state.get("coverage_threshold", 0.80)
+        state_session_id = state.get("session_id") or str(uuid.uuid4())
 
         session_id = persist_interview_session.invoke({
+            "session_id": state_session_id,
             "candidate_id": candidate_id,
             "job_id": job_id,
             "questions": questions,
@@ -261,7 +262,7 @@ Output only the valid JSON array with no markdown fences or other text.
         })
 
         return {
-            "session_id": session_id,
+            "session_id": session_id or state_session_id,
             "status": "generated",
         }
 

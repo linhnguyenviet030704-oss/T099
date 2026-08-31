@@ -79,3 +79,21 @@ def test_qwen_cloud_defaults(monkeypatch):
     assert settings.embedding_model == "qwen3.7-text-embedding"
     assert settings.qwen_base_url.endswith("/compatible-mode/v1")
     assert settings.qwen_api_key == ""
+
+
+def test_cors_middleware_allows_vercel_domain():
+    from fastapi.testclient import TestClient
+
+    from backend.app.main import app
+
+    client = TestClient(app)
+    response = client.options(
+        "/api/v1/chat/sessions",
+        headers={
+            "Origin": "https://nextjob-matikanefukukitaru.vercel.app",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://nextjob-matikanefukukitaru.vercel.app"
+

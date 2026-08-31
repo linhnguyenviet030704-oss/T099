@@ -1,12 +1,12 @@
 import type { ApplicationStatus, JobPost, JobPostStatus } from "../types";
 import { formatCurrency } from "./format";
 
-export function salaryRange(job: Pick<JobPost, "salary_min" | "salary_max" | "currency">): string {
-  if (job.salary_min == null && job.salary_max == null) return "Thỏa thuận";
+export function salaryRange(job: Pick<JobPost, "salary_min" | "salary_max" | "currency">, lang: 'vi' | 'en' = 'vi'): string {
+  if (job.salary_min == null && job.salary_max == null) return lang === 'en' ? "Negotiable" : "Thỏa thuận";
   if (job.salary_min != null && job.salary_max != null) {
-    return `${formatCurrency(job.salary_min, job.currency)} - ${formatCurrency(job.salary_max, job.currency)}`;
+    return `${formatCurrency(job.salary_min, job.currency, lang)} - ${formatCurrency(job.salary_max, job.currency, lang)}`;
   }
-  return formatCurrency(job.salary_min ?? job.salary_max, job.currency);
+  return formatCurrency(job.salary_min ?? job.salary_max, job.currency, lang);
 }
 
 export function isDeadlinePassed(deadline: string | null | undefined): boolean {
@@ -40,3 +40,6 @@ export const APP_STATUS_COLORS: Record<ApplicationStatus, string> = {
 };
 
 export const TERMINAL_APP_STATUSES: ApplicationStatus[] = ["accepted", "rejected", "withdrawn"];
+
+// Các trạng thái trong quy trình tuyển dụng mà nhà tuyển dụng có thể cập nhật
+export const RECRUITER_STAGE_OPTIONS: ApplicationStatus[] = ["screening", "interview", "offer", "rejected"];

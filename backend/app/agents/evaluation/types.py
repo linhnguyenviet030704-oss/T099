@@ -40,12 +40,13 @@ class IntentType(StrEnum):
     RECOMMEND_GENERAL = "recommend_general"
 
     # Rejection intents
+    UNKNOWN = "unknown"
     CONTENT_TOO_SHORT = "content_too_short"
     INVALID_FORMAT = "invalid_format"
     OUT_OF_SCOPE = "out_of_scope"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
     SENSITIVE_CONTENT = "sensitive_content"
     RATE_LIMITED = "rate_limited"
-    UNSUPPORTED_LANGUAGE = "unsupported_language"
 
 
 class RejectionReason(StrEnum):
@@ -54,10 +55,11 @@ class RejectionReason(StrEnum):
     MINIMUM_CONTENT_NOT_MET = "minimum_content_not_met"
     UNPARSEABLE_FORMAT = "unparseable_format"
     OFF_TOPIC = "off_topic"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
+    AMBIGUOUS_REQUEST = "ambiguous_request"
     SENSITIVE_DATA_DETECTED = "sensitive_data_detected"
     QUOTA_EXCEEDED = "quota_exceeded"
     MALFORMED_REQUEST = "malformed_request"
-    UNSUPPORTED_LANGUAGE = "unsupported_language"
 
 
 @dataclass
@@ -70,9 +72,12 @@ class ParsedProfile:
     verified_skills: list[str] = field(default_factory=list)
     inferred_skills: list[str] = field(default_factory=list)
     experience_years: int | None = None
+    demonstrated_years: float | None = None
     education: list[str] = field(default_factory=list)
     job_titles: list[str] = field(default_factory=list)
     companies: list[str] = field(default_factory=list)
+    projects: list[dict[str, Any]] = field(default_factory=list)
+    authenticity: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -82,9 +87,12 @@ class ParsedProfile:
             "verified_skills": self.verified_skills,
             "inferred_skills": self.inferred_skills,
             "experience_years": self.experience_years,
+            "demonstrated_years": self.demonstrated_years,
             "education": self.education,
             "job_titles": self.job_titles,
             "companies": self.companies,
+            "projects": self.projects,
+            "authenticity": self.authenticity,
             "metadata": self.metadata,
         }
 
@@ -158,6 +166,9 @@ class EvaluationResult:
 
     recommendations: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    red_flags: list[str] = field(default_factory=list)
+    authenticity: dict[str, Any] = field(default_factory=dict)
+    natural_language_summary: str | None = None
 
     confidence: float = 0.8  # Overall confidence 0-1
 
@@ -189,8 +200,11 @@ class EvaluationResult:
                 "unexpected": self.skill_analysis.unexpected_skills,
                 "match_rate": round(self.skill_analysis.skill_match_rate, 1),
             },
+            "authenticity": self.authenticity,
+            "red_flags": self.red_flags,
             "recommendations": self.recommendations,
             "warnings": self.warnings,
+            "summary": self.natural_language_summary,
             "confidence": round(self.confidence, 2),
             "radar_chart": self.radar_chart.to_chart_format() if self.radar_chart else None,
             "benchmark": {

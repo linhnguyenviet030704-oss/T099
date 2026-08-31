@@ -409,6 +409,9 @@ Sau khi chạy `npx supabase status`, cập nhật các khóa kết nối vào f
 
 ---
 
+```powershell
+.\.venv\Scripts\python.exe scripts\seed_upload_generated_cvs.py
+```
 ### 4. Tài khoản Đăng nhập Mẫu (Seed Accounts)
 Hệ thống đi kèm sẵn 3 tài khoản mẫu được kích hoạt sẵn với mật khẩu chung: **`password123`**:
 

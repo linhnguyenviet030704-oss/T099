@@ -45,67 +45,67 @@ GROUPS = [
         "flutter developer", "react developer", "node developer", "java developer",
         ".net developer", "php developer", "lập trình viên", "software developer",
         "software engineer", "unity developer", "developer",
-    ], [], 12),
+    ], [], 1),
     (2, "DevOps/Infrastructure", [
         "devops", "site reliability", "sre", "release engineer", "platform engineer",
-    ], [], 8),
+    ], [], 1),
     (3, "System Administration", [
         "network administrator", "server administrator", "it support", "helpdesk",
         "help desk", "it operations", "system administrator", "quản trị hệ thống",
         "quản trị mạng", "nhân viên it", "it staff", "kỹ thuật mạng máy tính",
-    ], ["devops", "developer"], 7),
+    ], ["devops", "developer"], 1),
     (4, "Cybersecurity", [
         "security analyst", "penetration tester", "security engineer", "soc analyst",
         "incident response", "malware analyst", "grc", "an toàn thông tin",
         "bảo mật", "pentest", "redteam", "red team",
-    ], [], 8),
+    ], [], 1),
     (5, "Data", [
         "data analyst", "data engineer", "data scientist", "database administrator",
         " dba ", "bi developer", "business intelligence", "phân tích dữ liệu",
         "kỹ sư dữ liệu", "nhà phân tích dữ liệu",
-    ], [], 7),
+    ], [], 1),
     (6, "AI/ML", [
         "machine learning", "ai engineer", "ai leader", "ai research", "nlp engineer",
         "computer vision", "mlops", "trí tuệ nhân tạo", "ml engineer", "kỹ sư ai",
         "kỹ sư trí tuệ nhân tạo",
-    ], ["camera ai", "kinh doanh"], 7),
+    ], ["camera ai", "kinh doanh"], 1),
     (7, "QA/Testing", [
         "tester", " qa ", "qa engineer", "automation test", "performance tester",
         "kiểm thử", "quality assurance",
-    ], [], 6),
+    ], [], 1),
     (8, "Project/Product Management", [
         "project manager", "product manager", "scrum master", "product owner",
         "business analyst", "quản lý dự án", "phân tích nghiệp vụ",
         "nhà phân tích kinh doanh",
-    ], ["marketing", "bán hàng", "sales"], 6),
+    ], ["marketing", "bán hàng", "sales"], 1),
     (9, "Architecture", [
         "solution architect", "software architect", "enterprise architect",
         "cloud architect", "kiến trúc sư giải pháp", "kiến trúc sư hệ thống",
         "kiến trúc sư phần mềm", "kiến trúc sư web",
-    ], [], 5),
+    ], [], 1),
     (10, "Networking", [
         "network engineer", "network security engineer", "telecom engineer",
         "voip engineer", "kỹ sư mạng",
-    ], [], 5),
+    ], [], 1),
     (11, "Cloud Computing", [
         "cloud engineer", "cloud architect", "cloud consultant", "cloud security",
         "aws ", "azure", "đám mây",
-    ], ["marketing"], 3),
+    ], ["marketing"], 0),
     (12, "Blockchain & Web3", [
         "blockchain", "smart contract", "solidity", "web3",
-    ], ["marketing", "content", "video editor", "affiliate", "giám đốc", "giảng viên"], 2),
+    ], ["marketing", "content", "video editor", "affiliate", "giám đốc", "giảng viên"], 0),
     (13, "UI/UX & Design", [
         "ui/ux", "ui designer", "ux designer", "ux researcher", "interaction designer",
         "product designer",
-    ], [], 6),
+    ], [], 0),
     (14, "ERP/CRM", [
         "sap consultant", "sap fico", "sap fi", "sap mm", "sap abap", "salesforce",
         "odoo", "oracle erp", "erp consultant",
-    ], [], 6),
+    ], [], 0),
     (15, "IoT & Embedded", [
         "embedded", "firmware", "iot ", "robotics engineer", "kỹ sư nhúng",
         "lập trình nhúng", "hệ thống nhúng", "fpga", "vi mạch",
-    ], [], 7),
+    ], [], 0),
 ]
 
 CONTRACT_MAP = {
@@ -136,7 +136,7 @@ LOCATION_MAP = {
 COMPANY_NAMES = [
     "DataViet Solutions", "Bamboo Software", "Hanoi Cloud Labs", "Saigon Devtech",
     "Indigo Systems", "Northstar IT", "Fintech Wave", "Coral Reef Software",
-    "Emerald Data Works", "Falcon Security VN", "Mekong Digital", "Skyline Platform",
+    "Emerald Data Works", "Falcon Security VN",
 ]
 
 VN_NUM_RE = re.compile(r"[\'\"]")

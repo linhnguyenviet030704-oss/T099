@@ -1,5 +1,7 @@
-# Pipeline CI/CD Tự động Build Docker Image, Push lên Amazon ECR và Deploy vào AWS EC2
-name: CD Deploy Pipeline (ECR + EC2)
+# =============================================================================
+# Pipeline CI/CD: Tự động Build ECR, Deploy AWS EC2, Health Check & Vercel
+# =============================================================================
+name: CD Deploy Pipeline (ECR + EC2 + Health Check)
 
 on:
   push:
@@ -7,11 +9,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ==========================================
+  # ===========================================================================
   # Giai đoạn 1: Deploy Database Migrations lên Supabase Cloud
-  # ==========================================
+  # ===========================================================================
   deploy-database:
-    name: "1. Deploy Migrations to Supabase"
+    name: "1. Database Migrations (Supabase Cloud)"
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -30,16 +32,18 @@ jobs:
       - name: "🚀 Đẩy DB Migrations lên Supabase Cloud"
         if: ${{ env.SUPABASE_ACCESS_TOKEN != '' && env.SUPABASE_PROJECT_ID != '' && env.SUPABASE_DB_PASSWORD != '' }}
         run: |
+          echo "=== KẾT NỐI VÀ ĐẨY MIGRATIONS ==="
           supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}" -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
           supabase db push --include-all -p "${{ secrets.SUPABASE_DB_PASSWORD }}"
+          echo "✅ Cập nhật Database Supabase thành công!"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-  # ==========================================
+  # ===========================================================================
   # Giai đoạn 2: Build Docker Image & Push lên Amazon ECR
-  # ==========================================
+  # ===========================================================================
   build-and-push-ecr:
-    name: "2. Build & Push to Amazon ECR"
+    name: "2. Build & Push Image (Amazon ECR)"
     runs-on: ubuntu-latest
     outputs:
       ecr_registry: ${{ steps.login-ecr.outputs.registry }}
@@ -74,32 +78,42 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "=== BẮT ĐẦU BUILD DOCKER IMAGE ==="
+          echo "=================================================="
+          echo "🐳 BẮT ĐẦU BUILD DOCKER IMAGE CHO BACKEND"
+          echo "=================================================="
           IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           LATEST_URI="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
-          # 2. Build với cờ --platform linux/amd64 để tương thích tuyệt đối với AWS EC2
-          docker build --platform linux/amd64 -t "$IMAGE_URI" -t "$LATEST_URI" .
-          
-          # 4. Push Image lên Amazon ECR
-          echo "🚀 Đang đẩy Docker Image lên Amazon ECR: $IMAGE_URI"
+          echo "📦 Target Image URI: $IMAGE_URI"
+          echo "📦 Target Latest URI: $LATEST_URI"
+          echo "🖥️ Kiến trúc Platform: linux/amd64 (Tương thích chuẩn AWS EC2)"
+
+          # Build Image với Docker Buildx cho nền tảng linux/amd64
+          docker build --platform linux/amd64 \
+            -t "$IMAGE_URI" \
+            -t "$LATEST_URI" \
+            .
+
+          echo "=================================================="
+          echo "🚀 ĐẨY IMAGE LÊN AMAZON ECR"
+          echo "=================================================="
           docker push "$IMAGE_URI"
           docker push "$LATEST_URI"
 
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "image_uri=$LATEST_URI" >> $GITHUB_OUTPUT
-          echo "=== BUILD & PUSH ECR THÀNH CÔNG ==="
+          echo "✅ BUILD VÀ PUSH ECR THÀNH CÔNG!"
 
-  # ==========================================
-  # Giai đoạn 3: SSH vào AWS EC2 và Kéo Docker Image từ ECR về chạy
-  # ==========================================
+  # ===========================================================================
+  # Giai đoạn 3: SSH vào AWS EC2 và Triển khai Container Backend
+  # ===========================================================================
   deploy-ec2:
-    name: "3. Deploy to AWS EC2 via SSH"
+    name: "3. Deploy & Run Container (AWS EC2)"
     needs: [deploy-database, build-and-push-ecr]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: "🚀 Kết nối SSH và chạy Container mới từ ECR trên EC2"
+      - name: "🚀 Kết nối SSH và chạy Container mới trên EC2"
         if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -111,34 +125,49 @@ jobs:
             AWS_REGION=${{ secrets.AWS_REGION || 'ap-southeast-2' }}
             ECR_REGISTRY=${{ needs.build-and-push-ecr.outputs.ecr_registry || secrets.ECR_REGISTRY }}
             ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}
+            IMAGE_TAG=${{ github.sha }}
           script: |
+            set -e
             echo "=================================================="
-            echo "🚀 BẮT ĐẦU CẬP NHẬT CONTAINER TRÊN AWS EC2 TỪ ECR"
+            echo "🖥️ 1. THÔNG TIN HỆ THỐNG MÁY CHỦ EC2"
             echo "=================================================="
+            echo "Hostname: $(hostname)"
+            echo "User: $(whoami)"
+            echo "Dung lượng đĩa trống: $(df -h / | awk 'NR==2 {print $4}')"
+            echo "RAM khả dụng: $(free -h | awk 'NR==2 {print $7}')"
+            docker --version || echo "Docker đã được cài đặt"
 
             AWS_REGION="${AWS_REGION:-ap-southeast-2}"
 
-            # 1. Đăng nhập AWS ECR trên EC2
             if [ -n "$ECR_REGISTRY" ] && [ -n "$ECR_REPOSITORY" ]; then
-              echo "🔐 1. Đăng nhập AWS ECR trên EC2..."
+              echo "=================================================="
+              echo "🔐 2. ĐĂNG NHẬP AMAZON ECR TRÊN EC2"
+              echo "=================================================="
               aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY" || true
 
               IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
-              # 2. Dừng và xóa container cũ
-              echo "🛑 2. Dừng và xóa container cũ..."
-              docker rm -f backend 2>/dev/null || true
-
-              # 3. Xóa Image cũ trên EC2 để giải phóng dung lượng đĩa
-              echo "🧹 3. Xóa Image cũ trên EC2..."
-              docker rmi "$IMAGE_NAME" 2>/dev/null || true
-
-              # 4. Kéo Image mới vừa push từ ECR (BƯỚC KÉO TỪ ECR VỀ)
-              echo "📥 4. Kéo Image mới nhất từ ECR: $IMAGE_NAME"
+              echo "=================================================="
+              echo "📥 3. KÉO DOCKER IMAGE MỚI NHẤT TỪ ECR"
+              echo "=================================================="
+              echo "Đang kéo: $IMAGE_NAME"
               docker pull "$IMAGE_NAME"
 
-              # 5. Khởi chạy Container Backend mới với Volume mount dữ liệu
-              echo "🚀 5. Khởi chạy Container Backend mới..."
+              echo "=================================================="
+              echo "🛑 4. DỪNG VÀ XÓA CONTAINER BACKEND CŨ"
+              echo "=================================================="
+              if docker ps -a --format '{{.Names}}' | grep -Eq "^backend$"; then
+                echo "Đang dừng container backend hiện tại..."
+                docker stop backend || true
+                docker rm -f backend || true
+                echo "Đã dọn dẹp container backend cũ."
+              else
+                echo "Chưa có container backend nào đang chạy."
+              fi
+
+              echo "=================================================="
+              echo "🚀 5. KHỞI CHẠY CONTAINER BACKEND MỚI"
+              echo "=================================================="
               mkdir -p "$HOME/data"
 
               ENV_FILE=""
@@ -151,7 +180,12 @@ jobs:
               fi
 
               ENV_ARG=""
-              [ -n "$ENV_FILE" ] && ENV_ARG="--env-file $ENV_FILE"
+              if [ -n "$ENV_FILE" ]; then
+                echo "Sử dụng file môi trường: $ENV_FILE"
+                ENV_ARG="--env-file $ENV_FILE"
+              else
+                echo "⚠️ Cảnh báo: Không tìm thấy file .env tại các vị trí mặc định"
+              fi
 
               docker run -d \
                 --name backend \
@@ -161,12 +195,20 @@ jobs:
                 $ENV_ARG \
                 "$IMAGE_NAME"
 
-
-              # Dọn dẹp images cũ không dùng để tiết kiệm ổ đĩa
+              echo "=================================================="
+              echo "🧹 6. DỌN DẸP DOCKER IMAGES KHÔNG DÙNG"
+              echo "=================================================="
               docker image prune -f || true
 
+              echo "=================================================="
+              echo "📊 7. TRẠNG THÁI CONTAINER HIỆN TẠI"
+              echo "=================================================="
+              docker ps --filter name=backend --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"
+
             else
-              echo "ℹ️ Không có cấu hình ECR, fallback sang chế độ Git Pull & Docker Compose..."
+              echo "=================================================="
+              echo "ℹ️ FALLBACK: BUILD TRỰC TIẾP TỪ GIT TRÊN EC2"
+              echo "=================================================="
               APP_DIR="${{ secrets.EC2_APP_DIR }}"
               if [ -z "$APP_DIR" ]; then
                 if [ -d "$HOME/team-Matikanefukukitaru" ]; then
@@ -177,25 +219,93 @@ jobs:
                   APP_DIR="$(pwd)"
                 fi
               fi
+              echo "Thư mục mã nguồn: $APP_DIR"
               cd "$APP_DIR" || exit 1
+              echo "Đang kéo mã nguồn mới nhất từ Git..."
               git pull origin main || git pull
+              echo "Đang build và restart bằng Docker Compose..."
               docker compose down || true
               docker compose up -d --build
             fi
 
-            # Kiểm tra trạng thái hoạt động
-            echo "🔍 Kiểm tra trạng thái hoạt động backend..."
-            sleep 5
-            curl -f http://localhost:8000/health || curl -f http://127.0.0.1:8000/health || echo "Backend đang khởi động..."
             echo "=================================================="
-            echo "✅ DEPLOY CONTAINER LÊN AWS EC2 THÀNH CÔNG!"
+            echo "✅ HOÀN TẤT BƯỚC KHỞI CHẠY CONTAINER TRÊN EC2!"
             echo "=================================================="
 
-  # ==========================================
-  # Giai đoạn 4: Deploy Frontend lên Vercel Production
-  # ==========================================
+  # ===========================================================================
+  # Giai đoạn 4: Health Check & Chẩn đoán hệ thống Backend EC2
+  # ===========================================================================
+  health-check-ec2:
+    name: "4. Health Check & Diagnostics (AWS EC2)"
+    needs: [deploy-ec2]
+    runs-on: ubuntu-latest
+    steps:
+      - name: "🩺 Kiểm tra Health Check nội bộ trên EC2 (qua SSH)"
+        if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER || 'ubuntu' }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          script: |
+            echo "=================================================="
+            echo "🩺 BẮT ĐẦU KIỂM TRA HEALTH CHECK BACKEND NỘI BỘ"
+            echo "=================================================="
+
+            SUCCESS=0
+            for i in $(seq 1 10); do
+              echo "Lần thử $i/10: Kiểm tra http://127.0.0.1:8000/health ..."
+              STATUS=$(curl -s -o /tmp/health_resp.json -w "%{http_code}" http://127.0.0.1:8000/health || echo "000")
+              if [ "$STATUS" = "200" ]; then
+                echo "✅ Backend đã phản hồi 200 OK!"
+                echo "Response payload: $(cat /tmp/health_resp.json)"
+                SUCCESS=1
+                break
+              fi
+              echo "⏳ Backend chưa sẵn sàng (HTTP: $STATUS). Đợi 3 giây..."
+              sleep 3
+            done
+
+            echo "=================================================="
+            echo "📜 30 DÒNG LOG MỚI NHẤT TỪ BACKEND CONTAINER"
+            echo "=================================================="
+            docker logs backend --tail 30 2>&1 || true
+
+            if [ "$SUCCESS" -ne 1 ]; then
+              echo "❌ LỖI: Backend không vượt qua Health Check sau 10 lần thử!"
+              echo "Chi tiết log lỗi container:"
+              docker logs backend --tail 100 2>&1 || true
+              exit 1
+            fi
+
+            echo "=================================================="
+            echo "✅ BACKEND EC2 HEALTH CHECK THÀNH CÔNG!"
+            echo "=================================================="
+
+      - name: "🌐 Kiểm tra Health Check qua Public API Endpoint"
+        run: |
+          echo "=================================================="
+          echo "🌐 KIỂM TRA ENDPOINT CÔNG KHAI QUA INTERNET"
+          echo "=================================================="
+          PUBLIC_URL="https://api.clumsytryhard.id.vn/health"
+          echo "Đang gửi request tới: $PUBLIC_URL"
+
+          STATUS=$(curl -s -o /tmp/public_health.json -w "%{http_code}" "$PUBLIC_URL" || echo "000")
+          echo "HTTP Status Code: $STATUS"
+
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Public Domain phản hồi 200 OK!"
+            echo "Nội dung phản hồi: $(cat /tmp/public_health.json)"
+          else
+            echo "ℹ️ Lưu ý: Public domain trả về $STATUS (có thể Cloudflare/DNS đang cập nhật)"
+          fi
+
+  # ===========================================================================
+  # Giai đoạn 5: Deploy Frontend lên Vercel Production
+  # ===========================================================================
   deploy-frontend:
-    name: "4. Deploy Frontend (Vercel)"
+    name: "5. Deploy Frontend (Vercel)"
     needs: [deploy-database]
     if: always()
     runs-on: ubuntu-latest

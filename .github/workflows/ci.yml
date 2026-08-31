@@ -361,7 +361,8 @@ jobs:
           port: ${{ secrets.EC2_PORT || 22 }}
           envs: |
             AWS_REGION=${{ secrets.AWS_REGION || 'ap-southeast-2' }}
-            ECR_REGISTRY=${{ needs.build-and-push-ecr.outputs.ecr_registry || secrets.ECR_REGISTRY }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}
             IMAGE_TAG=${{ github.sha }}
           script: |
@@ -377,12 +378,17 @@ jobs:
 
             AWS_REGION="${AWS_REGION:-ap-southeast-2}"
 
-            if [ -n "$ECR_REGISTRY" ] && [ -n "$ECR_REPOSITORY" ]; then
+            if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ] && [ -n "$ECR_REPOSITORY" ]; then
               echo "=================================================="
               echo "🔐 2. ĐĂNG NHẬP AMAZON ECR TRÊN EC2"
               echo "=================================================="
-              aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY" || true
+              aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+              aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+              aws configure set region "$AWS_REGION"
+              
+              aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com" || true
 
+              ECR_REGISTRY="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com"
               IMAGE_NAME="$ECR_REGISTRY/$ECR_REPOSITORY:latest"
 
               echo "=================================================="

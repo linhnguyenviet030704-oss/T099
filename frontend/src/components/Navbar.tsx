@@ -5,6 +5,7 @@ import {
   Briefcase, User, FileText, BookOpen, LogOut, Sun, Moon,
   Menu, X, ChevronDown, Star, LayoutDashboard, Shield, GitBranch, MessageSquareCode, Compass,
 } from "lucide-react";
+import { NotificationBell } from "./notifications/NotificationBell";
 import { useTheme } from "../context/AppContext";
 import { useLang } from "../context/LangContext";
 import { useAuth } from "../auth/AuthProvider";
@@ -145,6 +146,8 @@ export default function Navbar() {
                   </motion.div>
                 </AnimatePresence>
               </motion.button>
+
+              <NotificationBell />
 
               {user ? (
                 <div className="relative hidden md:block">

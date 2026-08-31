@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = DEFAULT_JWT_SECRET
     supabase_anon_key: str = ""
 
+    # Cron secret (dùng cho internal endpoints gọi từ cron)
+    cron_secret: str = ""
+
     # GitHub API
     github_token: str = ""
     github_api_key: str = ""

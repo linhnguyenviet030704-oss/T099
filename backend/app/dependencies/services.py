@@ -19,9 +19,17 @@ from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger, request_id_ctx
+from backend.app.repositories.interview_invitation_repository import InterviewInvitationRepository
+from backend.app.repositories.notification_repository import NotificationRepository
 from backend.app.repositories.profile_repository import ProfileRepository
+from backend.app.repositories.reputation_repository import ReputationRepository
+from backend.app.repositories.application_repository import ApplicationRepository
+from backend.app.repositories.email_outbox_repository import EmailOutboxRepository
 from backend.app.services.admin_service import AdminService
+from backend.app.services.application_service import ApplicationService
 from backend.app.services.chat_service import ChatService, chat_response_from_graph, jobs_response_from_graph
+from backend.app.services.notification_service import NotificationService
+from backend.app.services.reputation_service import ReputationService
 from backend.app.services.matching.retrieve import persist_match_resume_rows, retrieve_for_job
 from backend.app.services.matching.retrieve_jobs import persist_recommend_job_rows, retrieve_jobs_for_resume
 from backend.app.services.matching.store import SupabaseResumeStore
@@ -549,6 +557,56 @@ def get_admin_service(
     repository: ProfileRepository = Depends(get_profile_repository),
 ) -> AdminService:
     return AdminService(repository)
+
+
+def get_notification_repository(
+    client: Client = Depends(get_supabase_client),
+) -> NotificationRepository:
+    return NotificationRepository(client)
+
+
+def get_notification_service(
+    repository: NotificationRepository = Depends(get_notification_repository),
+) -> NotificationService:
+    return NotificationService(repository)
+
+
+def get_application_repository(
+    client: Client = Depends(get_supabase_client),
+) -> ApplicationRepository:
+    return ApplicationRepository(client)
+
+
+def get_email_outbox_repository(
+    client: Client = Depends(get_supabase_client),
+) -> EmailOutboxRepository:
+    return EmailOutboxRepository(client)
+
+
+def get_application_service(
+    repository: ApplicationRepository = Depends(get_application_repository),
+    email_repo: EmailOutboxRepository = Depends(get_email_outbox_repository),
+    client: Client = Depends(get_supabase_client),
+) -> ApplicationService:
+    return ApplicationService(repository, email_repo, client)
+
+
+def get_reputation_repository(
+    client: Client = Depends(get_supabase_client),
+) -> ReputationRepository:
+    return ReputationRepository(client)
+
+
+def get_reputation_service(
+    repository: ReputationRepository = Depends(get_reputation_repository),
+) -> ReputationService:
+    return ReputationService(repository)
+
+
+def get_interview_invitation_repository(
+    client: Client = Depends(get_supabase_client),
+) -> InterviewInvitationRepository:
+    return InterviewInvitationRepository(client)
 
 
 # === Per-agent brain accessors ===

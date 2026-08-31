@@ -1,5 +1,3 @@
-import json
-
 from scripts.seed_generated_cvs import CANDIDATE_ID, CANDIDATE_OVERRIDE_CV_ID, build_block
 
 

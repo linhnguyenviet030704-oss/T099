@@ -23,7 +23,7 @@ create table public.notifications (
   message text not null,
   link_url text,
   metadata jsonb default '{}'::jsonb,
-  idempotency_key text,
+  idempotency_key text unique,
   is_read boolean not null default false,
   read_at timestamptz,
   created_at timestamptz not null default now()
@@ -37,7 +37,7 @@ create index notifications_user_unread_idx
   on public.notifications (user_id, created_at desc)
   where not is_read;
 
-create unique index notifications_idempotency_idx
+create index notifications_idempotency_idx
   on public.notifications (idempotency_key)
   where idempotency_key is not null;
 

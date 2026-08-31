@@ -29,6 +29,7 @@ export function ApplicationStatusModal({
   const [error, setError] = useState<string | null>(null);
 
   const statusLabels: Record<string, string> = {
+    pending: 'đã nộp đơn',
     screening: 'sàng lọc',
     interview: 'mời phỏng vấn',
     offer: 'đề xuất công việc',

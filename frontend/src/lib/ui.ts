@@ -40,3 +40,6 @@ export const APP_STATUS_COLORS: Record<ApplicationStatus, string> = {
 };
 
 export const TERMINAL_APP_STATUSES: ApplicationStatus[] = ["accepted", "rejected", "withdrawn"];
+
+// Các trạng thái trong quy trình tuyển dụng mà nhà tuyển dụng có thể cập nhật
+export const RECRUITER_STAGE_OPTIONS: ApplicationStatus[] = ["screening", "interview", "offer", "rejected"];

@@ -12,7 +12,7 @@ P-099 là nền tảng tuyển dụng cho ứng viên và nhà tuyển dụng, g
 - Matching hybrid gồm lexical/BM25, semantic embedding/pgvector, skill graph/taxonomy, hard constraints, RRF và rerank.
 - Eval hiện có hai nhánh chính: `evaluation/ingest_eval_v2/` cho ingest CV và `evaluation/golden/` cho ranking hai chiều cùng chất lượng ingest.
 
-`backend/app/agents/` là agent code đang dùng. Không tạo hoặc sửa agent ở thư mục scaffold/tàn dư khác nếu chưa chứng minh có import/runtime path thật.
+`backend/app/agents/` là mã nguồn LangGraph Agent chính thức của hệ thống. Mọi luồng agent đều được import và thực thi từ module này.
 
 ## 2. Nguồn sự thật
 

@@ -9,7 +9,7 @@ import { supabase, handleSupabaseError } from "../lib/supabase";
 import { getResumeSignedUrl } from "../lib/storage";
 import type { Application, ApplicationStatus, CompanyMember, EmploymentType, JobPost, JobPostStatus, Profile } from "../types";
 import { getEnumLabels, formatDate } from "../lib/format";
-import { APP_STATUS_COLORS, JOB_STATUS_COLORS, salaryRange, TERMINAL_APP_STATUSES } from "../lib/ui";
+import { APP_STATUS_COLORS, JOB_STATUS_COLORS, salaryRange, TERMINAL_APP_STATUSES, RECRUITER_STAGE_OPTIONS } from "../lib/ui";
 import AnimatedPage from "../components/AnimatedPage";
 import Button from "../components/ui/Button";
 import { useToast } from "../context/ToastContext";
@@ -620,14 +620,32 @@ export default function RecruitmentDashboardPage() {
                               <div className="flex items-center gap-2">
                                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>{enumLabels.application_status[app.current_status]}</span>
                                 {!TERMINAL_APP_STATUSES.includes(app.current_status) && (
-                                  <Button size="xs" variant="outline" onClick={() => setSelectedApp(isSelected ? null : app.id)}>{t.updateStage}</Button>
+                                  <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (isSelected) {
+                                        setSelectedApp(null);
+                                      } else {
+                                        // Nhà tuyển dụng không chuyển về 'pending' (Đã nộp đơn), mặc định 'screening' nếu đang pending
+                                        const initialStage: ApplicationStatus = app.current_status === "pending"
+                                          ? "screening"
+                                          : (RECRUITER_STAGE_OPTIONS.includes(app.current_status) ? app.current_status : "screening");
+                                        setSelectedApp(app.id);
+                                        setNewStatus(initialStage);
+                                        setStageNote("");
+                                      }
+                                    }}
+                                  >
+                                    {t.updateStage}
+                                  </Button>
                                 )}
                               </div>
                             </div>
                             {isSelected && (
                               <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
                                 <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ApplicationStatus)} className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white">
-                                  {(Object.keys(enumLabels.application_status) as ApplicationStatus[]).filter((s) => !TERMINAL_APP_STATUSES.includes(s) || s === "rejected").map((s) => (
+                                  {RECRUITER_STAGE_OPTIONS.map((s) => (
                                     <option key={s} value={s}>{enumLabels.application_status[s]}</option>
                                   ))}
                                 </select>

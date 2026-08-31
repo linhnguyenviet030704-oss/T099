@@ -14,8 +14,11 @@ from pydantic import BaseModel, Field
 
 from backend.app.agents.eval.graph import agent1_graph
 from backend.app.clients.supabase import get_supabase_client
+from backend.app.guardrails.input import MAX_CV_BYTES, validate_file
 from backend.app.services.eval.cv_repo_extractor import extract_cv_repos_and_projects
 from backend.app.services.eval.github_parser import normalize_github_url
+from backend.app.services.matching.parse import parse_resume_bytes
+from backend.app.services.matching.store import SupabaseResumeStore
 
 logger = logging.getLogger(__name__)
 
@@ -185,20 +188,42 @@ async def extract_cv_repositories(req: ExtractCvReposRequest) -> ExtractCvReposR
                     or ""
                 )
 
-            # 2. If still empty, check resumes table
-            if not cv_text:
+            # 2. If still empty, download from Storage and parse directly
+            if not cv_text or len(cv_text.strip()) < 30:
                 resume_row = (
                     db.table("resumes")
-                    .select("id, title, storage_path, bucket_id")
+                    .select("id, user_id, title, storage_path, bucket_id, mime_type")
                     .eq("id", str(req.resume_id))
                     .maybe_single()
                     .execute()
                 )
                 if resume_row and resume_row.data:
-                    # Ingest or fallback text
-                    cv_text = resume_row.data.get("title") or ""
+                    storage_path = resume_row.data.get("storage_path")
+                    bucket_id = resume_row.data.get("bucket_id") or "resumes"
+                    if storage_path:
+                        store = SupabaseResumeStore(db)
+                        blob = await store.download(bucket_id, storage_path)
+                        validated = validate_file(
+                            blob,
+                            declared_mime=resume_row.data.get("mime_type") or "",
+                            max_bytes=MAX_CV_BYTES,
+                        )
+                        parsed_local = parse_resume_bytes(validated.data, mime_type=validated.detected_mime)
+                        cv_text = str(parsed_local.get("markdown") or "")
+
+                    # Fallback 3: Tái tạo từ profile_lines nếu tệp không có text layer (file scan/ảnh)
+                    if not cv_text or len(cv_text.strip()) < 30:
+                        owner_id = resume_row.data.get("user_id")
+                        if owner_id:
+                            prof = db.table("profiles").select("*").eq("id", owner_id).maybe_single().execute()
+                            lns = db.table("profile_lines").select("*").eq("user_id", owner_id).order("display_order").execute()
+                            if lns and lns.data:
+                                from backend.app.api.routes.evaluation import _build_cv_from_profile_lines
+                                reconstructed = _build_cv_from_profile_lines(prof.data if prof else None, lns.data)
+                                if len(reconstructed.strip()) >= 30:
+                                    cv_text = reconstructed
         except Exception as e:
-            logger.warning("Could not fetch CV markdown from DB for resume %s: %s", req.resume_id, e)
+            logger.warning("Could not fetch/download CV markdown from DB for resume %s: %s", req.resume_id, e)
 
     if req.profile_url:
         cv_text = f"{cv_text}\nGitHub: {req.profile_url}"

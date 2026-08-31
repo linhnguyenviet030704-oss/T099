@@ -15,6 +15,9 @@ from backend.app.agents.routing import RoutingAgent
 from backend.app.api.schemas.evaluation import (
     CvAssessmentRequest,
     CvAssessmentResponse,
+    CvAssessmentHistoryItem,
+    SaveCvAssessmentHistoryRequest,
+    UpdateChecklistRequest,
     EvaluationRequest,
     EvaluationResponse,
     MetricScoreResponse,
@@ -56,6 +59,55 @@ def _get_routing_agent() -> RoutingAgent:
     return RoutingAgent(brain=None)
 
 
+def _build_cv_from_profile_lines(profile: dict | None, lines: list[dict]) -> str:
+    parts = []
+    if profile:
+        name = profile.get("full_name") or profile.get("email") or "Ứng viên"
+        email = profile.get("email") or ""
+        phone = profile.get("phone") or ""
+        role = profile.get("desired_role") or ""
+        bio = profile.get("bio") or ""
+        header = f"# {name}"
+        meta = []
+        if email:
+            meta.append(f"Email: {email}")
+        if phone:
+            meta.append(f"SĐT: {phone}")
+        if role:
+            meta.append(f"Vị trí: {role}")
+        if meta:
+            header += "\n" + " | ".join(meta)
+        if bio:
+            header += f"\n\n{bio}"
+        parts.append(header)
+
+    sections: dict[str, list[str]] = {}
+    section_titles = {
+        "work_experience": "Kinh nghiệm làm việc",
+        "experience": "Kinh nghiệm làm việc",
+        "education": "Học vấn",
+        "skill": "Kỹ năng chuyên môn",
+        "skills": "Kỹ năng chuyên môn",
+        "project": "Dự án tiêu biểu",
+        "projects": "Dự án tiêu biểu",
+        "certificate": "Chứng chỉ",
+        "award": "Giải thưởng",
+        "activity": "Hoạt động & Tổ chức",
+        "summary": "Giới thiệu bản thân",
+    }
+    for line in lines:
+        name = str(line.get("name") or "other").lower()
+        val = str(line.get("value") or "").strip()
+        if val:
+            title = section_titles.get(name, name.replace("_", " ").title())
+            sections.setdefault(title, []).append(val)
+
+    for title, items in sections.items():
+        parts.append(f"## {title}\n" + "\n\n".join(items))
+
+    return "\n\n".join(parts).strip()
+
+
 async def _resolve_authorized_inputs(
     request: EvaluationRequest,
     *,
@@ -89,6 +141,24 @@ async def _resolve_authorized_inputs(
                     cv_text = str(parsed_local.get("markdown") or "")
             except Exception as e:
                 logger.warning("Không thể tải hoặc trích xuất tệp CV từ Storage: %s", e)
+
+        # Fallback 3: Tái tạo nội dung CV từ bảng profile_lines và profiles của ứng viên
+        if not cv_text or len(cv_text.strip()) < 30:
+            try:
+                owner_id = str(resume.get("user_id") or actor_id)
+
+                def _fetch_profile_data():
+                    p = client.table("profiles").select("*").eq("id", owner_id).maybe_single().execute()
+                    lns = client.table("profile_lines").select("*").eq("user_id", owner_id).order("display_order").execute()
+                    return (p.data if p else None, lns.data if lns else [])
+
+                prof_data, lines_data = await asyncio.to_thread(_fetch_profile_data)
+                if lines_data or prof_data:
+                    reconstructed = _build_cv_from_profile_lines(prof_data, lines_data)
+                    if len(reconstructed.strip()) >= 30:
+                        cv_text = reconstructed
+            except Exception as e:
+                logger.warning("Không thể tái tạo CV từ profile_lines: %s", e)
 
     if jd_text is None and request.job_id is not None:
         def _fetch_job() -> dict | None:
@@ -304,6 +374,24 @@ async def _resolve_authorized_cv(
                     cv_text = str(parsed_local.get("markdown") or "")
             except Exception as e:
                 logger.warning("Không thể tải hoặc trích xuất tệp CV từ Storage: %s", e)
+
+        # Fallback 3: Tái tạo nội dung CV từ bảng profile_lines và profiles của ứng viên
+        if not cv_text or len(cv_text.strip()) < 30:
+            try:
+                owner_id = str(resume.get("user_id") or actor_id)
+
+                def _fetch_profile_data():
+                    p = client.table("profiles").select("*").eq("id", owner_id).maybe_single().execute()
+                    lns = client.table("profile_lines").select("*").eq("user_id", owner_id).order("display_order").execute()
+                    return (p.data if p else None, lns.data if lns else [])
+
+                prof_data, lines_data = await asyncio.to_thread(_fetch_profile_data)
+                if lines_data or prof_data:
+                    reconstructed = _build_cv_from_profile_lines(prof_data, lines_data)
+                    if len(reconstructed.strip()) >= 30:
+                        cv_text = reconstructed
+            except Exception as e:
+                logger.warning("Không thể tái tạo CV từ profile_lines: %s", e)
 
     if not cv_text or len(cv_text.strip()) < 30:
         raise BadRequestError(
@@ -522,4 +610,125 @@ async def assess_cv_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/cv-assessment/history")
+async def save_cv_assessment_history(
+    request: SaveCvAssessmentHistoryRequest,
+    _user: AuthenticatedUser = Depends(get_current_candidate),
+    client: Client = Depends(get_supabase_client),
+) -> dict[str, Any]:
+    """
+    Lưu kết quả đánh giá CV vào bảng lịch sử cv_assessment_history.
+    """
+    history_id = request.id or str(UUID(int=0))
+    # Nếu không truyền id hợp lệ hoặc là bản ghi mới, tạo UUID mới
+    if not request.id:
+        import uuid
+        history_id = str(uuid.uuid4())
+
+    record_data: dict[str, Any] = {
+        "id": history_id,
+        "user_id": str(_user.id),
+        "target_role": request.target_role,
+        "target_level": request.target_level,
+        "overall_score": request.overall_score,
+        "cv_title": request.cv_title,
+        "cv_preview": request.cv_preview[:300] if request.cv_preview else None,
+        "assessment_data": request.assessment_data,
+        "checklist_state": request.checklist_state,
+    }
+    if request.resume_id:
+        record_data["resume_id"] = str(request.resume_id)
+
+    try:
+        def _upsert():
+            return client.table("cv_assessment_history").upsert(record_data).execute()
+
+        res = await asyncio.to_thread(_upsert)
+        return {"id": history_id, "status": "saved", "data": res.data if res else None}
+    except Exception as exc:
+        logger.warning("Không thể lưu lịch sử đánh giá CV vào Supabase: %s", exc)
+        return {"id": history_id, "status": "fallback_saved", "warning": str(exc)}
+
+
+@router.get("/cv-assessment/history")
+async def get_cv_assessment_history(
+    limit: int = 50,
+    _user: AuthenticatedUser = Depends(get_current_candidate),
+    client: Client = Depends(get_supabase_client),
+) -> list[dict[str, Any]]:
+    """
+    Lấy danh sách lịch sử các lần đánh giá CV của ứng viên.
+    """
+    try:
+        def _fetch():
+            return (
+                client.table("cv_assessment_history")
+                .select("*")
+                .eq("user_id", str(_user.id))
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+
+        res = await asyncio.to_thread(_fetch)
+        return res.data or []
+    except Exception as exc:
+        logger.warning("Không thể tải lịch sử đánh giá CV: %s", exc)
+        return []
+
+
+@router.delete("/cv-assessment/history/{history_id}")
+async def delete_cv_assessment_history(
+    history_id: UUID,
+    _user: AuthenticatedUser = Depends(get_current_candidate),
+    client: Client = Depends(get_supabase_client),
+) -> dict[str, Any]:
+    """
+    Xóa 1 bản ghi lịch sử đánh giá CV.
+    """
+    try:
+        def _delete():
+            return (
+                client.table("cv_assessment_history")
+                .delete()
+                .eq("id", str(history_id))
+                .eq("user_id", str(_user.id))
+                .execute()
+            )
+
+        await asyncio.to_thread(_delete)
+        return {"id": str(history_id), "deleted": True}
+    except Exception as exc:
+        logger.warning("Không thể xóa lịch sử đánh giá CV %s: %s", history_id, exc)
+        return {"id": str(history_id), "deleted": False, "error": str(exc)}
+
+
+@router.patch("/cv-assessment/history/{history_id}/checklist")
+async def update_cv_assessment_checklist(
+    history_id: UUID,
+    request: UpdateChecklistRequest,
+    _user: AuthenticatedUser = Depends(get_current_candidate),
+    client: Client = Depends(get_supabase_client),
+) -> dict[str, Any]:
+    """
+    Cập nhật trạng thái checklist cho bản ghi lịch sử đánh giá CV.
+    """
+    try:
+        def _update():
+            return (
+                client.table("cv_assessment_history")
+                .update({"checklist_state": request.checklist_state})
+                .eq("id", str(history_id))
+                .eq("user_id", str(_user.id))
+                .execute()
+            )
+
+        res = await asyncio.to_thread(_update)
+        return {"id": str(history_id), "updated": True, "checklist_state": request.checklist_state}
+    except Exception as exc:
+        logger.warning("Không thể cập nhật checklist cho lịch sử đánh giá CV %s: %s", history_id, exc)
+        return {"id": str(history_id), "updated": False, "error": str(exc)}
+
 

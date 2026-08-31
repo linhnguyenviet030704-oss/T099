@@ -216,3 +216,71 @@ class TestCvAssessmentApiEndpoint:
             assert len(data["learning_roadmap"]) == 3
         finally:
             app.dependency_overrides.clear()
+
+    def test_api_cv_assessment_history_crud(self) -> None:
+        """Kiểm thử chu trình thêm, lấy, sửa checklist và xóa lịch sử đánh giá CV."""
+        from backend.app.dependencies.auth import get_current_candidate
+
+        candidate_id = uuid4()
+        mock_user = AuthenticatedUser(
+            id=candidate_id,
+            email="candidate@example.com",
+            claims={"sub": str(candidate_id), "role": "candidate"},
+        )
+        app.dependency_overrides[get_current_candidate] = lambda: mock_user
+
+        mock_supabase = MagicMock()
+        mock_table = MagicMock()
+        mock_supabase.table.return_value = mock_table
+        # Mock execute returns
+        history_id = str(uuid4())
+        mock_table.upsert.return_value.execute.return_value.data = [{"id": history_id}]
+        mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [
+            {
+                "id": history_id,
+                "user_id": str(candidate_id),
+                "target_role": "Backend Developer",
+                "target_level": "middle",
+                "overall_score": 85.0,
+                "assessment_data": {"overall_score": 85.0},
+                "checklist_state": {"task-1": True},
+            }
+        ]
+        mock_table.update.return_value.eq.return_value.eq.return_value.execute.return_value.data = [{"id": history_id}]
+        mock_table.delete.return_value.eq.return_value.eq.return_value.execute.return_value.data = [{"id": history_id}]
+        app.dependency_overrides[get_supabase_client] = lambda: mock_supabase
+
+        client = TestClient(app)
+        try:
+            # 1. Lưu lịch sử
+            save_payload = {
+                "id": history_id,
+                "target_role": "Backend Developer",
+                "target_level": "middle",
+                "overall_score": 85.0,
+                "assessment_data": {"overall_score": 85.0},
+                "checklist_state": {"task-1": True},
+            }
+            res_save = client.post("/api/v1/cv-assessment/history", json=save_payload)
+            assert res_save.status_code == 200
+            assert res_save.json()["status"] == "saved"
+
+            # 2. Lấy danh sách lịch sử
+            res_get = client.get("/api/v1/cv-assessment/history")
+            assert res_get.status_code == 200
+            items = res_get.json()
+            assert len(items) == 1
+            assert items[0]["target_role"] == "Backend Developer"
+
+            # 3. Cập nhật checklist
+            res_patch = client.patch(f"/api/v1/cv-assessment/history/{history_id}/checklist", json={"checklist_state": {"task-1": True, "task-2": False}})
+            assert res_patch.status_code == 200
+            assert res_patch.json()["updated"] is True
+
+            # 4. Xóa lịch sử
+            res_del = client.delete(f"/api/v1/cv-assessment/history/{history_id}")
+            assert res_del.status_code == 200
+            assert res_del.json()["deleted"] is True
+        finally:
+            app.dependency_overrides.clear()
+

@@ -120,3 +120,42 @@ class CvAssessmentResponse(BaseModel):
     learning_roadmap: list[RoadmapPhase] = Field(default_factory=list)
     natural_language_summary: str | None = None
     confidence: float = 0.8
+
+
+class SaveCvAssessmentHistoryRequest(BaseModel):
+    """Yêu cầu lưu trữ kết quả đánh giá CV vào lịch sử."""
+
+    id: str | None = None
+    user_id: UUID | None = None
+    target_role: str = Field(..., min_length=1, max_length=200)
+    target_level: str = "middle"
+    overall_score: float
+    resume_id: UUID | None = None
+    cv_title: str | None = None
+    cv_preview: str | None = None
+    assessment_data: dict = Field(..., description="Toàn bộ kết quả dữ liệu đánh giá CV")
+    checklist_state: dict = Field(default_factory=dict, description="Trạng thái các mục checklist đã hoàn thành")
+
+
+class UpdateChecklistRequest(BaseModel):
+    """Yêu cầu cập nhật trạng thái checklist cho một bản ghi lịch sử."""
+
+    checklist_state: dict = Field(..., description="Trạng thái checklist mới (key: checklist_id, value: boolean hoặc object)")
+
+
+class CvAssessmentHistoryItem(BaseModel):
+    """Bản ghi lịch sử đánh giá CV."""
+
+    id: UUID
+    user_id: UUID | None = None
+    target_role: str
+    target_level: str
+    overall_score: float
+    resume_id: UUID | None = None
+    cv_title: str | None = None
+    cv_preview: str | None = None
+    assessment_data: dict
+    checklist_state: dict = Field(default_factory=dict)
+    created_at: str
+    updated_at: str
+

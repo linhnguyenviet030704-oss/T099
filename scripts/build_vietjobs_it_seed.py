@@ -17,12 +17,12 @@ seed.sql untouched.
 
 from __future__ import annotations
 
+import csv
 import re
 import uuid
 from ast import literal_eval
 from pathlib import Path
-
-import pandas as pd
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT / "data_find" / "data" / "vietjobs" / "VietJobs_full.csv"
@@ -242,31 +242,48 @@ def dedup_key(title: str) -> str:
 
 
 def main() -> None:
-    df = pd.read_csv(CSV_PATH)
-    df = df[df["category"].isin(
-        ["công_nghệ_thông_tin_kỹ_thuật_số", "kỹ_thuật_điện_điện_tử_viễn_thông"]
-    )].copy()
-    df["desc_len"] = df["description"].fillna("").str.len() + df["requirements_text"].fillna("").str.len()
-    df = df[df["desc_len"] > 120]
+    if not CSV_PATH.is_file():
+        print(f"CSV file not found: {CSV_PATH}")
+        return
+
+    with open(CSV_PATH, encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        all_rows = list(reader)
+
+    target_categories = {"công_nghệ_thông_tin_kỹ_thuật_số", "kỹ_thuật_điện_điện_tử_viễn_thông"}
+    filtered_rows: list[dict[str, Any]] = []
+    for idx, row in enumerate(all_rows):
+        if row.get("category", "") not in target_categories:
+            continue
+        desc = row.get("description") or ""
+        req = row.get("requirements_text") or ""
+        desc_len = len(desc) + len(req)
+        if desc_len <= 120:
+            continue
+        row["_idx"] = idx
+        row["_desc_len"] = desc_len
+        filtered_rows.append(row)
 
     picked_ids: set[int] = set()
-    picked_rows: list[tuple[int, str, pd.Series]] = []
+    picked_rows: list[tuple[int, str, dict[str, Any]]] = []
     seen_keys: set[str] = set()
 
-    for gid, name, includes, excludes, quota in GROUPS:
-        candidates = df[~df.index.isin(picked_ids)].copy()
-        candidates["hits"] = candidates["job_title"].apply(classify)
-        candidates = candidates[candidates["hits"].apply(lambda hs: gid in hs)]
-        candidates = candidates.sort_values("desc_len", ascending=False)
+    for gid, name, _includes, _excludes, quota in GROUPS:
+        candidates = [
+            row for row in filtered_rows
+            if row["_idx"] not in picked_ids and gid in classify(row.get("job_title", ""))
+        ]
+        candidates.sort(key=lambda r: r["_desc_len"], reverse=True)
+
         count = 0
-        for idx, row in candidates.iterrows():
+        for row in candidates:
             if count >= quota:
                 break
-            key = dedup_key(row["job_title"])
+            key = dedup_key(row.get("job_title", ""))
             if key in seen_keys:
                 continue
             seen_keys.add(key)
-            picked_ids.add(idx)
+            picked_ids.add(row["_idx"])
             picked_rows.append((gid, name, row))
             count += 1
         print(f"group {gid:2d} {name:<28s} picked {count}/{quota} (pool {len(candidates)})")
@@ -298,7 +315,7 @@ def main() -> None:
     lines.append("  ];")
     lines.append("begin")
     lines.append("  for i in 1..array_length(company_names, 1) loop")
-    lines.append(f"    cid := ('f0000000-0000-4000-9000-' || lpad(i::text, 12, '0'))::uuid;")
+    lines.append("    cid := ('f0000000-0000-4000-9000-' || lpad(i::text, 12, '0'))::uuid;")
     lines.append("    insert into public.companies (")
     lines.append("      id, name, slug, website_url, description, created_by_user_id,")
     lines.append("      verification_status, verified_at")

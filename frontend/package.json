@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview --port=3000",
     "lint": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/roleGuard.test.ts src/lib/sse.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/roleGuard.test.ts src/lib/sse.test.ts src/lib/reputation.test.ts",
     "format": "oxfmt"
   },
   "dependencies": {

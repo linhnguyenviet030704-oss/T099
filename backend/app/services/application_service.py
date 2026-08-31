@@ -16,7 +16,6 @@ from backend.app.repositories.application_repository import ApplicationRepositor
 from backend.app.repositories.email_outbox_repository import EmailOutboxRepository
 from supabase import Client
 
-
 # State machine cho status transition
 ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     "pending": {"screening", "interview", "rejected", "withdrawn"},

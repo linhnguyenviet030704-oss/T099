@@ -19,26 +19,26 @@ from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
 from backend.app.core.exceptions import AppError
 from backend.app.observability.logger import get_logger, request_id_ctx
+from backend.app.repositories.application_repository import ApplicationRepository
+from backend.app.repositories.email_outbox_repository import EmailOutboxRepository
 from backend.app.repositories.interview_invitation_repository import InterviewInvitationRepository
 from backend.app.repositories.notification_repository import NotificationRepository
 from backend.app.repositories.profile_repository import ProfileRepository
 from backend.app.repositories.reputation_repository import ReputationRepository
-from backend.app.repositories.application_repository import ApplicationRepository
-from backend.app.repositories.email_outbox_repository import EmailOutboxRepository
 from backend.app.services.admin_service import AdminService
 from backend.app.services.application_service import ApplicationService
 from backend.app.services.chat_service import ChatService, chat_response_from_graph, jobs_response_from_graph
-from backend.app.services.notification_service import NotificationService
-from backend.app.services.reputation_service import ReputationService
 from backend.app.services.matching.retrieve import persist_match_resume_rows, retrieve_for_job
 from backend.app.services.matching.retrieve_jobs import persist_recommend_job_rows, retrieve_jobs_for_resume
 from backend.app.services.matching.store import SupabaseResumeStore
+from backend.app.services.notification_service import NotificationService
 from backend.app.services.profile_service import ProfileService
 from backend.app.services.recommend import (
     assert_recruiter_job_access,
     list_applications_for_job,
     list_published_jobs,
 )
+from backend.app.services.reputation_service import ReputationService
 from backend.app.shared_brain.registry import get_brain
 from supabase import Client
 

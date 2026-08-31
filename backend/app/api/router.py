@@ -1,6 +1,19 @@
 from fastapi import APIRouter
 
-from backend.app.api.routes import admin, applications, candidates, chat, evaluation, health, internal, notifications, profiles, reputation, resumes, stats
+from backend.app.api.routes import (
+    admin,
+    applications,
+    candidates,
+    chat,
+    evaluation,
+    health,
+    internal,
+    notifications,
+    profiles,
+    reputation,
+    resumes,
+    stats,
+)
 from backend.app.api.v1 import evaluations, interviews
 
 # Khởi tạo API router v1 và đăng ký các sub-router

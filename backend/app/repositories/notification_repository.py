@@ -7,7 +7,6 @@ notification của user B.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 

@@ -6,8 +6,6 @@ KHÔNG BAO GIỜ tin client-sent user_id.
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, Query
 
 from backend.app.api.schemas.notification import (

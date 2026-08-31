@@ -43,9 +43,11 @@ def create_app() -> FastAPI:
     )
 
     origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    # Cấu hình CORSMiddleware với danh sách origins tường minh và regex cho các domain Vercel
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
+        allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

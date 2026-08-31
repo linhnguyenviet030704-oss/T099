@@ -36,8 +36,8 @@ language plpgsql
 as $$
 begin
   if new.status is distinct from old.status
-     and old.status = 'pending'
-     and new.status in ('confirmed', 'declined', 'reschedule_requested')
+     and old.status::text = 'pending'
+     and new.status::text in ('confirmed', 'declined', 'reschedule_requested')
      and new.responded_at is null then
     new.responded_at := now();
   end if;
@@ -110,7 +110,7 @@ create policy "interview_invitations_candidate_update"
     )
   )
   with check (
-    status in ('confirmed', 'declined', 'reschedule_requested')
+    status::text in ('confirmed', 'declined', 'reschedule_requested')
   );
 
 grant all on public.interview_invitations to authenticated;
@@ -131,13 +131,13 @@ declare
   v_msg text;
 begin
   -- Chỉ trigger khi trạng thái chuyển từ pending sang confirmed hoặc reschedule_requested
-  if old.status = 'pending' and new.status in ('confirmed', 'reschedule_requested') then
+  if old.status::text = 'pending' and new.status::text in ('confirmed', 'reschedule_requested') then
     -- Lấy thông tin application, job và applicant
     select * into v_app from public.job_submits where id = new.application_id;
     select * into v_job from public.job_posts where id = v_app.job_post_id;
     select * into v_applicant from public.profiles where id = v_app.applicant_user_id;
 
-    if new.status = 'confirmed' then
+    if new.status::text = 'confirmed' then
       v_title := 'Ứng viên đã xác nhận lịch phỏng vấn';
       v_msg := format('%s đã đồng ý và xác nhận lịch phỏng vấn cho vị trí "%s"', v_applicant.full_name, v_job.title);
     else

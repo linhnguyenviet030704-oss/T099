@@ -15,9 +15,6 @@ from backend.app.agents.routing import RoutingAgent
 from backend.app.api.schemas.evaluation import (
     CvAssessmentRequest,
     CvAssessmentResponse,
-    CvAssessmentHistoryItem,
-    SaveCvAssessmentHistoryRequest,
-    UpdateChecklistRequest,
     EvaluationRequest,
     EvaluationResponse,
     MetricScoreResponse,
@@ -25,7 +22,9 @@ from backend.app.api.schemas.evaluation import (
     RoadmapPhase,
     RoutingRequest,
     RoutingResponse,
+    SaveCvAssessmentHistoryRequest,
     SkillAnalysisResponse,
+    UpdateChecklistRequest,
 )
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.core.exceptions import AppError, BadRequestError, ForbiddenError, NotFoundError
@@ -725,7 +724,7 @@ async def update_cv_assessment_checklist(
                 .execute()
             )
 
-        res = await asyncio.to_thread(_update)
+        await asyncio.to_thread(_update)
         return {"id": str(history_id), "updated": True, "checklist_state": request.checklist_state}
     except Exception as exc:
         logger.warning("Không thể cập nhật checklist cho lịch sử đánh giá CV %s: %s", history_id, exc)

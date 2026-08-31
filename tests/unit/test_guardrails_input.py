@@ -65,3 +65,25 @@ def test_validate_file_rejects_size_above_limit():
     with pytest.raises(BadRequestError) as exc:
         validate_file(b"1234", declared_mime="text/plain", max_bytes=3)
     assert exc.value.code == "INPUT_TOO_LARGE"
+
+
+def test_validate_file_accepts_generic_octet_stream_mime():
+    # Khi browser gửi application/octet-stream, hệ thống nhận diện đúng bằng magic bytes
+    result_pdf = validate_file(b"%PDF-1.7\ncontent", declared_mime="application/octet-stream")
+    assert result_pdf.detected_mime == PDF_MIME
+
+    result_docx = validate_file(_minimal_docx(), declared_mime="application/octet-stream")
+    assert result_docx.detected_mime == DOCX_MIME
+
+
+def test_validate_file_accepts_windows_zip_compressed_for_docx():
+    # Trình duyệt Windows thường nhận diện docx là application/x-zip-compressed
+    result = validate_file(_minimal_docx(), declared_mime="application/x-zip-compressed")
+    assert result.detected_mime == DOCX_MIME
+
+
+def test_validate_file_allows_word_family_cross_compatibility():
+    # Cho phép chuyển đổi linh hoạt nếu khai báo application/msword nhưng file thực tế là docx
+    result = validate_file(_minimal_docx(), declared_mime="application/msword")
+    assert result.detected_mime == DOCX_MIME
+

@@ -59,7 +59,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         return await http_exception_handler(request, exc)
 
     @app.exception_handler(Exception)
-    async def unhandled_error_handler(_request: Request, _exc: Exception) -> JSONResponse:
+    async def unhandled_error_handler(_request: Request, exc: Exception) -> JSONResponse:
+        # Ghi log chi tiết lỗi hệ thống chưa được bắt
+        import logging
+        logging.getLogger(__name__).exception("Unhandled server error: %s", exc)
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error", "code": "INTERNAL_ERROR"},

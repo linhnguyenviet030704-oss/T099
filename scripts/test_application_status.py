@@ -88,6 +88,7 @@ def make_mock_supabase(*, app_status="pending", is_recruiter_member=True, is_rec
     }
 
     supabase.table.return_value.select.return_value.eq.return_value.maybe_single.return_value.execute.return_value.data = app_data
+    supabase.table.return_value.update.return_value.eq.return_value.execute.return_value.data = [updated_app]
     supabase.table.return_value.update.return_value.eq.return_value.select.return_value.maybe_single.return_value.execute.return_value.data = updated_app
 
     # application_stages insert: trả lại stage với note lấy từ payload insert
@@ -95,6 +96,7 @@ def make_mock_supabase(*, app_status="pending", is_recruiter_member=True, is_rec
         stage = {**new_stage, "note": payload.get("note", new_stage["note"])}
         chain = MagicMock()
         chain.select.return_value.maybe_single.return_value.execute.return_value.data = stage
+        chain.execute.return_value.data = [stage]
         return chain
     supabase.table.return_value.insert.side_effect = fake_insert
 

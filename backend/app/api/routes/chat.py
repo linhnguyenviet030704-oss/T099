@@ -237,8 +237,9 @@ async def get_chat_history(
         .order("created_at")
         .execute()
     )
+    # Nếu phiên chat chưa có tin nhắn nào trong DB, trả về danh sách rỗng thay vì lỗi 404
     if not result.data:
-        raise NotFoundError("Chat session not found", code="CHAT_SESSION_NOT_FOUND")
+        return ChatHistoryResponse(session_id=sid, messages=[])
 
     if any(str(m.get("user_id")) != str(_user.id) for m in result.data):
         raise ForbiddenError("Bạn chỉ có quyền xem cuộc trò chuyện do chính mình sở hữu")

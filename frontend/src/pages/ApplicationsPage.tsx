@@ -100,20 +100,41 @@ export default function ApplicationsPage() {
           <div className="space-y-4">
             {applications.map((app) => {
               const job = app.job_post;
+              const isInterview = app.current_status === "interview";
               const canWithdraw = !TERMINAL_APP_STATUSES.includes(app.current_status);
               return (
                 <div key={app.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <Link to={`/jobs/${job?.id}`} className="font-semibold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1 transition-colors">
-                        {job?.title} <ExternalLink size={12} />
+                      <Link to={`/applications/${app.id}`} className="font-semibold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1 transition-colors">
+                        {job?.title || "Vị trí tuyển dụng"}
                       </Link>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{job?.company?.name} · {t.appliedAt(formatDate(app.applied_at, false, lang))}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{job?.company?.name || "Doanh nghiệp"} · {t.appliedAt(formatDate(app.applied_at, false, lang))}</p>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>
                       {enumLabels.application_status[app.current_status]}
                     </span>
                   </div>
+
+                  {/* Banner nổi bật khi có lời mời phỏng vấn */}
+                  {isInterview && (
+                    <div className="mt-3 p-3 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 rounded-xl flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                        <span className="flex h-2 w-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                        </span>
+                        <span>{lang === "en" ? "Interview invitation received!" : "Bạn có lời mời hẹn phỏng vấn!"}</span>
+                      </div>
+                      <Link
+                        to={`/applications/${app.id}`}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+                      >
+                        {t.selectInterviewSchedule || "Chọn lịch phỏng vấn →"}
+                      </Link>
+                    </div>
+                  )}
+
                   {(stagesMap[app.id] || []).length > 0 && (
                     <ul className="mt-3 text-xs text-slate-500 dark:text-slate-400 space-y-1 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl">
                       {stagesMap[app.id].map((s) => (
@@ -121,14 +142,25 @@ export default function ApplicationsPage() {
                       ))}
                     </ul>
                   )}
-                  {canWithdraw && (
-                    <motion.button whileTap={{ scale: 0.95 }} onClick={() => setWithdrawId(app.id)} className="mt-3 text-xs text-red-500 hover:underline font-medium">
-                      {t.withdrawApp}
-                    </motion.button>
-                  )}
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                    <Link
+                      to={`/applications/${app.id}`}
+                      className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
+                    >
+                      {t.viewApplicationDetail || "Chi tiết đơn & Tiến trình →"}
+                    </Link>
+
+                    {canWithdraw && (
+                      <motion.button whileTap={{ scale: 0.95 }} onClick={() => setWithdrawId(app.id)} className="text-xs text-red-500 hover:underline font-medium cursor-pointer">
+                        {t.withdrawApp}
+                      </motion.button>
+                    )}
+                  </div>
                 </div>
               );
             })}
+
           </div>
         )}
       </div>

@@ -7,10 +7,12 @@ create type public.interview_invitation_status as enum (
   'pending',
   'confirmed',
   'declined',
+  'reschedule_requested',
   'no_show',
   'cancelled',
   'completed'
 );
+
 
 create table public.interview_invitations (
   id uuid primary key default gen_random_uuid(),

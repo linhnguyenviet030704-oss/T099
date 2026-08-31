@@ -583,12 +583,19 @@ def get_email_outbox_repository(
     return EmailOutboxRepository(client)
 
 
+def get_interview_invitation_repository(
+    client: Client = Depends(get_supabase_client),
+) -> InterviewInvitationRepository:
+    return InterviewInvitationRepository(client)
+
+
 def get_application_service(
     repository: ApplicationRepository = Depends(get_application_repository),
     email_repo: EmailOutboxRepository = Depends(get_email_outbox_repository),
+    interview_repo: InterviewInvitationRepository = Depends(get_interview_invitation_repository),
     client: Client = Depends(get_supabase_client),
 ) -> ApplicationService:
-    return ApplicationService(repository, email_repo, client)
+    return ApplicationService(repository, email_repo, client, interview_repo)
 
 
 def get_reputation_repository(
@@ -602,11 +609,6 @@ def get_reputation_service(
 ) -> ReputationService:
     return ReputationService(repository)
 
-
-def get_interview_invitation_repository(
-    client: Client = Depends(get_supabase_client),
-) -> InterviewInvitationRepository:
-    return InterviewInvitationRepository(client)
 
 
 # === Per-agent brain accessors ===

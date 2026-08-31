@@ -152,7 +152,7 @@ export default function HomePage() {
         if (supabase) {
           const [jobsRes, companiesRes] = await Promise.all([
             supabase.from("job_posts").select("id", { count: "exact", head: true }).eq("status", "published"),
-            supabase.from("companies").select("id", { count: "exact", head: true }),
+            supabase.from("companies").select("id", { count: "exact", head: true }).eq("verification_status", "verified"),
           ]);
 
           const jobsCount = jobsRes.count ?? 0;
@@ -334,7 +334,7 @@ export default function HomePage() {
               <span>Git Repo Evaluator</span>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">5 tiêu chuẩn đánh giá mã</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{lang === "en" ? "5 code evaluation criteria" : "5 tiêu chuẩn đánh giá mã"}</p>
           </div>
         </motion.div>
 
@@ -352,7 +352,7 @@ export default function HomePage() {
               <span>AI Interview Question</span>
               <span className="text-amber-500 text-xs">★ 98%</span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">Rubric 3 cấp độ chuẩn hóa</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">{lang === "en" ? "Standardized 3-level rubric" : "Rubric 3 cấp độ chuẩn hóa"}</p>
           </div>
         </motion.div>
 
@@ -552,7 +552,7 @@ export default function HomePage() {
                       {/* Kênh nhận phản hồi & Input liên hệ */}
                       <div className="space-y-1">
                         <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {t.contactChannelLabel || "Kênh nhận phản hồi"} *
+                          {t.contactChannelLabel || (lang === "en" ? "Response Channel" : "Kênh nhận phản hồi")} *
                         </label>
                         <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-slate-900/70 rounded-lg border border-slate-200/70 dark:border-slate-700/70">
                           <button
@@ -602,7 +602,7 @@ export default function HomePage() {
                                 required
                                 value={contactForm.contactValue}
                                 onChange={(e) => setContactForm({ ...contactForm, contactValue: e.target.value })}
-                                placeholder={t.contactEmailPlaceholder}
+                                placeholder={t.contactEmailPlaceholder || (lang === "en" ? "Enter your email..." : "Nhập địa chỉ email của bạn...")}
                                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-indigo-500"
                               />
                               <Mail size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
@@ -614,7 +614,7 @@ export default function HomePage() {
                                 required
                                 value={contactForm.contactValue}
                                 onChange={(e) => setContactForm({ ...contactForm, contactValue: e.target.value })}
-                                placeholder={t.contactZaloPlaceholder || "Nhập số điện thoại Zalo..."}
+                                placeholder={t.contactZaloPlaceholder || (lang === "en" ? "Enter Zalo phone number..." : "Nhập số điện thoại Zalo...")}
                                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-blue-500"
                               />
                               <MessageCircle size={13} className="absolute left-2.5 top-2.5 text-blue-500" />
@@ -626,7 +626,7 @@ export default function HomePage() {
                                 required
                                 value={contactForm.contactValue}
                                 onChange={(e) => setContactForm({ ...contactForm, contactValue: e.target.value })}
-                                placeholder={t.contactFbPlaceholder || "Nhập link Facebook hoặc username..."}
+                                placeholder={t.contactFbPlaceholder || (lang === "en" ? "Enter Facebook link or username..." : "Nhập link Facebook hoặc username...")}
                                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-all outline-hidden focus:border-sky-500"
                               />
                               <Share2 size={13} className="absolute left-2.5 top-2.5 text-sky-500" />

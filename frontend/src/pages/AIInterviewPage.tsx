@@ -213,7 +213,7 @@ export default function AIInterviewPage() {
         // Nạp danh sách tin tuyển dụng theo quyền công ty của nhà tuyển dụng
         let jobsQuery = supabase
           .from("job_posts")
-          .select("id, title, seniority_level, company_id, companies(name)")
+          .select("id, title, employment_type, company_id, companies(name)")
           .order("created_at", { ascending: false })
           .limit(50);
 
@@ -231,7 +231,22 @@ export default function AIInterviewPage() {
           }
         }
 
-        const { data: jobsData } = await jobsQuery;
+        let { data: jobsData, error: jobsErr } = await jobsQuery;
+        if (jobsErr) {
+          console.warn("Lỗi khi tải danh sách tin tuyển dụng theo công ty:", jobsErr);
+        }
+
+        // Nếu công ty chưa có tin tuyển dụng nào hoặc gặp lỗi, thử nạp các tin tuyển dụng công khai hiện có
+        if (!jobsData || jobsData.length === 0) {
+          const { data: fallbackJobs } = await supabase
+            .from("job_posts")
+            .select("id, title, employment_type, company_id, companies(name)")
+            .order("created_at", { ascending: false })
+            .limit(50);
+          if (fallbackJobs && fallbackJobs.length > 0) {
+            jobsData = fallbackJobs;
+          }
+        }
 
         if (jobsData && jobsData.length > 0) {
           const jobs = jobsData.map((j: any) => {
@@ -239,7 +254,7 @@ export default function AIInterviewPage() {
             return {
               id: j.id,
               title: j.title,
-              seniority: j.seniority_level,
+              seniority: j.employment_type,
               company_name: comp?.name,
             };
           });
@@ -738,7 +753,7 @@ export default function AIInterviewPage() {
 
         {/* Current Session Overview */}
         <div>
-          <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">Phiên hiện tại</p>
+          <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">{lang === "en" ? "Current Session" : "Phiên hiện tại"}</p>
           <div className="rounded-xl p-2.5 bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200 space-y-1">
             <p className="font-semibold truncate text-xs flex items-center gap-1">
               <User size={12} className="shrink-0 text-indigo-600 dark:text-indigo-400" />
@@ -749,7 +764,7 @@ export default function AIInterviewPage() {
               <span className="truncate">{activeJobTitle}</span>
             </p>
             <div className="flex items-center justify-between text-[10px] text-indigo-700 dark:text-indigo-300 pt-1 border-t border-indigo-100 dark:border-indigo-900/60">
-              <span>{sessionResult ? `${sessionResult.questions.length} câu hỏi` : "Chưa sinh câu hỏi"}</span>
+              <span>{sessionResult ? `${sessionResult.questions.length} ${lang === "en" ? "questions" : "câu hỏi"}` : (lang === "en" ? "Not generated yet" : "Chưa sinh câu hỏi")}</span>
               {sessionResult && (
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                   {Math.round((sessionResult.coverage_ratio || 0.85) * 100)}% JD
@@ -762,7 +777,7 @@ export default function AIInterviewPage() {
         {/* Saved Sessions */}
         <div>
           <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400 font-bold mb-1.5">
-            <span>Phiên đã lưu ({savedSessions.length})</span>
+            <span>{lang === "en" ? `Saved Sessions (${savedSessions.length})` : `Phiên đã lưu (${savedSessions.length})`}</span>
             {savedSessions.length > 0 && (
               <button
                 type="button"
@@ -771,17 +786,17 @@ export default function AIInterviewPage() {
                   setIsClearAllConfirm(true);
                 }}
                 className="text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 normal-case font-medium hover:underline flex items-center gap-1 cursor-pointer"
-                title={t.clearAllChat || "Xóa tất cả"}
+                title={t.clearAllChat || (lang === "en" ? "Clear all" : "Xóa tất cả")}
               >
                 <Trash2 size={11} />
-                <span>{t.clearAllChat || "Xóa tất cả"}</span>
+                <span>{t.clearAllChat || (lang === "en" ? "Clear all" : "Xóa tất cả")}</span>
               </button>
             )}
           </div>
 
           {savedSessions.length === 0 ? (
             <p className="text-slate-400 text-center py-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl">
-              Chưa có phiên nào được lưu.
+              {lang === "en" ? "No saved sessions yet." : "Chưa có phiên nào được lưu."}
             </p>
           ) : (
             <ul className="space-y-1.5">
@@ -799,15 +814,15 @@ export default function AIInterviewPage() {
                   >
                     <div className="pr-6 space-y-0.5">
                       <p className="font-semibold text-xs truncate leading-tight">
-                        {sess.candidate_name || "Ứng viên"}
+                        {sess.candidate_name || (lang === "en" ? "Candidate" : "Ứng viên")}
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        {sess.job_title || "Vị trí tuyển dụng"}
+                        {sess.job_title || (lang === "en" ? "Job Position" : "Vị trí tuyển dụng")}
                       </p>
                       <div className="flex items-center gap-2 text-[10px] text-slate-400 pt-0.5 flex-wrap">
                         <span className="flex items-center gap-0.5">
                           <Clock size={10} />
-                          {new Date(sess.created_at).toLocaleDateString("vi-VN", {
+                          {new Date(sess.created_at).toLocaleDateString(lang === "en" ? "en-US" : "vi-VN", {
                             day: "2-digit",
                             month: "2-digit",
                             hour: "2-digit",
@@ -815,10 +830,10 @@ export default function AIInterviewPage() {
                           })}
                         </span>
                         <span className="font-medium text-purple-600 dark:text-purple-400">
-                          {sess.question_count} câu
+                          {sess.question_count} {lang === "en" ? "questions" : "câu"}
                         </span>
                         {sess.is_approved && (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">✓ Đã duyệt</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">{lang === "en" ? "✓ Approved" : "✓ Đã duyệt"}</span>
                         )}
                       </div>
                     </div>
@@ -831,7 +846,7 @@ export default function AIInterviewPage() {
                         setDeleteTargetSessionId(sess.id);
                       }}
                       className="absolute right-1.5 top-2 p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      title={t.deleteChatSession || "Xóa phiên này"}
+                      title={t.deleteChatSession || (lang === "en" ? "Delete this session" : "Xóa phiên này")}
                       aria-label="Xóa phiên"
                     >
                       <Trash2 size={12} />
@@ -846,10 +861,10 @@ export default function AIInterviewPage() {
         {/* Info Tips */}
         <div className="p-2.5 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-800/40 space-y-1">
           <p className="text-[10px] font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1">
-            <Sparkles size={11} /> Mẹo phỏng vấn AI
+            <Sparkles size={11} /> {lang === "en" ? "AI Interview Tips" : "Mẹo phỏng vấn AI"}
           </p>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            Bạn có thể xuất bộ câu hỏi ra Markdown hoặc duyệt phiên để lưu trữ vào hồ sơ ứng viên.
+            {lang === "en" ? "You can export the question set to Markdown or approve the session to save it to the candidate profile." : "Bạn có thể xuất bộ câu hỏi ra Markdown hoặc duyệt phiên để lưu trữ vào hồ sơ ứng viên."}
           </p>
         </div>
       </div>
@@ -861,7 +876,7 @@ export default function AIInterviewPage() {
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 overflow-hidden">
       <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100 dark:border-slate-700">
         <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-          <SlidersHorizontal size={14} className="text-purple-600 dark:text-purple-400" /> Tham số tùy chỉnh AI
+          <SlidersHorizontal size={14} className="text-purple-600 dark:text-purple-400" /> {lang === "en" ? "AI Custom Parameters" : "Tham số tùy chỉnh AI"}
         </p>
         <button
           type="button"
@@ -876,22 +891,22 @@ export default function AIInterviewPage() {
       <div className="flex-1 overflow-y-auto p-3.5 space-y-4 text-xs">
         {/* Reset Defaults button */}
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Cấu hình câu hỏi</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{lang === "en" ? "Question Settings" : "Cấu hình câu hỏi"}</p>
           <button
             type="button"
             onClick={handleResetDefaults}
             className="text-[10px] font-medium text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 transition-colors cursor-pointer"
-            title="Đặt lại các tham số về mặc định"
+            title={lang === "en" ? "Reset parameters to default" : "Đặt lại các tham số về mặc định"}
           >
-            <RotateCcw size={10} /> Đặt lại
+            <RotateCcw size={10} /> {lang === "en" ? "Reset" : "Đặt lại"}
           </button>
         </div>
 
         {/* Question Count */}
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[11px]">
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Số lượng câu hỏi</span>
-            <span className="font-bold text-purple-600 dark:text-purple-400">{questionCount} câu</span>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">{lang === "en" ? "Question Count" : "Số lượng câu hỏi"}</span>
+            <span className="font-bold text-purple-600 dark:text-purple-400">{questionCount} {lang === "en" ? "questions" : "câu"}</span>
           </div>
           <div className="grid grid-cols-5 gap-1">
             {[5, 8, 10, 15, 20].map((num) => (
@@ -923,7 +938,7 @@ export default function AIInterviewPage() {
         {/* Coverage Threshold */}
         <div className="space-y-1.5">
           <div className="flex justify-between items-center text-[11px]">
-            <span className="text-slate-600 dark:text-slate-300 font-medium">Độ bao phủ yêu cầu JD</span>
+            <span className="text-slate-600 dark:text-slate-300 font-medium">{lang === "en" ? "JD Requirement Coverage" : "Độ bao phủ yêu cầu JD"}</span>
             <span className="font-bold text-indigo-600 dark:text-indigo-400">{coverageThreshold}%</span>
           </div>
           <input
@@ -937,14 +952,14 @@ export default function AIInterviewPage() {
           />
           <div className="flex justify-between text-[9px] text-slate-400">
             <span>50%</span>
-            <span>Khuyến nghị: 80%</span>
+            <span>{lang === "en" ? "Recommended: 80%" : "Khuyến nghị: 80%"}</span>
             <span>100%</span>
           </div>
         </div>
 
         {/* Feature Toggles */}
         <div className="space-y-2 pt-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tính năng mở rộng</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{lang === "en" ? "Extended Features" : "Tính năng mở rộng"}</p>
 
           {/* Include Git Projects */}
           <label className="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40 cursor-pointer hover:bg-purple-50/50 dark:hover:bg-purple-950/20 transition-colors">
@@ -956,10 +971,10 @@ export default function AIInterviewPage() {
             />
             <div className="min-w-0">
               <span className="font-semibold block text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1">
-                <GitBranch size={12} className="text-purple-600" /> Kèm Dự án Git thực tế
+                <GitBranch size={12} className="text-purple-600" /> {lang === "en" ? "Include Real Git Projects" : "Kèm Dự án Git thực tế"}
               </span>
               <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
-                Khai thác repo và commit từ Candidate Knowledge Graph
+                {lang === "en" ? "Extract repos and commits from Candidate Knowledge Graph" : "Khai thác repo và commit từ Candidate Knowledge Graph"}
               </span>
             </div>
           </label>
@@ -974,10 +989,10 @@ export default function AIInterviewPage() {
             />
             <div className="min-w-0">
               <span className="font-semibold block text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1">
-                <Award size={12} className="text-emerald-600" /> Rubric chấm điểm 3 cấp độ
+                <Award size={12} className="text-emerald-600" /> {lang === "en" ? "3-Level Evaluation Rubric" : "Rubric chấm điểm 3 cấp độ"}
               </span>
               <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
-                Tiêu chuẩn Xuất sắc, Đạt yêu cầu và Chưa đạt cho từng câu hỏi
+                {lang === "en" ? "Excellent, Meets Requirements, and Needs Improvement standards for each question" : "Tiêu chuẩn Xuất sắc, Đạt yêu cầu và Chưa đạt cho từng câu hỏi"}
               </span>
             </div>
           </label>
@@ -992,10 +1007,10 @@ export default function AIInterviewPage() {
             />
             <div className="min-w-0">
               <span className="font-semibold block text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1">
-                <HelpCircle size={12} className="text-indigo-600" /> Câu hỏi đào sâu (Follow-ups)
+                <HelpCircle size={12} className="text-indigo-600" /> {lang === "en" ? "Deep-dive Follow-up Questions" : "Câu hỏi đào sâu (Follow-ups)"}
               </span>
               <span className="text-[10px] text-slate-400 block leading-tight mt-0.5">
-                Tự động tạo câu hỏi phản biện F1, F2 kiểm tra chiều sâu thực chiến
+                {lang === "en" ? "Automatically generates F1, F2 follow-ups to test real-world depth" : "Tự động tạo câu hỏi phản biện F1, F2 kiểm tra chiều sâu thực chiến"}
               </span>
             </div>
           </label>
@@ -1005,7 +1020,7 @@ export default function AIInterviewPage() {
         <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
           <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
             <Sparkles size={11} className="text-purple-500" />
-            <span>Mô hình AI Agent 2</span>
+            <span>{lang === "en" ? "AI Agent 2 Model" : "Mô hình AI Agent 2"}</span>
           </div>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
             Qwen3.7 Generator + Knowledge Graph Linker & StateGraph Diversity Enforcer.
@@ -1071,10 +1086,10 @@ export default function AIInterviewPage() {
                 Agent 2 • Tailored AI Interview Question Generator
               </div>
               <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight">
-                Sinh Bộ Câu Hỏi Phỏng Vấn Cá Nhân Hóa
+                {lang === "en" ? "Personalized AI Interview Question Generator" : "Sinh Bộ Câu Hỏi Phỏng Vấn Cá Nhân Hóa"}
               </h1>
               <p className="text-slate-300 text-xs leading-relaxed max-w-2xl">
-                Tự động kết hợp hồ sơ CV, đánh giá dự án Git (Candidate Knowledge Graph) và JD để sinh câu hỏi phỏng vấn chuẩn xác kèm rubric đánh giá 3 cấp độ.
+                {lang === "en" ? "Automatically synthesizes candidate CVs, Git evaluations (Knowledge Graph), and JDs to generate precise questions with 3-tier rubrics." : "Tự động kết hợp hồ sơ CV, đánh giá dự án Git (Candidate Knowledge Graph) và JD để sinh câu hỏi phỏng vấn chuẩn xác kèm rubric đánh giá 3 cấp độ."}
               </p>
             </div>
           </div>
@@ -1087,7 +1102,7 @@ export default function AIInterviewPage() {
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                     <User size={13} className="text-purple-600 dark:text-purple-400" />
-                    <span>Chọn Ứng viên (CV & Knowledge Graph)</span>
+                    <span>{lang === "en" ? "Select Candidate (CV & Knowledge Graph)" : "Chọn Ứng viên (CV & Knowledge Graph)"}</span>
                   </label>
                   <select
                     value={selectedCandidateId}
@@ -1107,7 +1122,7 @@ export default function AIInterviewPage() {
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                     <Briefcase size={13} className="text-indigo-600 dark:text-indigo-400" />
-                    <span>Vị trí tuyển dụng (Job Description)</span>
+                    <span>{lang === "en" ? "Job Position (Job Description)" : "Vị trí tuyển dụng (Job Description)"}</span>
                   </label>
                   <select
                     value={selectedJobId}
@@ -1118,7 +1133,7 @@ export default function AIInterviewPage() {
                     {jobsList.map((j) => (
                       <option key={j.id} value={j.id}>
                         {j.company_name ? `${j.company_name} — ` : ""}
-                        {j.title} {j.seniority ? `• [${j.seniority.toUpperCase()}]` : ""}
+                        {j.title} {j.seniority ? `• [${j.seniority.replace(/_/g, ' ').toUpperCase()}]` : ""}
                       </option>
                     ))}
                   </select>
@@ -1129,14 +1144,14 @@ export default function AIInterviewPage() {
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
                 <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-600 dark:text-slate-400">
                   <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/60 font-semibold text-purple-600 dark:text-purple-300">
-                    {questionCount} câu hỏi
+                    {questionCount} {lang === "en" ? "questions" : "câu hỏi"}
                   </span>
                   <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700/60 font-semibold text-indigo-600 dark:text-indigo-300">
-                    Bao phủ {coverageThreshold}% JD
+                    {lang === "en" ? `Coverage ${coverageThreshold}% JD` : `Bao phủ ${coverageThreshold}% JD`}
                   </span>
                   {includeProjectRefs && (
                     <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 font-medium flex items-center gap-1">
-                      <GitBranch size={11} /> Kèm Dự án Git
+                      <GitBranch size={11} /> {lang === "en" ? "With Git Projects" : "Kèm Dự án Git"}
                     </span>
                   )}
                 </div>
@@ -1150,12 +1165,12 @@ export default function AIInterviewPage() {
                     {isGenerating ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        <span>Đang trích xuất & sinh câu hỏi...</span>
+                        <span>{lang === "en" ? "Extracting & generating questions..." : "Đang trích xuất & sinh câu hỏi..."}</span>
                       </>
                     ) : (
                       <>
                         <Sparkles size={16} />
-                        <span>Sinh bộ câu hỏi phỏng vấn</span>
+                        <span>{lang === "en" ? "Generate Interview Questions" : "Sinh bộ câu hỏi phỏng vấn"}</span>
                       </>
                     )}
                   </button>
@@ -1173,7 +1188,7 @@ export default function AIInterviewPage() {
               <div className="flex flex-col items-center justify-center py-12 space-y-4 max-w-xl mx-auto w-full">
                 <div className="w-full">
                   <SuggestionStatusIndicator
-                    currentLabel={currentStatusLabel || "AI đang phân tích và thiết kế câu hỏi phỏng vấn..."}
+                    currentLabel={currentStatusLabel || (lang === "en" ? "AI is analyzing and designing interview questions..." : "AI đang phân tích và thiết kế câu hỏi phỏng vấn...")}
                     steps={streamingSteps}
                     isGenerating={true}
                     theme="recruiter"
@@ -1181,11 +1196,10 @@ export default function AIInterviewPage() {
                 </div>
                 <div className="text-center space-y-1">
                   <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                    AI đang phân tích và thiết kế câu hỏi phỏng vấn
+                    {lang === "en" ? "AI is analyzing and designing interview questions" : "AI đang phân tích và thiết kế câu hỏi phỏng vấn"}
                   </h3>
                   <p className="text-xs text-slate-500 max-w-md">
-                    Đang đối chiếu đồ thị tri thức ứng viên (Candidate Knowledge Graph), rà soát tiêu chuẩn JD và áp dụng
-                    quy tắc đa dạng hóa câu hỏi (Diversity Enforcer)...
+                    {lang === "en" ? "Synthesizing Candidate Knowledge Graph, checking JD requirements, and applying Diversity Enforcer..." : "Đang đối chiếu đồ thị tri thức ứng viên (Candidate Knowledge Graph), rà soát tiêu chuẩn JD và áp dụng quy tắc đa dạng hóa câu hỏi (Diversity Enforcer)..."}
                   </p>
                 </div>
               </div>
@@ -1197,10 +1211,9 @@ export default function AIInterviewPage() {
                   <Sparkles size={30} />
                 </div>
                 <div className="space-y-1 max-w-md">
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white">Chưa có bộ câu hỏi nào được chọn</h3>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white">{lang === "en" ? "No question set selected" : "Chưa có bộ câu hỏi nào được chọn"}</h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Hãy chọn Ứng viên và Vị trí tuyển dụng ở trên rồi bấm <strong>“Sinh bộ câu hỏi phỏng vấn”</strong>,
-                    hoặc chọn một phiên đã lưu ở sidebar bên trái để xem lại.
+                    {lang === "en" ? "Please select a candidate and job position above and click “Generate Interview Questions”, or select a saved session on the left sidebar." : "Hãy chọn Ứng viên và Vị trí tuyển dụng ở trên rồi bấm “Sinh bộ câu hỏi phỏng vấn”, hoặc chọn một phiên đã lưu ở sidebar bên trái để xem lại."}
                   </p>
                 </div>
               </div>
@@ -1213,24 +1226,24 @@ export default function AIInterviewPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-base font-bold text-slate-900 dark:text-white">
-                        Bộ câu hỏi phỏng vấn ({sessionResult.questions.length} câu)
+                        {lang === "en" ? `Interview Question Set (${sessionResult.questions.length} questions)` : `Bộ câu hỏi phỏng vấn (${sessionResult.questions.length} câu)`}
                       </span>
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
-                        Bao phủ: {Math.round((sessionResult.coverage_ratio || 0.85) * 100)}% JD
+                        {lang === "en" ? "Coverage:" : "Bao phủ:"} {Math.round((sessionResult.coverage_ratio || 0.85) * 100)}% JD
                       </span>
                       {sessionResult.is_approved ? (
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 flex items-center gap-1">
-                          <Check size={12} /> Đã phê duyệt
+                          <Check size={12} /> {lang === "en" ? "Approved" : "Đã phê duyệt"}
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300">
-                          Chờ duyệt
+                          {lang === "en" ? "Pending Approval" : "Chờ duyệt"}
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Ứng viên: <strong>{sessionResult.candidate_name || sessionResult.candidate_id}</strong> • Vị trí:{" "}
-                      <strong>{sessionResult.job_title || "Vị trí tuyển dụng"}</strong>
+                      {lang === "en" ? "Candidate:" : "Ứng viên:"} <strong>{sessionResult.candidate_name || sessionResult.candidate_id}</strong> • {lang === "en" ? "Position:" : "Vị trí:"}{" "}
+                      <strong>{sessionResult.job_title || (lang === "en" ? "Job Position" : "Vị trí tuyển dụng")}</strong>
                     </p>
                   </div>
 
@@ -1251,7 +1264,7 @@ export default function AIInterviewPage() {
                         className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
                       >
                         {isApproving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                        <span>Phê duyệt phiên</span>
+                        <span>{lang === "en" ? "Approve Session" : "Phê duyệt phiên"}</span>
                       </button>
                     )}
                   </div>
@@ -1295,7 +1308,7 @@ export default function AIInterviewPage() {
                               )}
                               {q.jd_requirement_mapped && (
                                 <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
-                                  Yêu cầu: {q.jd_requirement_mapped}
+                                  {lang === "en" ? "Requirement:" : "Yêu cầu:"} {q.jd_requirement_mapped}
                                 </span>
                               )}
                             </div>
@@ -1327,7 +1340,7 @@ export default function AIInterviewPage() {
                               {q.expected_answer_outline && (
                                 <div className="space-y-1.5">
                                   <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                                    <Code2 size={13} className="text-purple-500" /> Gợi ý câu trả lời mong đợi
+                                    <Code2 size={13} className="text-purple-500" /> {lang === "en" ? "Expected Answer Outline" : "Gợi ý câu trả lời mong đợi"}
                                   </h4>
                                   <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
                                     {q.expected_answer_outline}
@@ -1339,31 +1352,31 @@ export default function AIInterviewPage() {
                               {q.rubric && (
                                 <div className="space-y-2">
                                   <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                                    <Award size={13} className="text-emerald-500" /> Tiêu chí chấm điểm (Rubric 3 cấp độ)
+                                    <Award size={13} className="text-emerald-500" /> {lang === "en" ? "Scoring Criteria (3-Level Rubric)" : "Tiêu chí chấm điểm (Rubric 3 cấp độ)"}
                                   </h4>
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                                     <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 space-y-1">
                                       <div className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                                        ✓ Xuất sắc (Excellent)
+                                        ✓ {lang === "en" ? "Excellent" : "Xuất sắc (Excellent)"}
                                       </div>
                                       <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        {q.rubric.excellent || "Nắm vững lý thuyết và kinh nghiệm thực chiến xuất sắc."}
+                                        {q.rubric.excellent || (lang === "en" ? "Strong theoretical foundation and outstanding practical depth." : "Nắm vững lý thuyết và kinh nghiệm thực chiến xuất sắc.")}
                                       </div>
                                     </div>
                                     <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40 space-y-1">
                                       <div className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                                        ~ Đạt yêu cầu (Acceptable)
+                                        ~ {lang === "en" ? "Acceptable" : "Đạt yêu cầu (Acceptable)"}
                                       </div>
                                       <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        {q.rubric.acceptable || "Hiểu nguyên lý cơ bản và giải quyết được vấn đề."}
+                                        {q.rubric.acceptable || (lang === "en" ? "Understands core principles and solves the problem effectively." : "Hiểu nguyên lý cơ bản và giải quyết được vấn đề.")}
                                       </div>
                                     </div>
                                     <div className="p-3 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-800/40 space-y-1">
                                       <div className="text-xs font-bold text-rose-700 dark:text-rose-300">
-                                        ✗ Chưa đạt (Poor)
+                                        ✗ {lang === "en" ? "Poor / Needs Improvement" : "Chưa đạt (Poor)"}
                                       </div>
                                       <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                                        {q.rubric.poor || "Mơ hồ hoặc không giải thích được giải pháp."}
+                                        {q.rubric.poor || (lang === "en" ? "Vague explanation or unable to reason through solutions." : "Mơ hồ hoặc không giải thích được giải pháp.")}
                                       </div>
                                     </div>
                                   </div>
@@ -1374,7 +1387,7 @@ export default function AIInterviewPage() {
                               {q.follow_ups && q.follow_ups.length > 0 && (
                                 <div className="space-y-1.5">
                                   <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                                    <HelpCircle size={13} className="text-indigo-500" /> Câu hỏi đào sâu (Follow-up Questions)
+                                    <HelpCircle size={13} className="text-indigo-500" /> {lang === "en" ? "Deep-dive Follow-up Questions" : "Câu hỏi đào sâu (Follow-up Questions)"}
                                   </h4>
                                   <div className="space-y-1.5">
                                     {q.follow_ups.map((fu, fIdx) => (
@@ -1387,7 +1400,7 @@ export default function AIInterviewPage() {
                                           <div className="font-medium text-slate-900 dark:text-white">{fu.text}</div>
                                           {fu.purpose && (
                                             <div className="text-slate-400 text-[10px] mt-0.5">
-                                              Mục đích: {fu.purpose}
+                                              {lang === "en" ? "Purpose:" : "Mục đích:"} {fu.purpose}
                                             </div>
                                           )}
                                         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useLang } from '@/context/LangContext';
 import {
   listNotifications,
   markNotificationsRead,
@@ -14,6 +15,7 @@ import {
  * User được resolve từ supabase.auth (không dùng biến userId cứng).
  */
 export function NotificationBell() {
+  const { lang, t } = useLang();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -111,7 +113,7 @@ export function NotificationBell() {
 
   const handleNotificationClick = async (notif: Notification) => {
     if (!token) return;
-    // Mark as read + navigate
+    // Đánh dấu đã đọc
     try {
       await markNotificationsRead(token, [notif.id]);
     } catch {
@@ -123,6 +125,7 @@ export function NotificationBell() {
     }
     setIsOpen(false);
   };
+
 
   const handleMarkAllRead = async () => {
     if (!token) return;
@@ -144,7 +147,7 @@ export function NotificationBell() {
       <button
         onClick={handleOpen}
         className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-        aria-label={`Thông báo (${unreadCount} chưa đọc)`}
+        aria-label={lang === 'en' ? `Notifications (${unreadCount} unread)` : `Thông báo (${unreadCount} chưa đọc)`}
       >
         <Bell size={20} className="text-slate-600 dark:text-slate-300" />
         {unreadCount > 0 && (
@@ -166,14 +169,14 @@ export function NotificationBell() {
           <div className="absolute right-0 mt-1.5 w-80 bg-white dark:bg-slate-800 shadow-xl rounded-xl z-50 border border-slate-200 dark:border-slate-700 max-h-[480px] flex flex-col overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
               <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-100">
-                Thông báo
+                {lang === 'en' ? 'Notifications' : 'Thông báo'}
               </h3>
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
                   className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
                 >
-                  Đánh dấu tất cả đã đọc
+                  {lang === 'en' ? 'Mark all as read' : 'Đánh dấu tất cả đã đọc'}
                 </button>
               )}
             </div>
@@ -181,11 +184,11 @@ export function NotificationBell() {
             <div className="overflow-y-auto flex-1">
               {loading ? (
                 <div className="p-8 text-center text-sm text-slate-400">
-                  Đang tải...
+                  {lang === 'en' ? 'Loading...' : 'Đang tải...'}
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="p-8 text-center text-sm text-slate-400">
-                  Không có thông báo mới
+                  {lang === 'en' ? 'No new notifications' : 'Không có thông báo mới'}
                 </div>
               ) : (
                 notifications.map((notif) => (

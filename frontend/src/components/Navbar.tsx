@@ -40,7 +40,8 @@ export default function Navbar() {
   const navLinks = [
     { label: t.home, href: "/", always: true },
     { label: t.jobs, href: "/jobs", always: true },
-    { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", always: true },
+    { label: t.applications, href: "/applications", candidate: true },
+    { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", candidate: true, recruiter: true, admin: true },
     { label: t.aiSuggestions, href: "/ai-suggestions", candidate: true },
     { label: t.cvAssessment || (lang === "en" ? "CV Assessment" : "Đánh giá CV"), href: "/cv-assessment", candidate: true },
     { label: t.aiCandidates, href: "/ai-candidates", recruiter: true },
@@ -50,9 +51,10 @@ export default function Navbar() {
     { label: t.contact || (lang === "en" ? "Contact" : "Liên hệ"), href: "/contact", always: true },
   ];
 
+
   const userLinks = [
     { label: t.profile, href: "/profile", icon: User, always: true },
-    { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", icon: GitBranch, always: true },
+    { label: t.repoEvaluation || (lang === "en" ? "Repo Evaluation" : "Đánh giá Repo"), href: "/repo-evaluation", icon: GitBranch, candidate: true, recruiter: true, admin: true },
     { label: t.cvVault, href: "/cv-vault", icon: FileText, candidate: true },
     { label: t.cvAssessment || (lang === "en" ? "CV Assessment" : "Đánh giá CV"), href: "/cv-assessment", icon: Compass, candidate: true },
     { label: t.applications, href: "/applications", icon: BookOpen, candidate: true },
@@ -66,18 +68,18 @@ export default function Navbar() {
   const visibleNavLinks = navLinks.filter((l) => {
     if (l.always) return true;
     if (!user) return false;
-    if (l.candidate) return isCandidate;
-    if (l.recruiter) return isRecruiter;
-    if (l.admin) return isAdmin;
+    if (l.candidate && isCandidate) return true;
+    if (l.recruiter && isRecruiter) return true;
+    if (l.admin && isAdmin) return true;
     return false;
   });
 
   const visibleUserLinks = userLinks.filter((l) => {
     if (l.always) return true;
     if (!user) return false;
-    if (l.candidate) return isCandidate;
-    if (l.recruiter) return isRecruiter;
-    if (l.admin) return isAdmin;
+    if (l.candidate && isCandidate) return true;
+    if (l.recruiter && isRecruiter) return true;
+    if (l.admin && isAdmin) return true;
     return false;
   });
 
@@ -125,7 +127,7 @@ export default function Navbar() {
                 onClick={toggleLang}
                 whileTap={{ scale: 0.92 }}
                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold border transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-300 hover:text-indigo-600"
-                title="Switch language"
+                title={lang === "vi" ? "Chuyển sang tiếng Anh" : "Switch to Vietnamese"}
               >
                 <AnimatePresence mode="wait">
                   <motion.span key={lang} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.12 }}>
@@ -138,7 +140,7 @@ export default function Navbar() {
                 whileTap={{ scale: 0.9 }}
                 onClick={toggleDarkMode}
                 className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                title="Đổi giao diện"
+                title={t.toggleTheme || (lang === "en" ? "Toggle theme" : "Đổi giao diện")}
               >
                 <AnimatePresence mode="wait">
                   <motion.div key={darkMode ? "moon" : "sun"} initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>

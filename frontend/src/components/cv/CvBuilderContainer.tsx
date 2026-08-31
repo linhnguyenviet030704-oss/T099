@@ -6,6 +6,7 @@ import { exportCv } from '../../lib/cvExport';
 import { INDEX_FAIL_COPY, ingestResume } from '../../lib/ingest';
 import { getResumeSignedUrl } from '../../lib/storage';
 import { useAuth } from '../../auth/AuthProvider';
+import { useLang } from '../../context/LangContext';
 
 import { CvLine, CvHeader } from '../../lib/cv';
 
@@ -36,6 +37,7 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
   onCreated,
 }) => {
   const { session } = useAuth();
+  const { lang } = useLang();
   const [successPath, setSuccessPath] = useState<string | null>(null);
   const [indexWarning, setIndexWarning] = useState(false);
 
@@ -51,7 +53,7 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
       const url = await getResumeSignedUrl(successPath);
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
-      alert(`Không thể mở CV: ${err.message}`);
+      alert(`${lang === "en" ? "Cannot open CV:" : "Không thể mở CV:"} ${err.message}`);
     }
   };
 
@@ -62,9 +64,13 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
           <CheckCircle2 className="h-7 w-7" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">CV đã được tạo và lưu vào tủ hồ sơ!</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+            {lang === "en" ? "CV has been created and saved to your CV Vault!" : "CV đã được tạo và lưu vào tủ hồ sơ!"}
+          </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            CV của bạn đã được lưu dưới dạng PDF trong kho lưu trữ riêng tư và sẵn sàng để nộp đơn.
+            {lang === "en"
+              ? "Your CV has been saved as a PDF in your private vault and is ready for applications."
+              : "CV của bạn đã được lưu dưới dạng PDF trong kho lưu trữ riêng tư và sẵn sàng để nộp đơn."}
           </p>
           {indexWarning && (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">{INDEX_FAIL_COPY}</p>
@@ -77,14 +83,14 @@ export const CvBuilderContainer: React.FC<CvBuilderContainerProps> = ({
             className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Xem CV vừa tạo
+            {lang === "en" ? "View Created CV" : "Xem CV vừa tạo"}
           </button>
           <button
             type="button"
             onClick={onClose}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md shadow-emerald-200 dark:shadow-emerald-900/30 transition-colors"
           >
-            Hoàn tất
+            {lang === "en" ? "Done" : "Hoàn tất"}
           </button>
         </div>
       </div>

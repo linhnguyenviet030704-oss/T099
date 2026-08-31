@@ -8,11 +8,13 @@ create type public.notification_type as enum (
   'application_submitted',
   'application_status_changed',
   'interview_scheduled',
+  'interview_response',
   'application_auto_rejected',
   'reputation_decreased',
   'reputation_increased',
   'interview_reminder'
 );
+
 
 -- Bảng notifications
 create table public.notifications (

@@ -182,3 +182,81 @@ async def test_update_application_status_recruiter_success(api_client: AsyncClie
     data = response.json()
     assert data["application"]["current_status"] == "interview"
     assert data["email_enqueued"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_interview_invitation_api(api_client: AsyncClient):
+    """Lấy thông tin lời mời phỏng vấn qua API -> 200 OK."""
+    user_id = uuid4()
+    app_id = uuid4()
+    inv_id = uuid4()
+
+    mock_profile_service = AsyncMock()
+    mock_profile_service.get_own_profile.return_value = Profile(
+        id=user_id,
+        email="candidate@test.com",
+        full_name="Candidate A",
+        phone=None,
+        avatar_url=None,
+        role="candidate",
+    )
+
+    from backend.app.api.schemas.application import InterviewInvitationResponse
+
+    mock_app_service = AsyncMock()
+    mock_app_service.get_interview_invitation.return_value = InterviewInvitationResponse(
+        id=inv_id,
+        application_id=app_id,
+        scheduled_at=None,
+        proposed_time_slots=["2026-09-02T09:00:00Z", "2026-09-02T14:00:00Z"],
+        status="pending",
+        location="Office",
+    )
+
+    app.dependency_overrides[get_profile_service] = lambda: mock_profile_service
+    app.dependency_overrides[get_application_service] = lambda: mock_app_service
+
+    token = _make_token(sub=str(user_id))
+    response = await api_client.get(
+        f"/api/v1/applications/{app_id}/interview-invitation",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(inv_id)
+    assert len(data["proposed_time_slots"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_candidate_respond_interview_api(api_client: AsyncClient):
+    """Ứng viên phản hồi lời mời phỏng vấn qua API -> 200 OK."""
+    user_id = uuid4()
+    app_id = uuid4()
+    inv_id = uuid4()
+
+    from backend.app.api.schemas.application import InterviewInvitationResponse
+
+    mock_app_service = AsyncMock()
+    mock_app_service.candidate_respond_interview.return_value = InterviewInvitationResponse(
+        id=inv_id,
+        application_id=app_id,
+        scheduled_at=datetime.now(UTC),
+        proposed_time_slots=["2026-09-02T09:00:00Z"],
+        status="confirmed",
+    )
+
+    app.dependency_overrides[get_application_service] = lambda: mock_app_service
+
+    token = _make_token(sub=str(user_id))
+    response = await api_client.post(
+        f"/api/v1/applications/{app_id}/interview-invitation/respond",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "action": "confirm",
+            "selected_slot": "2026-09-02T09:00:00Z",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "confirmed"
+

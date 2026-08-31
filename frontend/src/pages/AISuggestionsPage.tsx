@@ -347,8 +347,12 @@ export default function AISuggestionsPage() {
       }
       setSessionId(sid);
       localStorage.setItem("chat_session_id", sid);
-    } catch (err) {
-      console.error("Failed to load session", err);
+    } catch (err: any) {
+      // Khi phiên chat không tồn tại (404) hoặc hết hạn, dọn sạch localStorage và reset về màn hình chào
+      console.warn("Phiên chat không tồn tại hoặc đã bị xóa, khởi tạo lại session mới:", err?.message || err);
+      localStorage.removeItem("chat_session_id");
+      setSessionId(null);
+      setMessages([{ id: "welcome", role: "system", text: welcomeText }]);
     }
   }, [session, welcomeText]);
 

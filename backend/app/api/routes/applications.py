@@ -11,6 +11,9 @@ from backend.app.api.schemas.application import (
     ApplicationListResponse,
     ApplicationUpdateStatusRequest,
     ApplicationUpdateStatusResponse,
+    CandidateInterviewResponseRequest,
+    InterviewInvitationResponse,
+    RecruiterConfirmRescheduleRequest,
 )
 from backend.app.core.exceptions import ForbiddenError
 from backend.app.core.security import AuthenticatedUser
@@ -78,3 +81,51 @@ async def update_application_status(
     if profile.role not in ("recruiter", "admin"):
         raise ForbiddenError("Chỉ Nhà tuyển dụng mới có quyền đổi trạng thái ứng viên")
     return await service.update_status(application_id, current_user.id, body)
+
+
+@router.get(
+    "/applications/{application_id}/interview-invitation",
+    response_model=InterviewInvitationResponse | None,
+)
+async def get_interview_invitation(
+    application_id: UUID,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    service: ApplicationService = Depends(get_application_service),
+    profile_service: ProfileService = Depends(get_profile_service),
+) -> InterviewInvitationResponse | None:
+    """Lấy thông tin lời mời phỏng vấn và các mốc thời gian đề xuất."""
+    profile = await profile_service.get_own_profile(current_user.id)
+    return await service.get_interview_invitation(application_id, current_user.id, profile.role)
+
+
+@router.post(
+    "/applications/{application_id}/interview-invitation/respond",
+    response_model=InterviewInvitationResponse,
+)
+async def candidate_respond_interview(
+    application_id: UUID,
+    body: CandidateInterviewResponseRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    service: ApplicationService = Depends(get_application_service),
+) -> InterviewInvitationResponse:
+    """Ứng viên phản hồi lời mời phỏng vấn (chọn mốc phù hợp hoặc đề xuất đổi lịch)."""
+    return await service.candidate_respond_interview(application_id, current_user.id, body)
+
+
+@router.post(
+    "/applications/{application_id}/interview-invitation/reschedule-confirm",
+    response_model=InterviewInvitationResponse,
+)
+async def recruiter_confirm_reschedule(
+    application_id: UUID,
+    body: RecruiterConfirmRescheduleRequest,
+    current_user: AuthenticatedUser = Depends(get_current_recruiter),
+    service: ApplicationService = Depends(get_application_service),
+    profile_service: ProfileService = Depends(get_profile_service),
+) -> InterviewInvitationResponse:
+    """Nhà tuyển dụng xác nhận mốc thời gian do ứng viên đề xuất."""
+    profile = await profile_service.get_own_profile(current_user.id)
+    if profile.role not in ("recruiter", "admin"):
+        raise ForbiddenError("Chỉ Nhà tuyển dụng mới có quyền xác nhận lịch phỏng vấn")
+    return await service.recruiter_confirm_reschedule(application_id, current_user.id, body)
+

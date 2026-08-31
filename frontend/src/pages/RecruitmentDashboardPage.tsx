@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles, Building2 } from "lucide-react";
+import { Plus, Users, Briefcase, Check, X, Pencil, Sparkles, Building2, Calendar, Clock, Video, MapPin, Trash2, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
 import { useCurrentProfile } from "../profile/ProfileProvider";
 import { useLang } from "../context/LangContext";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { getResumeSignedUrl } from "../lib/storage";
+import {
+  type InterviewInvitation,
+  updateApplicationStatus,
+  recruiterConfirmReschedule,
+} from "../lib/api-applications";
 import type { Application, ApplicationStatus, CompanyMember, EmploymentType, JobPost, JobPostStatus, Profile } from "../types";
 import { getEnumLabels, formatDate } from "../lib/format";
 import { APP_STATUS_COLORS, JOB_STATUS_COLORS, salaryRange, TERMINAL_APP_STATUSES, RECRUITER_STAGE_OPTIONS } from "../lib/ui";
@@ -15,6 +20,12 @@ import Button from "../components/ui/Button";
 import { useToast } from "../context/ToastContext";
 import CandidateCompareDock, { SelectedCandidateItem } from "../components/candidate/CandidateCompareDock";
 import CVComparisonModal from "../components/candidate/CVComparisonModal";
+import InterviewTimeSlotPicker, {
+  InterviewTimeSlot,
+  validateTimeSlots,
+  toSlotApiString,
+  formatSlotDisplay,
+} from "../components/interview/InterviewTimeSlotPicker";
 
 export default function RecruitmentDashboardPage() {
   const navigate = useNavigate();
@@ -30,6 +41,7 @@ export default function RecruitmentDashboardPage() {
   const [jobs, setJobs] = useState<JobPost[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, Profile>>({});
+  const [invitationsMap, setInvitationsMap] = useState<Record<string, InterviewInvitation>>({});
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [showCreateJob, setShowCreateJob] = useState(false);
@@ -37,12 +49,17 @@ export default function RecruitmentDashboardPage() {
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [stageNote, setStageNote] = useState("");
   const [newStatus, setNewStatus] = useState<ApplicationStatus>("screening");
+  const [interviewSlots, setInterviewSlots] = useState<InterviewTimeSlot[]>([]);
+  const [interviewMeetingLink, setInterviewMeetingLink] = useState("");
+  const [interviewLocation, setInterviewLocation] = useState("");
+
   const [selectedCompareCandidates, setSelectedCompareCandidates] = useState<SelectedCandidateItem[]>([]);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobSaving, setJobSaving] = useState(false);
   const [updatingApp, setUpdatingApp] = useState(false);
+
   const [newJob, setNewJob] = useState({
     title: "",
     description: "",
@@ -99,17 +116,36 @@ export default function RecruitmentDashboardPage() {
         const loadedApps = (appsData || []) as Application[];
         setApplications(loadedApps);
         if (loadedApps.length > 0) {
+          const appIds = loadedApps.map((a) => a.id);
           const { data: profilesData } = await supabase.from("profiles").select("*").in("id", Array.from(new Set(loadedApps.map((a) => a.applicant_user_id))));
           const map: Record<string, Profile> = {};
           (profilesData || []).forEach((p: Profile) => { map[p.id] = p; });
           setProfilesMap(map);
+
+          // Tải lời mời phỏng vấn cho các đơn đã nộp
+          const { data: invData } = await supabase
+            .from("interview_invitations")
+            .select("*")
+            .in("application_id", appIds)
+            .order("created_at", { ascending: false });
+
+          const invMap: Record<string, InterviewInvitation> = {};
+          (invData || []).forEach((inv: any) => {
+            if (!invMap[inv.application_id]) {
+              invMap[inv.application_id] = inv;
+            }
+          });
+          setInvitationsMap(invMap);
         } else {
           setProfilesMap({});
+          setInvitationsMap({});
         }
       } else {
         setApplications([]);
         setProfilesMap({});
+        setInvitationsMap({});
       }
+
     } catch (err: unknown) {
       setError(handleSupabaseError(err));
     } finally {
@@ -251,17 +287,76 @@ export default function RecruitmentDashboardPage() {
     if (!supabase || !user) return;
     setUpdatingApp(true);
     try {
-      const { error: sErr } = await supabase.from("application_stages").insert({
-        application_id: appId,
-        changed_by_user_id: user.id,
-        stage: newStatus,
-        note: stageNote.trim() || null,
-        is_system_generated: false,
-      });
-      if (sErr) throw sErr;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (newStatus === "interview") {
+        const valResult = validateTimeSlots(interviewSlots, lang);
+        if (!valResult.isValid) {
+          toastError(
+            valResult.error || (lang === "en" ? "Please verify interview slots" : "Vui lòng kiểm tra lại các khoảng thời gian phỏng vấn")
+          );
+          setUpdatingApp(false);
+          return;
+        }
+
+        const validSlots = interviewSlots.map(toSlotApiString);
+
+        if (token) {
+          await updateApplicationStatus(token, appId, {
+            new_status: "interview",
+            note: stageNote.trim() || undefined,
+            send_email: true,
+            interview_schedule: {
+              proposed_time_slots: validSlots,
+              meeting_link: interviewMeetingLink.trim() || undefined,
+              location: interviewLocation.trim() || undefined,
+              note: stageNote.trim() || undefined,
+            },
+          });
+        } else {
+          await supabase.from("application_stages").insert({
+            application_id: appId,
+            changed_by_user_id: user.id,
+            stage: "interview",
+            note: stageNote.trim() || null,
+            is_system_generated: false,
+          });
+          await supabase.from("interview_invitations").insert({
+            application_id: appId,
+            created_by_user_id: user.id,
+            proposed_time_slots: validSlots,
+            meeting_link: interviewMeetingLink.trim() || null,
+            location: interviewLocation.trim() || null,
+            note: stageNote.trim() || null,
+            status: "pending",
+          });
+        }
+      } else {
+        if (token) {
+          await updateApplicationStatus(token, appId, {
+            new_status: newStatus,
+            note: stageNote.trim() || undefined,
+            send_email: false,
+          });
+        } else {
+          const { error: sErr } = await supabase.from("application_stages").insert({
+            application_id: appId,
+            changed_by_user_id: user.id,
+            stage: newStatus,
+            note: stageNote.trim() || null,
+            is_system_generated: false,
+          });
+          if (sErr) throw sErr;
+        }
+      }
+
       success(t.stageUpdatedSuccess);
       setSelectedApp(null);
       setStageNote("");
+      setInterviewSlots([]);
+      setInterviewMeetingLink("");
+      setInterviewLocation("");
       await fetchWorkspace();
     } catch (err: unknown) {
       toastError(lang === "en" ? "Update failed" : "Cập nhật thất bại", handleSupabaseError(err));
@@ -269,6 +364,25 @@ export default function RecruitmentDashboardPage() {
       setUpdatingApp(false);
     }
   };
+
+
+  const handleConfirmCandidateSlot = async (appId: string, slot: string) => {
+    if (!supabase) return;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) return;
+
+      await recruiterConfirmReschedule(token, appId, {
+        selected_slot: slot,
+      });
+      success(lang === "en" ? "Interview schedule confirmed!" : "Đã chốt lịch phỏng vấn theo mốc thời gian của ứng viên!");
+      await fetchWorkspace();
+    } catch (err: unknown) {
+      toastError(lang === "en" ? "Failed to confirm slot" : "Chốt lịch thất bại", handleSupabaseError(err));
+    }
+  };
+
 
   const handleToggleCompare = (app: Application, candName: string) => {
     setSelectedCompareCandidates((prev) => {
@@ -458,22 +572,32 @@ export default function RecruitmentDashboardPage() {
               ) : companyJobs.map((job) => {
                 const appCount = applications.filter((a) => a.job_post_id === job.id).length;
                 return (
-                  <motion.button
+                  <motion.div
                     key={job.id}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       setSelectedJobId(selectedJobId === job.id ? null : job.id);
                       setSelectedCompareCandidates([]);
                     }}
-                    className={`w-full text-left p-4 rounded-xl border transition-all ${selectedJobId === job.id ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300"}`}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedJobId(selectedJobId === job.id ? null : job.id);
+                        setSelectedCompareCandidates([]);
+                      }
+                    }}
+                    className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer ${selectedJobId === job.id ? "bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800" : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300"}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium line-clamp-2 text-slate-900 dark:text-white">{job.title}</p>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${JOB_STATUS_COLORS[job.status]}`}>{enumLabels.job_post_status[job.status]}</span>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); handleOpenEditJob(job); }}
-                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-200/50 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
                           title={t.editJob}
                         >
                           <Pencil size={12} />
@@ -488,8 +612,9 @@ export default function RecruitmentDashboardPage() {
                       <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center justify-between">
                         <span>✓ {t.publishedOnJobs}</span>
                         <button
+                          type="button"
                           onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${job.id}`); }}
-                          className="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5"
+                          className="hover:underline text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-0.5 cursor-pointer"
                         >
                           {t.viewOnJobs}
                         </button>
@@ -501,17 +626,18 @@ export default function RecruitmentDashboardPage() {
                     )}
                     <div className="flex gap-1.5 mt-2 flex-wrap">
                       {(["published", "closed", "archived"] as JobPostStatus[]).filter((s) => s !== job.status).map((s) => (
-                        <motion.span
+                        <motion.button
                           key={s}
+                          type="button"
                           whileTap={{ scale: 0.92 }}
                           onClick={(e) => { e.stopPropagation(); void handleUpdateJobStatus(job.id, s); }}
                           className="text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:text-indigo-600 text-slate-600 dark:text-slate-300 rounded-full font-medium transition-colors cursor-pointer"
                         >
                           → {enumLabels.job_post_status[s]}
-                        </motion.span>
+                        </motion.button>
                       ))}
                     </div>
-                  </motion.button>
+                  </motion.div>
                 );
               })}
             </div>
@@ -634,6 +760,18 @@ export default function RecruitmentDashboardPage() {
                                         setSelectedApp(app.id);
                                         setNewStatus(initialStage);
                                         setStageNote("");
+                                        const tomorrow = new Date();
+                                        tomorrow.setDate(tomorrow.getDate() + 1);
+                                        tomorrow.setHours(9, 0, 0, 0);
+                                        const tomorrowEnd = new Date(tomorrow.getTime() + 60 * 60 * 1000);
+                                        setInterviewSlots([
+                                          {
+                                            start_time: tomorrow.toISOString().slice(0, 16),
+                                            end_time: tomorrowEnd.toISOString().slice(0, 16),
+                                          },
+                                        ]);
+                                        setInterviewMeetingLink("");
+                                        setInterviewLocation("");
                                       }
                                     }}
                                   >
@@ -642,15 +780,143 @@ export default function RecruitmentDashboardPage() {
                                 )}
                               </div>
                             </div>
+
+                            {/* Hiển thị thông tin Lịch phỏng vấn & Phản hồi của ứng viên */}
+                            {invitationsMap[app.id] && (
+                              <div className="mt-3 text-xs">
+                                {invitationsMap[app.id].status === "confirmed" && invitationsMap[app.id].scheduled_at && (
+                                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                                    <div className="flex items-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
+                                      <CheckCircle2 size={14} />
+                                      <span>Đã chốt lịch phỏng vấn: {formatSlotDisplay(invitationsMap[app.id].scheduled_at!, lang)}</span>
+                                    </div>
+                                    {invitationsMap[app.id].meeting_link && (
+                                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 mt-1">
+                                        <Video size={13} />
+                                        <a href={invitationsMap[app.id].meeting_link!.startsWith("http") ? invitationsMap[app.id].meeting_link! : `https://${invitationsMap[app.id].meeting_link}`} target="_blank" rel="noopener noreferrer" className="underline font-semibold">
+                                          {invitationsMap[app.id].meeting_link}
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {invitationsMap[app.id].status === "reschedule_requested" && (
+                                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl space-y-2">
+                                    <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
+                                      <Clock size={14} />
+                                      <span>{lang === "en" ? "Candidate proposed interview reschedule:" : "Ứng viên đề xuất đổi lịch phỏng vấn:"}</span>
+                                    </div>
+                                    {invitationsMap[app.id].candidate_response_note && (
+                                      <p className="text-slate-600 dark:text-slate-300 italic">
+                                        "{invitationsMap[app.id].candidate_response_note}"
+                                      </p>
+                                    )}
+                                    {invitationsMap[app.id].candidate_proposed_slots && (
+                                      <div className="space-y-1.5 pt-1">
+                                        <p className="font-semibold text-slate-700 dark:text-slate-200">{lang === "en" ? "Select a slot to confirm:" : "Chọn 1 khoảng để chốt lịch:"}</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {invitationsMap[app.id].candidate_proposed_slots.map((s, sIdx) => (
+                                            <button
+                                              key={sIdx}
+                                              type="button"
+                                              onClick={() => void handleConfirmCandidateSlot(app.id, s)}
+                                              className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                            >
+                                              <Check size={12} /> {formatSlotDisplay(s, lang)}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {invitationsMap[app.id].status === "pending" && (
+                                  <div className="p-2.5 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-800 rounded-xl flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+                                    <Clock size={13} />
+                                    <span>{lang === "en" ? `Sent ${invitationsMap[app.id].proposed_time_slots?.length || 0} proposed slots (Awaiting candidate response)` : `Đã gửi ${invitationsMap[app.id].proposed_time_slots?.length || 0} khoảng thời gian đề xuất (Đang chờ ứng viên chọn)`}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                             {isSelected && (
-                              <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
-                                <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as ApplicationStatus)} className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white">
-                                  {RECRUITER_STAGE_OPTIONS.map((s) => (
-                                    <option key={s} value={s}>{enumLabels.application_status[s]}</option>
-                                  ))}
-                                </select>
-                                <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder={t.stageNotePlaceholder} className="px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
-                                <div className="col-span-2 flex justify-end gap-2">
+                              <div className="mt-3 bg-slate-50 dark:bg-slate-700/40 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">{t.newStatus || (lang === "en" ? "New status:" : "Trạng thái mới:")}</label>
+                                    <select
+                                      value={newStatus}
+                                      onChange={(e) => {
+                                        const val = e.target.value as ApplicationStatus;
+                                        setNewStatus(val);
+                                        if (val === "interview" && interviewSlots.length === 0) {
+                                          const tm = new Date();
+                                          tm.setDate(tm.getDate() + 1);
+                                          tm.setHours(9, 0, 0, 0);
+                                          const tmEnd = new Date(tm.getTime() + 60 * 60 * 1000);
+                                          setInterviewSlots([
+                                            {
+                                              start_time: tm.toISOString().slice(0, 16),
+                                              end_time: tmEnd.toISOString().slice(0, 16),
+                                            },
+                                          ]);
+                                        }
+                                      }}
+                                      className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white"
+                                    >
+                                      {RECRUITER_STAGE_OPTIONS.map((s) => (
+                                        <option key={s} value={s}>{enumLabels.application_status[s]}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">{lang === "en" ? "Stage note:" : "Ghi chú tiến trình:"}</label>
+                                    <input value={stageNote} onChange={(e) => setStageNote(e.target.value)} placeholder={t.stageNotePlaceholder} className="w-full px-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white" />
+                                  </div>
+                                </div>
+
+                                {/* Form nhập các khoảng thời gian dùng chung InterviewTimeSlotPicker */}
+                                {newStatus === "interview" && (
+                                  <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-3">
+                                    <InterviewTimeSlotPicker
+                                      slots={interviewSlots}
+                                      onChange={setInterviewSlots}
+                                      label="Các khoảng thời gian đề xuất cho ứng viên:"
+                                      description="Chọn khoảng thời gian (Từ - Đến). Các khoảng thời gian khác nhau cần cách nhau ít nhất 4h và không trùng lặp."
+                                    />
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <div>
+                                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                          Link họp online (Google Meet / Zoom):
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={interviewMeetingLink}
+                                          onChange={(e) => setInterviewMeetingLink(e.target.value)}
+                                          placeholder="https://meet.google.com/..."
+                                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-900 dark:text-white"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                          Địa điểm trực tiếp (nếu có):
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={interviewLocation}
+                                          onChange={(e) => setInterviewLocation(e.target.value)}
+                                          placeholder="Phòng họp tầng 3..."
+                                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg text-xs text-slate-900 dark:text-white"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex justify-end gap-2 pt-2">
                                   <Button size="xs" variant="ghost" onClick={() => setSelectedApp(null)}>{t.cancel}</Button>
                                   <Button size="xs" leftIcon={<Check size={12} />} onClick={() => void handleAddStage(app.id)} isLoading={updatingApp} loadingText={t.savingProfile}>{t.save}</Button>
                                 </div>
@@ -661,6 +927,7 @@ export default function RecruitmentDashboardPage() {
                       })}
                     </div>
                   )}
+
                 </div>
               )}
             </div>

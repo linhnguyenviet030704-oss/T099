@@ -422,19 +422,19 @@ export default function CVAssessmentPage() {
                 {inputMode === "vault" && (
                   <div>
                     {loadingResumes ? (
-                      <div className="py-8 text-center text-slate-400">Đang tải danh sách CV...</div>
+                      <div className="py-8 text-center text-slate-400">{lang === "en" ? "Loading CVs..." : "Đang tải danh sách CV..."}</div>
                     ) : resumes.length === 0 ? (
                       <div className="p-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
                         <FileText size={36} className="mx-auto text-slate-400" />
                         <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Bạn chưa có CV nào trong Tủ hồ sơ.
+                          {lang === "en" ? "You don't have any CVs in your Vault." : "Bạn chưa có CV nào trong Tủ hồ sơ."}
                         </p>
                         <Button
                           variant="secondary"
                           size="sm"
                           onClick={() => setInputMode("file")}
                         >
-                          Tải tệp CV lên ngay
+                          {lang === "en" ? "Upload CV File Now" : "Tải tệp CV lên ngay"}
                         </Button>
                       </div>
                     ) : (
@@ -460,12 +460,12 @@ export default function CVAssessmentPage() {
                                   </span>
                                   {cv.is_default && (
                                     <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                                      Mặc định
+                                      {lang === "en" ? "Default" : "Mặc định"}
                                     </span>
                                   )}
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                  Tải lên: {new Date(cv.created_at).toLocaleDateString("vi-VN")}
+                                  {lang === "en" ? "Uploaded:" : "Tải lên:"} {new Date(cv.created_at).toLocaleDateString(lang === "en" ? "en-US" : "vi-VN")}
                                 </p>
                               </div>
                             </div>
@@ -499,9 +499,9 @@ export default function CVAssessmentPage() {
                       />
                       <Upload size={32} className="mx-auto text-indigo-500 mb-2" />
                       <p className="font-medium text-slate-700 dark:text-slate-300 text-sm">
-                        {uploadedFile ? uploadedFile.name : "Nhấn để chọn tệp hoặc kéo thả file CV vào đây"}
+                        {uploadedFile ? uploadedFile.name : (lang === "en" ? "Click to select or drag and drop your CV file here" : "Nhấn để chọn tệp hoặc kéo thả file CV vào đây")}
                       </p>
-                      <p className="text-xs text-slate-400 mt-1">Hỗ trợ PDF, DOCX, TXT (Tối đa 10MB)</p>
+                      <p className="text-xs text-slate-400 mt-1">{lang === "en" ? "Supports PDF, DOCX, TXT (Max 10MB)" : "Hỗ trợ PDF, DOCX, TXT (Tối đa 10MB)"}</p>
                     </label>
                   </div>
                 )}
@@ -513,7 +513,7 @@ export default function CVAssessmentPage() {
                       rows={8}
                       value={pastedCvText}
                       onChange={(e) => setPastedCvText(e.target.value)}
-                      placeholder="Dán toàn bộ nội dung CV của bạn tại đây (Bao gồm kinh nghiệm, kỹ năng, các dự án thực tế đã làm)..."
+                      placeholder={lang === "en" ? "Paste full CV content here (including experience, skills, real projects)..." : "Dán toàn bộ nội dung CV của bạn tại đây (Bao gồm kinh nghiệm, kỹ năng, các dự án thực tế đã làm)..."}
                       className="w-full p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
@@ -703,15 +703,15 @@ export default function CVAssessmentPage() {
                   <div>
                     {assessmentResult.overall_score >= 80 ? (
                       <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-emerald-800 dark:text-emerald-300 text-xs font-medium">
-                        ✨ <strong>Hồ sơ Rất Xuất Sắc:</strong> Đáp ứng rất tốt yêu cầu chuyên môn và kinh nghiệm của vị trí mục tiêu.
+                        ✨ <strong>{lang === "en" ? "Excellent Profile:" : "Hồ sơ Rất Xuất Sắc:"}</strong> {lang === "en" ? "Very strong match for target role requirements and experience." : "Đáp ứng rất tốt yêu cầu chuyên môn và kinh nghiệm của vị trí mục tiêu."}
                       </div>
                     ) : assessmentResult.overall_score >= 60 ? (
                       <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/40 rounded-xl text-indigo-800 dark:text-indigo-300 text-xs font-medium">
-                        🎯 <strong>Hồ sơ Khá Tiềm Năng:</strong> Nền tảng tốt, chỉ cần bổ sung 1 số kỹ năng trọng tâm và tăng cường chiều sâu dự án.
+                        🎯 <strong>{lang === "en" ? "Promising Profile:" : "Hồ sơ Khá Tiềm Năng:"}</strong> {lang === "en" ? "Good foundation, only needs minor skill focus and deeper project exposure." : "Nền tảng tốt, chỉ cần bổ sung 1 số kỹ năng trọng tâm và tăng cường chiều sâu dự án."}
                       </div>
                     ) : (
                       <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-medium">
-                        🚀 <strong>Cần Bồi Dưỡng Thêm:</strong> Cần tập trung theo lộ trình 3 giai đoạn để hoàn thiện kỹ năng thực chiến.
+                        🚀 <strong>{lang === "en" ? "Needs Growth:" : "Cần Bồi Dưỡng Thêm:"}</strong> {lang === "en" ? "Follow the 3-phase roadmap to build real-world capabilities." : "Cần tập trung theo lộ trình 3 giai đoạn để hoàn thiện kỹ năng thực chiến."}
                       </div>
                     )}
                   </div>
@@ -722,7 +722,7 @@ export default function CVAssessmentPage() {
                   {Object.entries(assessmentResult.breakdown).map(([key, metric]) => (
                     <div key={key} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
                       <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 capitalize">
-                        {key === "technical" ? "Kỹ thuật" : key === "experience" ? "Kinh nghiệm" : key === "culture_fit" ? "Văn hóa" : "Cấp bậc"}
+                        {key === "technical" ? (lang === "en" ? "Technical" : "Kỹ thuật") : key === "experience" ? (lang === "en" ? "Experience" : "Kinh nghiệm") : key === "culture_fit" ? (lang === "en" ? "Culture" : "Văn hóa") : (lang === "en" ? "Seniority" : "Cấp bậc")}
                       </div>
                       <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">
                         {metric.score.toFixed(0)} <span className="text-xs text-slate-400 font-normal">pts</span>
@@ -736,7 +736,7 @@ export default function CVAssessmentPage() {
               <div className="lg:col-span-7 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 p-8 shadow-sm flex flex-col items-center justify-center">
                 <div className="w-full flex items-center justify-between mb-2">
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Biểu đồ Năng lực 4 Trục (Radar Chart)
+                    {lang === "en" ? "4-Axis Competency Radar Chart" : "Biểu đồ Năng lực 4 Trục (Radar Chart)"}
                   </h3>
                   <span className="text-xs text-slate-400">Technical • Experience • Culture • Market</span>
                 </div>
@@ -750,7 +750,7 @@ export default function CVAssessmentPage() {
               <div className="bg-white dark:bg-slate-800 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold">
                   <Award size={20} />
-                  <h3>Điểm Mạnh Nổi Bật Của Bạn</h3>
+                  <h3>{lang === "en" ? "Key Strengths" : "Điểm Mạnh Nổi Bật Của Bạn"}</h3>
                 </div>
                 <ul className="space-y-2.5">
                   {assessmentResult.strengths.map((str, idx) => (
@@ -766,7 +766,7 @@ export default function CVAssessmentPage() {
               <div className="bg-white dark:bg-slate-800 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold">
                   <AlertTriangle size={20} />
-                  <h3>Điểm Cần Bổ Sung & Cải Thiện</h3>
+                  <h3>{lang === "en" ? "Areas for Improvement" : "Điểm Cần Bổ Sung & Cải Thiện"}</h3>
                 </div>
                 <ul className="space-y-2.5">
                   {assessmentResult.weaknesses.map((w, idx) => (
@@ -785,11 +785,11 @@ export default function CVAssessmentPage() {
                 <div className="flex items-center gap-2">
                   <Layers size={20} className="text-indigo-600 dark:text-indigo-400" />
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Ma Trận Khoảng Trống Kỹ Năng (Skill Gap Matrix)
+                    {lang === "en" ? "Skill Gap Matrix" : "Ma Trận Khoảng Trống Kỹ Năng (Skill Gap Matrix)"}
                   </h3>
                 </div>
                 <span className="text-xs text-slate-500">
-                  Tỷ lệ đáp ứng kỹ năng: {assessmentResult.skill_analysis.match_rate}%
+                  {lang === "en" ? "Skill Match Rate:" : "Tỷ lệ đáp ứng kỹ năng:"} {assessmentResult.skill_analysis.match_rate}%
                 </span>
               </div>
 
@@ -797,7 +797,7 @@ export default function CVAssessmentPage() {
                 {/* Kỹ năng đã có */}
                 <div className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 space-y-2">
                   <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
-                    <span>Đã Đáp Ứng ({assessmentResult.skill_gap.matched.length})</span>
+                    <span>{lang === "en" ? `Matched (${assessmentResult.skill_gap.matched.length})` : `Đã Đáp Ứng (${assessmentResult.skill_gap.matched.length})`}</span>
                     <CheckCircle2 size={14} />
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -812,7 +812,7 @@ export default function CVAssessmentPage() {
                 {/* Kỹ năng còn thiếu */}
                 <div className="p-4 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 space-y-2">
                   <div className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center justify-between">
-                    <span>Cần Bổ Sung ({assessmentResult.skill_gap.missing.length})</span>
+                    <span>{lang === "en" ? `Missing (${assessmentResult.skill_gap.missing.length})` : `Cần Bổ Sung (${assessmentResult.skill_gap.missing.length})`}</span>
                     <AlertTriangle size={14} />
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -827,7 +827,7 @@ export default function CVAssessmentPage() {
                 {/* Kỹ năng tiên quyết */}
                 <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 space-y-2">
                   <div className="text-xs font-bold text-purple-800 dark:text-purple-300 flex items-center justify-between">
-                    <span>Nền Tảng Tiên Quyết</span>
+                    <span>{lang === "en" ? "Prerequisites" : "Nền Tảng Tiên Quyết"}</span>
                     <Zap size={14} />
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -846,10 +846,12 @@ export default function CVAssessmentPage() {
                   <ShieldAlert size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                      Phát hiện kỹ năng chưa có bằng chứng dự án (Ghost Skills):
+                      {lang === "en" ? "Unverified skills detected (Ghost Skills):" : "Phát hiện kỹ năng chưa có bằng chứng dự án (Ghost Skills):"}
                     </h4>
                     <p className="text-xs text-amber-800 dark:text-amber-300">
-                      Các kỹ năng: <span className="font-semibold">{assessmentResult.authenticity.ghost_skills.join(", ")}</span> chỉ mới được liệt kê từ khóa mà thiếu dự án mô tả cụ thể. Hãy bổ sung dự án thực tế để tăng độ uy tín với nhà tuyển dụng.
+                      {lang === "en"
+                        ? `The skills: ${assessmentResult.authenticity.ghost_skills.join(", ")} are listed as keywords but lack descriptive project evidence. Consider adding real projects to increase credibility.`
+                        : `Các kỹ năng: ${assessmentResult.authenticity.ghost_skills.join(", ")} chỉ mới được liệt kê từ khóa mà thiếu dự án mô tả cụ thể. Hãy bổ sung dự án thực tế để tăng độ uy tín với nhà tuyển dụng.`}
                     </p>
                   </div>
                 </div>
@@ -862,10 +864,10 @@ export default function CVAssessmentPage() {
                 <TrendingUp size={22} className="text-indigo-600 dark:text-indigo-400" />
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    Lộ Trình Học Tập & Nâng Cấp Năng Lực 3 Giai Đoạn
+                    {lang === "en" ? "3-Phase Learning & Capability Upgrade Roadmap" : "Lộ Trình Học Tập & Nâng Cấp Năng Lực 3 Giai Đoạn"}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Chiến lược từng bước giúp bạn hoàn thiện khoảng trống kỹ năng và sẵn sàng chinh phục vị trí {assessmentResult.target_role}.
+                    {lang === "en" ? `Step-by-step strategy to bridge skill gaps and master the ${assessmentResult.target_role} role.` : `Chiến lược từng bước giúp bạn hoàn thiện khoảng trống kỹ năng và sẵn sàng chinh phục vị trí ${assessmentResult.target_role}.`}
                   </p>
                 </div>
               </div>
@@ -883,7 +885,7 @@ export default function CVAssessmentPage() {
                         </span>
                         <span className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">
                           <Clock size={12} />
-                          {phase.duration_weeks} tuần
+                          {phase.duration_weeks} {lang === "en" ? "weeks" : "tuần"}
                         </span>
                       </div>
 
@@ -894,7 +896,7 @@ export default function CVAssessmentPage() {
                       {/* Focus skills */}
                       <div className="space-y-1">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Trọng tâm kỹ năng:
+                          {lang === "en" ? "Focus Skills:" : "Trọng tâm kỹ năng:"}
                         </span>
                         <div className="flex flex-wrap gap-1">
                           {phase.focus_skills.map((sk, i) => (
@@ -908,7 +910,7 @@ export default function CVAssessmentPage() {
                       {/* Gợi ý hành động & Dự án */}
                       <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Nội dung & Dự án đề xuất:
+                          {lang === "en" ? "Suggested Topics & Projects:" : "Nội dung & Dự án đề xuất:"}
                         </span>
                         <ul className="space-y-1.5">
                           {phase.recommended_topics_or_projects.map((topic, i) => (
@@ -930,7 +932,7 @@ export default function CVAssessmentPage() {
               <div className="bg-gradient-to-br from-indigo-50/60 to-purple-50/60 dark:from-slate-800/80 dark:to-indigo-950/40 rounded-3xl border border-indigo-100 dark:border-indigo-900/40 p-8 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold">
                   <Sparkles size={20} />
-                  <h3>Nhận Xét Chuyên Sâu Từ Cố Vấn Nghề Nghiệp AI</h3>
+                  <h3>{lang === "en" ? "In-depth Feedback from AI Career Advisor" : "Nhận Xét Chuyên Sâu Từ Cố Vấn Nghề Nghiệp AI"}</h3>
                 </div>
                 <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line space-y-2">
                   {assessmentResult.natural_language_summary}

@@ -85,14 +85,13 @@ class ApplicationRepository:
                 .update(
                     {
                         "current_status": new_status,
-                        "reviewed_at": datetime.utcnow().isoformat(),
+                        "reviewed_at": datetime.now().astimezone().isoformat(),
                     }
                 )
                 .eq("id", str(application_id))
-                .select("*")
-                .maybe_single()
                 .execute()
             )
+            app_data = app_result.data[0] if isinstance(app_result.data, list) and app_result.data else (app_result.data if isinstance(app_result.data, dict) else None)
 
             # Insert stage record
             stage_result = (
@@ -106,10 +105,10 @@ class ApplicationRepository:
                         "is_system_generated": is_system_generated,
                     }
                 )
-                .select("*")
-                .maybe_single()
                 .execute()
             )
-            return app_result.data, stage_result.data
+            stage_data = stage_result.data[0] if isinstance(stage_result.data, list) and stage_result.data else (stage_result.data if isinstance(stage_result.data, dict) else None)
+            return app_data, stage_data
 
         return await asyncio.to_thread(_query)
+

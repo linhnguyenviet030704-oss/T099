@@ -23,8 +23,29 @@ _MIME_ALIASES = {
     "application/doc": DOC_MIME,
     "application/docx": DOCX_MIME,
     "application/vnd.ms-word": DOC_MIME,
+    "application/x-msword": DOC_MIME,
+    "application/winword": DOC_MIME,
+    "application/x-docx": DOCX_MIME,
+    "application/x-zip-compressed": DOCX_MIME,
     "application/x-pdf": PDF_MIME,
+    "application/acrobat": PDF_MIME,
+    "applications/vnd.pdf": PDF_MIME,
+    "text/pdf": PDF_MIME,
+    "text/markdown": TEXT_MIME,
+    "text/x-markdown": TEXT_MIME,
 }
+_GENERIC_MIMES = frozenset(
+    {
+        "",
+        "application/octet-stream",
+        "binary/octet-stream",
+        "application/x-download",
+        "application/download",
+        "application/unknown",
+        "unknown/unknown",
+    }
+)
+_WORD_MIMES = frozenset({DOC_MIME, DOCX_MIME})
 _OLE_MAGIC = bytes.fromhex("D0CF11E0A1B11AE1")
 _REMOVED_CONTROLS = frozenset(
     {
@@ -144,15 +165,23 @@ def validate_file(
         raise BadRequestError("Tệp vượt quá giới hạn dung lượng", code="INPUT_TOO_LARGE")
 
     declared = _normalize_mime(declared_mime)
+    # Nếu MIME khai báo là generic/nhị phân tổng quát từ trình duyệt, bỏ qua khai báo và dựa vào magic bytes
+    if declared in _GENERIC_MIMES:
+        declared = ""
+
     if declared and declared not in allowed_mimes:
         raise BadRequestError("Định dạng tệp không được hỗ trợ", code="UNSUPPORTED_FILE_TYPE")
 
     detected = detect_mime(data)
     if detected is None or detected not in allowed_mimes:
         raise BadRequestError("Không nhận diện được định dạng tệp", code="UNSUPPORTED_FILE_TYPE")
-    if declared and declared != detected:
+
+    # Cho phép chuyển đổi tương thích giữa các định dạng trong họ Microsoft Word (doc / docx)
+    is_word_family = declared in _WORD_MIMES and detected in _WORD_MIMES
+    if declared and declared != detected and not is_word_family:
         raise BadRequestError(
             "Định dạng thực của tệp không khớp MIME khai báo",
             code="FILE_SIGNATURE_MISMATCH",
         )
     return ValidatedFile(data=data, detected_mime=detected)
+

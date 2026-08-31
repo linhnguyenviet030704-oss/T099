@@ -11,6 +11,11 @@ from backend.app.agents.matching.nodes.rerank import make_rerank_node
 from backend.app.agents.matching.nodes.respond import respond_node
 from backend.app.agents.matching.nodes.rrf import rrf_node
 from backend.app.agents.matching.nodes.skill import skill_node
+from backend.app.agents.nodes.guardrails import (
+    guard_retrieved_data,
+    make_ranked_output_guard_node,
+    snapshot_candidates_node,
+)
 from backend.app.agents.state import AgentState
 from backend.app.services.matching.rerank import RerankFn
 from backend.app.shared_brain import AgentBrain
@@ -31,13 +36,21 @@ def build_matching_graph(
     async def retrieve_node(state: AgentState) -> dict:
         job_id = UUID(str(state["job_id"]))
         payload = await retrieve(job_id)
+        guarded = guard_retrieved_data(
+            list(payload.get("candidates") or []),
+            id_field="application_id",
+            context=str(payload.get("job_description") or payload.get("jd_query") or ""),
+            context_source="jd",
+        )
         return {
             "jd_skills": payload.get("jd_skills") or [],
             "jd_query": payload.get("jd_query") or "",
-            "job_description": payload.get("job_description") or "",
-            "candidates": payload.get("candidates") or [],
+            "job_description": guarded["guarded_context"],
+            "candidates": guarded["candidates"],
             "skill_constraints": payload.get("skill_constraints") or {},
             "constraints_confirmed": bool(payload.get("constraints_confirmed")),
+            "allowed_result_ids": guarded["allowed_result_ids"],
+            "guardrail_codes": guarded["guardrail_codes"],
             "pool_size": int(payload.get("pool_size") or 0),
             "pool_truncated": bool(payload.get("pool_truncated") or False),
             "dropped_count": int(payload.get("dropped_count") or 0),
@@ -49,6 +62,7 @@ def build_matching_graph(
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("skill", skill_node)
     graph.add_node("rrf", rrf_node)
+    graph.add_node("snapshot", snapshot_candidates_node)
     graph.add_node("rerank", make_rerank_node(rerank_fn=rerank_fn))
     graph.add_node(
         "explain",
@@ -60,12 +74,18 @@ def build_matching_graph(
         ),
     )
     graph.add_node("respond", respond_node)
+    graph.add_node(
+        "output_guard",
+        make_ranked_output_guard_node(mode="recruiter", enforce_constraints=True),
+    )
 
     graph.set_entry_point("retrieve")
     graph.add_edge("retrieve", "skill")
     graph.add_edge("skill", "rrf")
     graph.add_edge("rrf", "rerank")
-    graph.add_edge("rerank", "explain")
-    graph.add_edge("explain", "respond")
+    graph.add_edge("rerank", "snapshot")
+    graph.add_edge("snapshot", "explain")
+    graph.add_edge("explain", "output_guard")
+    graph.add_edge("output_guard", "respond")
     graph.add_edge("respond", END)
     return graph.compile()

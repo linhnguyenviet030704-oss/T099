@@ -31,6 +31,37 @@ export function buildResumeStoragePath(userId: string, resumeId: string, filenam
 }
 
 /**
+ * Builds standard storage path for an avatar:
+ * {user_id}/avatar-{timestamp}.{ext}
+ */
+export function buildAvatarStoragePath(userId: string, filename: string): string {
+  const extMatch = /\.([a-zA-Z0-9]+)$/.exec(filename);
+  const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+  return `${userId}/avatar-${Date.now()}.${ext}`;
+}
+
+/**
+ * Uploads an avatar image file to the public "avatars" bucket and returns its public URL.
+ */
+export async function uploadAvatar(userId: string, file: File): Promise<string> {
+  if (!supabase) {
+    throw new Error('Supabase client chưa được cấu hình.');
+  }
+
+  const storagePath = buildAvatarStoragePath(userId, file.name);
+  const { error: uploadErr } = await supabase.storage
+    .from('avatars')
+    .upload(storagePath, file, { upsert: false, contentType: file.type });
+
+  if (uploadErr) {
+    throw new Error(handleSupabaseError(uploadErr));
+  }
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(storagePath);
+  return data.publicUrl;
+}
+
+/**
  * Creates and retrieves a short expiration URL for resume storage paths (TTL: 180 seconds).
  * Falls back if supabase client is not available.
  */
@@ -52,49 +83,6 @@ export async function getResumeSignedUrl(storagePath: string): Promise<string> {
   }
   
   return data.signedUrl;
-}
-
-const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
-const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-
-/**
- * Uploads user avatar image to Supabase Storage and returns its public URL.
- */
-export async function uploadAvatar(userId: string, file: File): Promise<string> {
-  if (!supabase) {
-    throw new Error('Supabase client chưa được cấu hình.');
-  }
-
-  if (file.size > MAX_AVATAR_SIZE) {
-    throw new Error(`Dung lượng ảnh (${(file.size / 1024 / 1024).toFixed(1)}MB) vượt quá giới hạn tối đa 2MB.`);
-  }
-
-  if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
-    throw new Error('Chỉ hỗ trợ file ảnh định dạng JPG, PNG, WEBP hoặc GIF.');
-  }
-
-  const rawExt = file.name.split('.').pop() || 'png';
-  const fileExt = sanitizeFilename(rawExt).toLowerCase() || 'png';
-  const storagePath = `${userId}/avatar-${Date.now()}.${fileExt}`;
-
-  // Upload file to avatars bucket
-  const { error: uploadError } = await supabase.storage
-    .from('avatars')
-    .upload(storagePath, file, {
-      upsert: true,
-      contentType: file.type,
-    });
-
-  if (uploadError) {
-    throw new Error(handleSupabaseError(uploadError));
-  }
-
-  const { data } = supabase.storage.from('avatars').getPublicUrl(storagePath);
-  if (!data?.publicUrl) {
-    throw new Error('Không thể lấy liên kết ảnh đại diện.');
-  }
-
-  return data.publicUrl;
 }
 
 /**

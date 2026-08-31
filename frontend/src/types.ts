@@ -67,10 +67,12 @@ export interface Resume {
   mime_type: string;
   size_bytes: number;
   is_default: boolean;
+  is_public?: boolean;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
 
 export interface JobPost {
   id: string;

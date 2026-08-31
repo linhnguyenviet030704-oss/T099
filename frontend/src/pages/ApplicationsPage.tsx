@@ -2,24 +2,28 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, ExternalLink } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { useLang } from "../context/LangContext";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import type { Application, ApplicationStage } from "../types";
-import { ENUM_LABELS, formatDate } from "../lib/format";
+import { getEnumLabels, formatDate } from "../lib/format";
 import { APP_STATUS_COLORS, TERMINAL_APP_STATUSES } from "../lib/ui";
 import AnimatedPage from "../components/AnimatedPage";
 import ConfirmModal from "../components/ConfirmModal";
-
 import { ApplicationSkeleton } from "../components/ui/Skeleton";
 import { useToast } from "../context/ToastContext";
 import { motion } from "framer-motion";
 
 export default function ApplicationsPage() {
   const { user } = useAuth();
+  const { lang, t } = useLang();
   const { success, error: toastError } = useToast();
   const [applications, setApplications] = useState<Application[]>([]);
   const [stagesMap, setStagesMap] = useState<Record<string, ApplicationStage[]>>({});
   const [withdrawId, setWithdrawId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  const enumLabels = getEnumLabels(lang);
 
   const load = useCallback(async () => {
     if (!supabase || !user) return;
@@ -31,7 +35,7 @@ export default function ApplicationsPage() {
         .eq("applicant_user_id", user.id)
         .order("applied_at", { ascending: false });
       if (error) {
-        toastError("Không tải được danh sách đơn", handleSupabaseError(error));
+        toastError(lang === "en" ? "Failed to load applications" : "Không tải được danh sách đơn", handleSupabaseError(error));
         return;
       }
       const items = ((appsData || []) as any[]).map((app) => ({
@@ -51,11 +55,9 @@ export default function ApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, toastError]);
+  }, [user, toastError, lang]);
 
   useEffect(() => { void load(); }, [load]);
-
-  const [withdrawing, setWithdrawing] = useState(false);
 
   const handleWithdraw = async () => {
     if (!supabase || !user || !withdrawId) return;
@@ -65,15 +67,15 @@ export default function ApplicationsPage() {
         application_id: withdrawId,
         changed_by_user_id: user.id,
         stage: "withdrawn",
-        note: "Ứng viên rút đơn",
+        note: lang === "en" ? "Candidate withdrew application" : "Ứng viên rút đơn",
         is_system_generated: false,
       });
       if (error) throw error;
       setWithdrawId(null);
-      success("Đã rút đơn ứng tuyển!");
+      success(t.withdrawnSuccess);
       await load();
     } catch (err: unknown) {
-      toastError("Không rút được đơn", handleSupabaseError(err));
+      toastError(lang === "en" ? "Failed to withdraw application" : "Không rút được đơn", handleSupabaseError(err));
     } finally {
       setWithdrawing(false);
     }
@@ -82,16 +84,16 @@ export default function ApplicationsPage() {
   return (
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-8">Đơn ứng tuyển của tôi</h1>
+        <h1 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-8">{t.myApplications}</h1>
         {loading ? (
           <div className="space-y-4">
             <ApplicationSkeleton count={3} />
           </div>
         ) : applications.length === 0 ? (
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-16 text-center">
-            <p className="font-medium text-slate-700 dark:text-slate-300 mb-4">Chưa có đơn ứng tuyển nào</p>
+            <p className="font-medium text-slate-700 dark:text-slate-300 mb-4">{t.noApplications}</p>
             <Link to="/jobs" className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-md transition-colors">
-              <Search size={15} /> Tìm việc làm
+              <Search size={15} /> {t.findJobs}
             </Link>
           </div>
         ) : (
@@ -106,21 +108,23 @@ export default function ApplicationsPage() {
                       <Link to={`/jobs/${job?.id}`} className="font-semibold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 inline-flex items-center gap-1 transition-colors">
                         {job?.title} <ExternalLink size={12} />
                       </Link>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{job?.company?.name} · Nộp {formatDate(app.applied_at)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{job?.company?.name} · {t.appliedAt(formatDate(app.applied_at, false, lang))}</p>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${APP_STATUS_COLORS[app.current_status]}`}>
-                      {ENUM_LABELS.application_status[app.current_status]}
+                      {enumLabels.application_status[app.current_status]}
                     </span>
                   </div>
                   {(stagesMap[app.id] || []).length > 0 && (
                     <ul className="mt-3 text-xs text-slate-500 dark:text-slate-400 space-y-1 bg-slate-50 dark:bg-slate-700/40 p-3 rounded-xl">
                       {stagesMap[app.id].map((s) => (
-                        <li key={s.id}>{formatDate(s.created_at, true)} · {ENUM_LABELS.application_status[s.stage]} {s.note ? `— ${s.note}` : ""}</li>
+                        <li key={s.id}>{formatDate(s.created_at, true, lang)} · {enumLabels.application_status[s.stage]} {s.note ? `— ${s.note}` : ""}</li>
                       ))}
                     </ul>
                   )}
                   {canWithdraw && (
-                    <motion.button whileTap={{ scale: 0.95 }} onClick={() => setWithdrawId(app.id)} className="mt-3 text-xs text-red-500 hover:underline font-medium">Rút đơn</motion.button>
+                    <motion.button whileTap={{ scale: 0.95 }} onClick={() => setWithdrawId(app.id)} className="mt-3 text-xs text-red-500 hover:underline font-medium">
+                      {t.withdrawApp}
+                    </motion.button>
                   )}
                 </div>
               );
@@ -130,13 +134,16 @@ export default function ApplicationsPage() {
       </div>
       <ConfirmModal
         open={Boolean(withdrawId)}
-        title="Rút đơn ứng tuyển"
-        message="Bạn có chắc chắn muốn rút đơn này? Hành động không thể hoàn tác."
-        confirmLabel="Rút đơn"
+        title={t.withdrawApp}
+        message={t.withdrawAppMsg}
+        confirmLabel={t.withdrawApp}
+        cancelLabel={t.cancel}
         danger
+        isLoading={withdrawing}
         onConfirm={() => void handleWithdraw()}
         onCancel={() => setWithdrawId(null)}
       />
     </AnimatedPage>
   );
 }
+

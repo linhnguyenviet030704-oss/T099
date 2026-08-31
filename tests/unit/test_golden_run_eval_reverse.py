@@ -48,8 +48,8 @@ def test_rank_jds_for_cv_returns_every_jd_exactly_once():
 
 
 def test_rank_jds_for_cv_uses_titles_over_full_cv_text_for_bm25_query(monkeypatch):
-    from backend.app.services.matching.skills import load_taxonomy_index
     import evaluation.golden.run_eval as run_eval_module
+    from backend.app.services.matching.skills import load_taxonomy_index
 
     ingest_results = {
         "CV-A": {

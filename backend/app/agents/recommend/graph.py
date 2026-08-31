@@ -7,6 +7,11 @@ from langgraph.graph import END, StateGraph
 
 from backend.app.agents.matching.nodes.explain import make_explain_node
 from backend.app.agents.matching.nodes.rerank import make_rerank_node
+from backend.app.agents.nodes.guardrails import (
+    guard_retrieved_data,
+    make_ranked_output_guard_node,
+    snapshot_candidates_node,
+)
 from backend.app.agents.nodes.retrieval import kg_retrieval_node
 from backend.app.agents.nodes.router import router_node
 from backend.app.agents.recommend.nodes.advice import make_advice_node
@@ -36,14 +41,22 @@ def build_recommend_graph(
         cv_text = str(payload.get("cv_text") or "").strip()
         jd_skills = payload.get("cv_skills") or []
         combined_query = f"Mục tiêu của người dùng: {user_query}\n\nNội dung CV ứng viên: {cv_text}" if user_query else cv_text
+        guarded = guard_retrieved_data(
+            list(payload.get("candidates") or []),
+            id_field="job_id",
+            context=combined_query,
+            context_source="cv",
+        )
         return {
             "jd_skills": jd_skills,
-            "jd_query": combined_query,
-            "job_description": combined_query,
+            "jd_query": guarded["guarded_context"],
+            "job_description": guarded["guarded_context"],
             "cv_verified": payload.get("cv_verified") or [],
             "cv_has_evidence": bool(payload.get("cv_has_evidence", True)),
             "constraints_confirmed": True,
-            "candidates": payload.get("candidates") or [],
+            "candidates": guarded["candidates"],
+            "allowed_result_ids": guarded["allowed_result_ids"],
+            "guardrail_codes": guarded["guardrail_codes"],
         }
 
     graph = StateGraph(AgentState)
@@ -51,6 +64,7 @@ def build_recommend_graph(
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("kg_retrieval", kg_retrieval_node)
     graph.add_node("score", score_node)
+    graph.add_node("snapshot", snapshot_candidates_node)
     graph.add_node("rerank", make_rerank_node(rerank_fn=rerank_fn))
     graph.add_node(
         "explain",
@@ -72,10 +86,14 @@ def build_recommend_graph(
         ),
     )
     graph.add_node("respond", respond_node)
+    graph.add_node(
+        "output_guard",
+        make_ranked_output_guard_node(mode="candidate", enforce_constraints=True),
+    )
 
     def route_after_kg(state: AgentState) -> str:
         intent = state.get("intent")
-        if intent in ("SKILL_GAP_ADVICE", "CHITCHAT"):
+        if intent == "SKILL_GAP_ADVICE":
             return "advice"
         return "score"
 
@@ -89,8 +107,10 @@ def build_recommend_graph(
     )
     graph.add_edge("advice", END)
     graph.add_edge("score", "rerank")
-    graph.add_edge("rerank", "explain")
-    graph.add_edge("explain", "respond")
+    graph.add_edge("rerank", "snapshot")
+    graph.add_edge("snapshot", "explain")
+    graph.add_edge("explain", "output_guard")
+    graph.add_edge("output_guard", "respond")
     graph.add_edge("respond", END)
     return graph.compile()
 

@@ -8,9 +8,11 @@ import AnimatedPage from "../components/AnimatedPage";
 
 import Button from "../components/ui/Button";
 import { useToast } from "../context/ToastContext";
+import { useLang } from "../context/LangContext";
 
 export default function LoginPage() {
   const { user, loading: authLoading } = useAuth();
+  const { lang, t } = useLang();
   const navigate = useNavigate();
   const location = useLocation();
   const { success } = useToast();
@@ -27,7 +29,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) {
-      setError("Hệ thống Supabase chưa được cấu hình.");
+      setError(t.supabaseConfigError);
       return;
     }
     setError("");
@@ -38,7 +40,7 @@ export default function LoginPage() {
         password,
       });
       if (signErr) throw signErr;
-      success("Đăng nhập thành công!");
+      success(lang === "en" ? "Signed in successfully!" : "Đăng nhập thành công!");
       navigate(from, { replace: true });
     } catch (err: unknown) {
       setError(handleSupabaseError(err));
@@ -59,8 +61,8 @@ export default function LoginPage() {
               Next<span className="text-indigo-600">Job</span>
             </span>
           </Link>
-          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white mt-6 mb-2">Chào mừng trở lại</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Đăng nhập để tiếp tục hành trình tìm việc</p>
+          <h1 className="font-display text-2xl font-bold text-slate-900 dark:text-white mt-6 mb-2">{t.welcomeBack}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">{t.loginDesc}</p>
         </div>
 
         <motion.div
@@ -71,7 +73,7 @@ export default function LoginPage() {
         >
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Email</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t.email}</label>
               <div className="relative">
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -80,13 +82,18 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                  placeholder="ten@email.com"
+                  placeholder={t.emailPlaceholder}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mật khẩu</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">{t.password}</label>
+                <Link to="/forgot-password" className="text-xs text-indigo-600 font-medium hover:underline">
+                  {t.forgotPassword}
+                </Link>
+              </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -95,7 +102,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-11 py-3 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                  placeholder="••••••••"
+                  placeholder={t.passwordPlaceholder}
                 />
                 <button type="button" onClick={() => setShowPw((v) => !v)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -116,18 +123,18 @@ export default function LoginPage() {
             <Button
               type="submit"
               isLoading={loading}
-              loadingText="Đang đăng nhập..."
+              loadingText={t.loggingIn}
               fullWidth
               size="lg"
             >
-              Đăng nhập
+              {t.loginBtn}
             </Button>
           </form>
 
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
-            Chưa có tài khoản?{" "}
+            {t.noAccount}{" "}
             <Link to="/register" className="text-indigo-600 font-medium hover:underline">
-              Đăng ký ngay
+              {t.registerNow}
             </Link>
           </p>
         </motion.div>
@@ -135,3 +142,4 @@ export default function LoginPage() {
     </AnimatedPage>
   );
 }
+

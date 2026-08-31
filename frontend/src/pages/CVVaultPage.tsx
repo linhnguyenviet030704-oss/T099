@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit } from "lucide-react";
+import { Upload, FileText, Star, Edit2, ExternalLink, Check, Copy, FileEdit, Globe, Trash2, Compass } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { apiJson } from "../lib/api";
 import { supabase, handleSupabaseError } from "../lib/supabase";
 import { buildResumeStoragePath, getResumeSignedUrl } from "../lib/storage";
 import { INDEX_FAIL_COPY, ingestResume } from "../lib/ingest";
@@ -9,9 +10,12 @@ import { formatDate } from "../lib/format";
 import type { Resume } from "../types";
 import AnimatedPage from "../components/AnimatedPage";
 import Button from "../components/ui/Button";
+import ConfirmModal from "../components/ConfirmModal";
+import PublicCVModal from "../components/candidate/PublicCVModal";
 import { useToast } from "../context/ToastContext";
 import { useLang } from "../context/LangContext";
 import { motion } from "framer-motion";
+
 
 export default function CVVaultPage() {
   const { user, session } = useAuth();
@@ -27,6 +31,12 @@ export default function CVVaultPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [publicModalTarget, setPublicModalTarget] = useState<Resume | null>(null);
+  const [togglingPublic, setTogglingPublic] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Resume | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+
 
   const load = useCallback(async () => {
     if (!supabase || !user) return;
@@ -122,6 +132,104 @@ export default function CVVaultPage() {
     }
   };
 
+  const handleTogglePublic = (resume: Resume, makePublic: boolean) => {
+    if (makePublic) {
+      setPublicModalTarget(resume);
+    } else {
+      void handleSetPublicStatus(resume.id, false);
+    }
+  };
+
+  const handleSetPublicStatus = async (resumeId: string, isPublic: boolean) => {
+    if (!user) return;
+    setTogglingPublic(true);
+    try {
+      if (session?.access_token) {
+        await apiJson<{ id: string; is_public: boolean; message: string }>(
+          `/resumes/${resumeId}/public`,
+          session.access_token,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ is_public: isPublic }),
+          }
+        );
+      } else if (supabase) {
+        if (isPublic) {
+          await supabase.from("resumes").update({ is_public: false }).eq("user_id", user.id);
+          const { error } = await supabase.from("resumes").update({ is_public: true }).eq("id", resumeId).eq("user_id", user.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("resumes").update({ is_public: false }).eq("id", resumeId).eq("user_id", user.id);
+          if (error) throw error;
+        }
+      }
+
+      setResumes((prev) =>
+        prev.map((r) => {
+          if (r.id === resumeId) return { ...r, is_public: isPublic };
+          if (isPublic) return { ...r, is_public: false };
+          return r;
+        })
+      );
+
+      if (isPublic) {
+        success(lang === 'en' ? "CV is now Public (Job Seeking)!" : "Đã đặt CV làm công khai (Đang tìm việc)!");
+      } else {
+        success(lang === 'en' ? "CV is no longer public." : "Đã tắt trạng thái công khai của CV.");
+      }
+      setPublicModalTarget(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : handleSupabaseError(err);
+      toastError(lang === 'en' ? "Update failed" : "Cập nhật thất bại", msg);
+    } finally {
+      setTogglingPublic(false);
+    }
+  };
+
+  const handleDeleteResume = async () => {
+    if (!user || !deleteTarget) return;
+    setDeleting(true);
+    try {
+      if (session?.access_token) {
+        await apiJson<{ id: string; deleted: boolean; message: string }>(
+          `/resumes/${deleteTarget.id}`,
+          session.access_token,
+          { method: "DELETE" }
+        );
+      } else if (supabase) {
+        const { error } = await supabase
+          .from("resumes")
+          .update({
+            deleted_at: new Date().toISOString(),
+            is_public: false,
+            is_default: false,
+          })
+          .eq("id", deleteTarget.id)
+          .eq("user_id", user.id);
+        if (error) throw error;
+        await supabase
+          .from("profiles")
+          .update({ default_resume_id: null })
+          .eq("id", user.id)
+          .eq("default_resume_id", deleteTarget.id);
+        await supabase
+          .from("embedded_resumes")
+          .delete()
+          .eq("resume_id", deleteTarget.id);
+      }
+
+      setResumes((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      success(t.deleteCVSuccess);
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : handleSupabaseError(err);
+      toastError(t.deleteCVFailed, msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+
   return (
     <AnimatedPage className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
@@ -166,21 +274,62 @@ export default function CVVaultPage() {
                     <motion.button whileTap={{ scale: 0.9 }} onClick={() => void handleRename(r.id)} className="p-1 text-indigo-600 dark:text-indigo-400 cursor-pointer"><Check size={16} /></motion.button>
                   </div>
                 ) : (
-                  <p className="font-medium text-sm text-slate-900 dark:text-white break-all">{r.title || r.original_filename}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm text-slate-900 dark:text-white break-all">{r.title || r.original_filename}</p>
+                    {r.is_public && (
+                      <span className="text-xs px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full font-semibold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        {lang === 'en' ? 'Job Seeking' : 'Đang tìm việc'}
+                      </span>
+                    )}
+                  </div>
                 )}
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {formatDate(r.created_at)} · {appCounts[r.id] || 0} {lang === 'en' ? 'applications' : 'đơn'}
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {formatDate(r.created_at, false, lang)} · {t.appsUsing(appCounts[r.id] || 0)}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0 flex-wrap">
                 {r.is_default && (
-                  <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-full font-medium mr-1">
+                  <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-700 dark:bg-slate-700/50 dark:text-slate-300 rounded-full font-medium mr-1">
                     {lang === 'en' ? 'Default' : 'Mặc định'}
                   </span>
                 )}
                 {!r.is_default && (
                   <motion.button whileTap={{ scale: 0.85 }} onClick={() => void handleSetDefault(r.id)} className="p-2 text-slate-400 hover:text-amber-500 transition-colors cursor-pointer rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700" title={lang === 'en' ? "Set as default" : "Đặt mặc định"}><Star size={16} /></motion.button>
                 )}
+
+                {/* Public / Job-Seeking Toggle Button */}
+                {r.is_public ? (
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => handleTogglePublic(r, false)}
+                    className="px-2.5 py-1.5 text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 hover:bg-rose-50 hover:text-rose-600 dark:bg-emerald-950/40 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 border border-emerald-200 dark:border-emerald-800 hover:border-rose-200 dark:hover:border-rose-800 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-medium"
+                    title={lang === 'en' ? "Click to disable public status" : "Bấm để tắt trạng thái công khai"}
+                  >
+                    <Globe size={14} className="text-emerald-600 dark:text-emerald-400" />
+                    <span>{lang === 'en' ? 'Job Seeking' : 'Đang tìm việc'}</span>
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => handleTogglePublic(r, true)}
+                    className="px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-slate-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-800 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-medium"
+                    title={lang === 'en' ? "Set as public CV (Job seeking)" : "Đặt làm CV công khai (Đang tìm việc)"}
+                  >
+                    <Globe size={14} />
+                    <span>{lang === 'en' ? 'Make Public' : 'Công khai'}</span>
+                  </motion.button>
+                )}
+
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => navigate(`/cv-assessment?resumeId=${r.id}`)}
+                  className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  title={lang === "en" ? "Assess CV with AI" : "Đánh giá năng lực CV với AI"}
+                >
+                  <Compass size={14} />
+                  <span>{lang === "en" ? "Assess AI" : "Đánh giá AI"}</span>
+                </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.85 }}
                   onClick={() => navigate(`/cv-builder?id=${r.id}`)}
@@ -214,11 +363,44 @@ export default function CVVaultPage() {
                 >
                   <ExternalLink size={16} />
                 </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setDeleteTarget(r)}
+                  className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  title={t.deleteCV}
+                >
+                  <Trash2 size={16} />
+                </motion.button>
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* 5-second Confirmation Modal for Public CV */}
+      <PublicCVModal
+        isOpen={Boolean(publicModalTarget)}
+        cvTitle={publicModalTarget ? (publicModalTarget.title || publicModalTarget.original_filename) : ""}
+        onClose={() => setPublicModalTarget(null)}
+        onConfirm={() => {
+          if (publicModalTarget) {
+            void handleSetPublicStatus(publicModalTarget.id, true);
+          }
+        }}
+        isSubmitting={togglingPublic}
+      />
+
+      {/* Confirmation Modal for Delete CV */}
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title={t.deleteCVConfirmTitle}
+        message={t.deleteCVConfirmDesc}
+        confirmLabel={deleting ? (lang === 'en' ? "Deleting..." : "Đang xóa...") : t.delete}
+        cancelLabel={t.cancel}
+        danger={true}
+        onConfirm={() => void handleDeleteResume()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AnimatedPage>
   );
 }

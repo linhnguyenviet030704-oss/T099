@@ -14,14 +14,15 @@ import {
   Target,
   CheckCircle2,
   ExternalLink,
-  Loader2,
   RefreshCw,
   Award,
 } from "lucide-react";
 import { useAuth } from "../../auth/AuthProvider";
-import { apiJson } from "../../lib/api";
+import { useLang } from "../../context/LangContext";
+import { apiJson, apiStream, type StreamEvent } from "../../lib/api";
 import { getResumeSignedUrl } from "../../lib/storage";
-import type { CompareCandidatesResponse, ComparedCandidate } from "../../types";
+import SuggestionStatusIndicator, { type StatusStep } from "../SuggestionStatusIndicator";
+import type { CompareCandidatesResponse } from "../../types";
 
 interface CVComparisonModalProps {
   isOpen: boolean;
@@ -84,50 +85,43 @@ const CANDIDATE_THEMES = [
   },
 ];
 
-const METRIC_DEFINITIONS = [
+const getMetricDefinitions = (lang: 'vi' | 'en') => [
   {
     key: "experience" as const,
-    label: "Kinh nghiệm làm việc",
-    shortLabel: "Kinh nghiệm",
+    label: lang === "en" ? "Work Experience" : "Kinh nghiệm làm việc",
+    shortLabel: lang === "en" ? "Experience" : "Kinh nghiệm",
     icon: Briefcase,
     color: "text-blue-600 dark:text-blue-400",
     bgColor: "bg-blue-50 dark:bg-blue-950/40",
-    description: "Độ dài thời gian và tính liên quan của kinh nghiệm so với JD",
+    description: lang === "en" ? "Length and relevance of candidate's experience to JD" : "Độ dài thời gian và tính liên quan của kinh nghiệm so với JD",
   },
   {
     key: "hard_skills" as const,
-    label: "Kỹ năng chuyên môn",
-    shortLabel: "Kỹ năng cứng",
+    label: lang === "en" ? "Technical Skills" : "Kỹ năng chuyên môn",
+    shortLabel: lang === "en" ? "Hard Skills" : "Kỹ năng cứng",
     icon: Cpu,
     color: "text-purple-600 dark:text-purple-400",
     bgColor: "bg-purple-50 dark:bg-purple-950/40",
-    description: "Mức độ đáp ứng các kỹ năng cứng mà JD yêu cầu",
+    description: lang === "en" ? "Fulfillment of hard skills required by the JD" : "Mức độ đáp ứng các kỹ năng cứng mà JD yêu cầu",
   },
   {
     key: "education" as const,
-    label: "Học vấn & Chứng chỉ",
-    shortLabel: "Học vấn",
+    label: lang === "en" ? "Education & Certifications" : "Học vấn & Chứng chỉ",
+    shortLabel: lang === "en" ? "Education" : "Học vấn",
     icon: GraduationCap,
     color: "text-emerald-600 dark:text-emerald-400",
     bgColor: "bg-emerald-50 dark:bg-emerald-950/40",
-    description: "Bằng cấp, chứng chỉ và nền tảng đào tạo chuyên môn",
+    description: lang === "en" ? "Degrees, certifications and specialized background" : "Bằng cấp, chứng chỉ và nền tảng đào tạo chuyên môn",
   },
   {
     key: "overall_fit" as const,
-    label: "Độ phù hợp tổng thể",
-    shortLabel: "Phù hợp chung",
+    label: lang === "en" ? "Overall Fit" : "Độ phù hợp tổng thể",
+    shortLabel: lang === "en" ? "General Fit" : "Phù hợp chung",
     icon: Target,
     color: "text-amber-600 dark:text-amber-400",
     bgColor: "bg-amber-50 dark:bg-amber-950/40",
-    description: "Khả năng đáp ứng yêu cầu công việc và văn hóa công ty",
+    description: lang === "en" ? "Ability to meet job requirements and team culture" : "Khả năng đáp ứng yêu cầu công việc và văn hóa công ty",
   },
-];
-
-const LOADING_STEPS = [
-  "Ẩn danh hóa CV (PII Redaction) để bảo mật thông tin...",
-  "Trích xuất yêu cầu cốt lõi & tiêu chí đánh giá từ JD...",
-  "Chuyên gia AI phân tích và chấm điểm khách quan 4 tiêu chí...",
-  "Tổng hợp biểu đồ so sánh trực quan đa chiều...",
 ];
 
 export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
@@ -138,44 +132,74 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
   applicationIds,
 }) => {
   const { session } = useAuth();
+  const { lang, t } = useLang();
   const [activeTab, setActiveTab] = useState<"column" | "radar" | "line" | "matrix">("column");
   const [loading, setLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<CompareCandidatesResponse | null>(null);
   const [hoveredCandidate, setHoveredCandidate] = useState<string | null>(null);
+
+  const metricDefinitions = useMemo(() => getMetricDefinitions(lang), [lang]);
+
+  // Streaming real-time status steps
+  const [streamingSteps, setStreamingSteps] = useState<StatusStep[]>([]);
+  const [currentStatusLabel, setCurrentStatusLabel] = useState<string>("");
 
   // Fetch comparison data
   const runComparison = async () => {
     if (!session?.access_token || !jobId || applicationIds.length < 2) return;
     setLoading(true);
     setError(null);
-    setLoadingStep(0);
-
-    const stepTimer1 = setTimeout(() => setLoadingStep(1), 700);
-    const stepTimer2 = setTimeout(() => setLoadingStep(2), 1600);
-    const stepTimer3 = setTimeout(() => setLoadingStep(3), 2600);
+    setStreamingSteps([]);
+    setCurrentStatusLabel(lang === "en" ? "Initializing candidate comparison..." : "Khởi tạo so sánh ứng viên...");
 
     try {
-      const response = await apiJson<CompareCandidatesResponse>(
-        "/candidates/compare",
+      let completedData: CompareCandidatesResponse | null = null;
+
+      await apiStream<CompareCandidatesResponse>(
+        "/candidates/compare/stream",
         session.access_token,
         {
-          method: "POST",
-          body: JSON.stringify({
-            job_id: jobId,
-            application_ids: applicationIds,
-          }),
+          job_id: jobId,
+          application_ids: applicationIds,
+        },
+        (event: StreamEvent<CompareCandidatesResponse>) => {
+          if (event.event === "status") {
+            setCurrentStatusLabel(event.data.label);
+            setStreamingSteps((prev) => {
+              const exists = prev.some((s) => s.step === event.data.step && s.label === event.data.label);
+              if (exists) return prev;
+              return [...prev, { step: event.data.step, label: event.data.label, timestamp: Date.now() }];
+            });
+          } else if (event.event === "complete") {
+            completedData = event.data as unknown as CompareCandidatesResponse;
+          } else if (event.event === "error") {
+            throw new Error(event.data.error || (lang === "en" ? "Cannot compare CVs right now" : "Không thể so sánh CV lúc này"));
+          }
         }
       );
-      setData(response);
+
+      if (!completedData) {
+        completedData = await apiJson<CompareCandidatesResponse>(
+          "/candidates/compare",
+          session.access_token,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              job_id: jobId,
+              application_ids: applicationIds,
+            }),
+          }
+        );
+      }
+
+      setData(completedData);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Không thể so sánh CV lúc này.");
+      setError(err instanceof Error ? err.message : (lang === "en" ? "Cannot compare CVs right now." : "Không thể so sánh CV lúc này."));
     } finally {
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
-      clearTimeout(stepTimer3);
       setLoading(false);
+      setStreamingSteps([]);
+      setCurrentStatusLabel("");
     }
   };
 
@@ -263,10 +287,10 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
             {/* View Selector Tabs */}
             <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800 p-1 rounded-xl">
               {[
-                { id: "column" as const, label: "Biểu đồ Cột", icon: BarChart3 },
-                { id: "radar" as const, label: "Biểu đồ Mạng nhện", icon: RadarIcon },
-                { id: "line" as const, label: "Biểu đồ Đường", icon: LineChartIcon },
-                { id: "matrix" as const, label: "Bảng so sánh chi tiết", icon: TableIcon },
+                { id: "column" as const, label: lang === "en" ? "Column Chart" : "Biểu đồ Cột", icon: BarChart3 },
+                { id: "radar" as const, label: lang === "en" ? "Radar Chart" : "Biểu đồ Mạng nhện", icon: RadarIcon },
+                { id: "line" as const, label: lang === "en" ? "Line Chart" : "Biểu đồ Đường", icon: LineChartIcon },
+                { id: "matrix" as const, label: lang === "en" ? "Detailed Comparison Table" : "Bảng so sánh chi tiết", icon: TableIcon },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const active = activeTab === tab.id;
@@ -274,7 +298,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                       active
                         ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm font-semibold"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
@@ -321,29 +345,24 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Loading State */}
             {loading && (
-              <div className="py-16 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="relative">
-                  <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 border-2 border-indigo-500 flex items-center justify-center text-indigo-600 animate-pulse">
-                    <Sparkles size={28} className="text-purple-500 animate-spin" />
-                  </div>
-                  <Loader2 size={36} className="absolute inset-0 m-auto text-indigo-500 animate-spin opacity-40" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
-                    AI đang so sánh và chấm điểm CV...
-                  </h3>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-1 transition-all">
-                    {LOADING_STEPS[loadingStep]}
-                  </p>
-                </div>
-                {/* Progress bar */}
-                <div className="w-64 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-600"
-                    initial={{ width: "15%" }}
-                    animate={{ width: `${(loadingStep + 1) * 25}%` }}
-                    transition={{ duration: 0.5 }}
+              <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 max-w-lg mx-auto w-full">
+                <div className="w-full">
+                  <SuggestionStatusIndicator
+                    currentLabel={currentStatusLabel || (lang === "en" ? "AI is comparing and scoring candidate CVs..." : "AI đang so sánh và chấm điểm CV...")}
+                    steps={streamingSteps}
+                    isGenerating={true}
+                    theme="recruiter"
                   />
+                </div>
+                <div className="text-center space-y-1">
+                  <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-200">
+                    {lang === "en" ? "AI is objectively scoring and comparing candidate profiles" : "AI đang so sánh và chấm điểm khách quan hồ sơ ứng viên"}
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-md">
+                    {lang === "en"
+                      ? "Redacting PII, matching skills & experience against JD standards for multi-dimensional rankings."
+                      : "Ẩn danh hóa thông tin PII, đối chiếu kỹ năng & kinh nghiệm với tiêu chuẩn JD để xếp hạng đa chiều."}
+                  </p>
                 </div>
               </div>
             )}
@@ -351,14 +370,14 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
             {/* Error State */}
             {!loading && error && (
               <div className="p-8 text-center bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-2xl">
-                <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">Đã xảy ra lỗi khi so sánh</p>
+                <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">{lang === "en" ? "An error occurred during comparison" : "Đã xảy ra lỗi khi so sánh"}</p>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mb-4">{error}</p>
                 <button
                   type="button"
                   onClick={() => void runComparison()}
-                  className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-medium hover:bg-red-700"
+                  className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-medium hover:bg-red-700 cursor-pointer"
                 >
-                  Thử lại
+                  {lang === "en" ? "Try Again" : "Thử lại"}
                 </button>
               </div>
             )}
@@ -380,21 +399,24 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded-md">
-                            Ứng viên nổi bật nhất #1
+                            {lang === "en" ? "Top Matching Candidate #1" : "Ứng viên nổi bật nhất #1"}
                           </span>
                           <span className="text-xs font-bold text-slate-900 dark:text-white">
                             {topCandidate.full_name || topCandidate.anonymous_label}
                           </span>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                          {data.summary || `Đạt điểm trung bình cao nhất (${topCandidate.average_score}/10) với sự phù hợp vượt trội theo yêu cầu JD.`}
+                          {data.summary ||
+                            (lang === "en"
+                              ? `Achieved highest average score (${topCandidate.average_score}/10) with outstanding fit for the JD requirements.`
+                              : `Đạt điểm trung bình cao nhất (${topCandidate.average_score}/10) với sự phù hợp vượt trội theo yêu cầu JD.`)}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
                       <div className="text-right">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Điểm trung bình</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">{lang === "en" ? "Average Score" : "Điểm trung bình"}</p>
                         <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
                           {topCandidate.average_score}<span className="text-xs text-slate-400">/10</span>
                         </p>
@@ -407,9 +429,9 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                               window.open(url, "_blank")
                             )
                           }
-                          className="px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-200 bg-amber-100/80 dark:bg-amber-900/50 hover:bg-amber-200 rounded-xl flex items-center gap-1 transition-colors"
+                          className="px-3 py-1.5 text-xs font-medium text-amber-800 dark:text-amber-200 bg-amber-100/80 dark:bg-amber-900/50 hover:bg-amber-200 rounded-xl flex items-center gap-1 transition-colors cursor-pointer"
                         >
-                          <ExternalLink size={12} /> Xem CV
+                          <ExternalLink size={12} /> {lang === "en" ? "View CV" : "Xem CV"}
                         </button>
                       )}
                     </div>
@@ -432,17 +454,19 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                           <div>
                             <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                               <BarChart3 size={16} className="text-indigo-600" />
-                              Biểu đồ cột so sánh theo 4 tiêu chí (Thang điểm 10)
+                              {lang === "en" ? "Column Chart: 4 Key Dimensions (Scale of 10)" : "Biểu đồ cột so sánh theo 4 tiêu chí (Thang điểm 10)"}
                             </h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                              Điểm số được AI HR Expert chấm khách quan dựa trên phân tích chi tiết hồ sơ với JD
+                              {lang === "en"
+                                ? "Scores are objectively evaluated by AI HR Expert by comparing resumes with JD"
+                                : "Điểm số được AI HR Expert chấm khách quan dựa trên phân tích chi tiết hồ sơ với JD"}
                             </p>
                           </div>
                         </div>
 
                         {/* Chart Canvas */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                          {METRIC_DEFINITIONS.map((metric) => {
+                          {metricDefinitions.map((metric) => {
                             const Icon = metric.icon;
                             return (
                               <div
@@ -533,10 +557,12 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                           <div>
                             <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                               <RadarIcon size={16} className="text-indigo-600" />
-                              Biểu đồ mạng nhện (Radar Chart) so sánh năng lực đa chiều
+                              {lang === "en" ? "Radar Chart: Multi-Dimensional Competency Comparison" : "Biểu đồ mạng nhện (Radar Chart) so sánh năng lực đa chiều"}
                             </h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                              Trực quan hóa sự cân bằng giữa Kinh nghiệm, Kỹ năng cứng, Học vấn và Độ phù hợp tổng thể
+                              {lang === "en"
+                                ? "Visualizing balance across Experience, Hard Skills, Education, and Overall Fit"
+                                : "Trực quan hóa sự cân bằng giữa Kinh nghiệm, Kỹ năng cứng, Học vấn và Độ phù hợp tổng thể"}
                             </p>
                           </div>
                         </div>
@@ -568,16 +594,16 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
 
                               {/* Axis Labels */}
                               <text x="150" y="24" textAnchor="middle" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                                Kinh nghiệm
+                                {metricDefinitions[0].shortLabel}
                               </text>
                               <text x="272" y="154" textAnchor="start" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                                Kỹ năng cứng
+                                {metricDefinitions[1].shortLabel}
                               </text>
                               <text x="150" y="284" textAnchor="middle" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                                Học vấn
+                                {metricDefinitions[2].shortLabel}
                               </text>
                               <text x="28" y="154" textAnchor="end" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
-                                Phù hợp chung
+                                {metricDefinitions[3].shortLabel}
                               </text>
 
                               {/* Candidate Polygons */}
@@ -585,7 +611,6 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                                 const theme = CANDIDATE_THEMES[idx % CANDIDATE_THEMES.length];
                                 const isHovered = hoveredCandidate === cand.application_id;
 
-                                // 4 points: Top (experience), Right (hard_skills), Bottom (education), Left (overall_fit)
                                 const expR = (cand.metrics.experience.score / 10) * 110;
                                 const skillR = (cand.metrics.hard_skills.score / 10) * 110;
                                 const eduR = (cand.metrics.education.score / 10) * 110;
@@ -665,19 +690,19 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
 
                                   <div className="grid grid-cols-4 gap-1 text-[10px] text-center">
                                     <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                                      <span className="text-slate-400 block text-[9px]">Kinh nghiệm</span>
+                                      <span className="text-slate-400 block text-[9px]">{metricDefinitions[0].shortLabel}</span>
                                       <b className="text-slate-700 dark:text-slate-300">{cand.metrics.experience.score}</b>
                                     </div>
                                     <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                                      <span className="text-slate-400 block text-[9px]">Kỹ năng</span>
+                                      <span className="text-slate-400 block text-[9px]">{metricDefinitions[1].shortLabel}</span>
                                       <b className="text-slate-700 dark:text-slate-300">{cand.metrics.hard_skills.score}</b>
                                     </div>
                                     <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                                      <span className="text-slate-400 block text-[9px]">Học vấn</span>
+                                      <span className="text-slate-400 block text-[9px]">{metricDefinitions[2].shortLabel}</span>
                                       <b className="text-slate-700 dark:text-slate-300">{cand.metrics.education.score}</b>
                                     </div>
                                     <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-                                      <span className="text-slate-400 block text-[9px]">Phù hợp</span>
+                                      <span className="text-slate-400 block text-[9px]">{metricDefinitions[3].shortLabel}</span>
                                       <b className="text-slate-700 dark:text-slate-300">{cand.metrics.overall_fit.score}</b>
                                     </div>
                                   </div>
@@ -704,10 +729,12 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                           <div>
                             <h3 className="font-semibold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                               <LineChartIcon size={16} className="text-indigo-600" />
-                              Biểu đồ đường so sánh quỹ đạo điểm số (Score Trajectory)
+                              {lang === "en" ? "Line Chart: Score Trajectory Comparison" : "Biểu đồ đường so sánh quỹ đạo điểm số (Score Trajectory)"}
                             </h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                              So sánh trực quan biến động điểm số theo 4 tiêu chí giữa các ứng viên
+                              {lang === "en"
+                                ? "Visual comparison of score trajectories across 4 criteria among candidates"
+                                : "So sánh trực quan biến động điểm số theo 4 tiêu chí giữa các ứng viên"}
                             </p>
                           </div>
                         </div>
@@ -729,7 +756,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                             })}
 
                             {/* Metric X Axis Labels */}
-                            {METRIC_DEFINITIONS.map((m, idx) => {
+                            {metricDefinitions.map((m, idx) => {
                               const x = 70 + idx * 160;
                               return (
                                 <text key={m.key} x={x} y="195" textAnchor="middle" className="fill-slate-700 dark:fill-slate-300 text-[10px] font-bold">
@@ -743,7 +770,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                               const theme = CANDIDATE_THEMES[idx % CANDIDATE_THEMES.length];
                               const isHovered = hoveredCandidate === cand.application_id;
 
-                              const points = METRIC_DEFINITIONS.map((m, mIdx) => {
+                              const points = metricDefinitions.map((m, mIdx) => {
                                 const x = 70 + mIdx * 160;
                                 const score = cand.metrics[m.key].score;
                                 const y = 180 - (score / 10) * 160;
@@ -814,7 +841,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                             <thead>
                               <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
                                 <th className="p-4 text-xs font-semibold text-slate-500 dark:text-slate-400 w-52 shrink-0">
-                                  Tiêu chí đánh giá
+                                  {lang === "en" ? "Evaluation Criteria" : "Tiêu chí đánh giá"}
                                 </th>
                                 {candidates.map((cand, idx) => {
                                   const theme = CANDIDATE_THEMES[idx % CANDIDATE_THEMES.length];
@@ -848,7 +875,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                               <tr className="bg-indigo-50/40 dark:bg-indigo-950/20 font-semibold">
                                 <td className="p-4 text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
                                   <Trophy size={14} className="text-amber-500 shrink-0" />
-                                  <span>Điểm tổng kết (Thang 10)</span>
+                                  <span>{lang === "en" ? "Overall Score (Scale of 10)" : "Điểm tổng kết (Thang 10)"}</span>
                                 </td>
                                 {candidates.map((cand) => (
                                   <td key={cand.application_id} className="p-4">
@@ -856,7 +883,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                                       <span className="text-base font-bold text-indigo-600 dark:text-indigo-400">
                                         {cand.average_score}
                                       </span>
-                                      <span className="text-[10px] text-slate-400">/10 (Hạng #{cand.rank})</span>
+                                      <span className="text-[10px] text-slate-400">/10 ({lang === "en" ? "Rank #" : "Hạng #"}{cand.rank})</span>
                                     </div>
                                     {/* Mini Progress */}
                                     <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1.5">
@@ -870,7 +897,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                               </tr>
 
                               {/* 4 Metric Rows */}
-                              {METRIC_DEFINITIONS.map((metric) => {
+                              {metricDefinitions.map((metric) => {
                                 const Icon = metric.icon;
                                 return (
                                   <tr key={metric.key} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
@@ -896,7 +923,7 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
                                             </span>
                                             {mData.score >= 8.5 && (
                                               <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
-                                                <CheckCircle2 size={11} /> Xuất sắc
+                                                <CheckCircle2 size={11} /> {lang === "en" ? "Excellent" : "Xuất sắc"}
                                               </span>
                                             )}
                                           </div>
@@ -924,14 +951,16 @@ export const CVComparisonModal: React.FC<CVComparisonModalProps> = ({
           <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 flex items-center justify-between text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <Sparkles size={12} className="text-purple-600 dark:text-purple-400" />
-              Đánh giá được tạo tự động bởi AI HR Expert dựa trên CV đã ẩn danh PII.
+              {lang === "en"
+                ? "Evaluation automatically generated by AI HR Expert based on PII-redacted CVs."
+                : "Đánh giá được tạo tự động bởi AI HR Expert dựa trên CV đã ẩn danh PII."}
             </span>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 rounded-xl font-medium bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+              className="px-4 py-1.5 rounded-xl font-medium bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
             >
-              Đóng
+              {t.cancel}
             </button>
           </div>
         </motion.div>

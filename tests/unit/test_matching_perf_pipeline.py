@@ -39,7 +39,7 @@ def test_run_matching_pipeline_times_every_node():
         explain_complete=fake_explain_complete,
     )
 
-    assert set(result["timings_ms"]) == {"retrieve", "skill", "rrf", "rerank", "explain", "respond"}
+    assert set(result["timings_ms"]) == {"retrieve", "skill", "rrf", "rerank", "snapshot", "explain", "output_guard", "respond"}
     assert all(ms >= 0 for ms in result["timings_ms"].values())
     assert result["total_ms"] == pytest.approx(sum(result["timings_ms"].values()), abs=0.1)
     assert len(result["final_state"]["candidates"]) == 2

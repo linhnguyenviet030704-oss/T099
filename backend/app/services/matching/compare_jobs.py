@@ -4,20 +4,22 @@ import asyncio
 import json
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from backend.app.api.schemas.compare import (
     CandidateMetrics,
-    CompareJobsResponse,
     ComparedJob,
     ComparedJobCompany,
+    CompareJobsResponse,
     MetricScore,
 )
 from backend.app.clients.llm import chat_complete
-from backend.app.core.exceptions import AppError, NotFoundError
+from backend.app.core.exceptions import AppError
+from backend.app.guardrails.gates import gate_context
+from backend.app.guardrails.output import validate_generated_text
 from backend.app.observability.logger import get_logger
 from backend.app.services.matching.ingest import try_ingest_resume
 from backend.app.services.matching.skills import extract_skills
@@ -42,9 +44,6 @@ def _strip_fence(raw: str) -> str:
 
 def _clean_cv_text_for_prompt(markdown: str, metadata: dict[str, Any] | None = None) -> str:
     text = (markdown or "").strip()
-    # Redact obvious PII patterns
-    text = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL ĐÃ ẨN]", text)
-    text = re.sub(r"(?:\+?84|0)(?:3|5|7|8|9)\d(?:[\s.-]?\d){7,8}", "[SĐT ĐÃ ẨN]", text)
     if not text and metadata:
         parts = []
         if metadata.get("summary"):
@@ -52,7 +51,10 @@ def _clean_cv_text_for_prompt(markdown: str, metadata: dict[str, Any] | None = N
         if metadata.get("skills"):
             parts.append(f"Kỹ năng: {', '.join(str(s) for s in metadata['skills'])}")
         text = "\n".join(parts)
-    return text[:3000] if len(text) > 3000 else (text or "Hồ sơ chưa có mô tả chi tiết.")
+    decision = gate_context(text, source="cv", max_chars=3000)
+    if decision.action == "block" or not decision.value:
+        return "Hồ sơ chưa có mô tả chi tiết."
+    return str(decision.value)
 
 
 def _parse_llm_response(raw: str) -> list[dict[str, Any]]:
@@ -147,7 +149,7 @@ def _fallback_metrics_for_job(
     # 4. Overall fit
     overall_score = round(0.35 * skill_score + 0.35 * exp_score + 0.30 * edu_score, 1)
     overall_reason = (
-        f"Vị trí rất phù hợp với năng lực và mục tiêu phát triển của bạn."
+        "Vị trí rất phù hợp với năng lực và mục tiêu phát triển của bạn."
         if overall_score >= 7.5
         else "Mức độ phù hợp khá, cần chuẩn bị kỹ năng chuyên sâu."
     )
@@ -305,10 +307,11 @@ async def compare_jobs_for_candidate(
         }
 
     jd_text = "\n\n".join(jd_blocks)
+    guarded_jd = gate_context(jd_text, source="jd", max_chars=12_000)
 
     # 5. Build Career Advisor Prompt
     prompt = COMPARE_JOBS_PROMPT_TEMPLATE.replace(
-        "{{JD_AND_REQUIREMENTS}}", jd_text
+        "{{JD_AND_REQUIREMENTS}}", str(guarded_jd.value)
     ).replace(
         "{{ANONYMIZED_CV}}", anonymized_cv_text
     )
@@ -317,7 +320,9 @@ async def compare_jobs_for_candidate(
     fn = complete or chat_complete
     parsed_results: list[dict[str, Any]] = []
     try:
-        raw_output = fn(prompt, json_object=True, api_key=api_key, base_url=base_url)
+        if guarded_jd.action == "block" or not guarded_jd.value:
+            raise ValueError("job context blocked by safety gate")
+        raw_output = await asyncio.to_thread(fn, prompt, json_object=True, api_key=api_key, base_url=base_url)
         parsed_results = _parse_llm_response(raw_output)
     except Exception as exc:
         logger.warning("LLM job comparison failed, falling back to deterministic: %s", exc)
@@ -343,8 +348,12 @@ async def compare_jobs_for_candidate(
                 score_val = max(1.0, min(10.0, score_val))
             except (TypeError, ValueError):
                 score_val = default_score
-            reason_val = str(sub.get("reason") or "Phù hợp với hồ sơ ứng viên.").strip()
-            return MetricScore(score=round(score_val, 1), reason=reason_val[:120])
+            reason = validate_generated_text(
+                str(sub.get("reason") or ""),
+                max_chars=120,
+                fallback="Phù hợp với hồ sơ ứng viên.",
+            )
+            return MetricScore(score=round(score_val, 1), reason=str(reason.value))
 
         llm_metrics_by_label[matched_label] = CandidateMetrics(
             experience=_extract_metric("experience", 7.0),
@@ -428,3 +437,54 @@ async def compare_jobs_for_candidate(
         top_job_id=top_job_id,
         summary=summary,
     )
+
+
+async def stream_compare_jobs_for_candidate(
+    client: Client,
+    actor_id: UUID,
+    job_ids: list[UUID],
+    *,
+    resume_id: UUID | None = None,
+    complete: CompleteFn | None = None,
+    store: SupabaseResumeStore | None = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """Phát luồng tiến trình so sánh đa chiều các việc làm theo CV ứng viên."""
+    yield {
+        "event": "status",
+        "data": {"step": "fetch_data", "label": "Đang tải và đồng bộ dữ liệu việc làm & CV..."},
+    }
+
+    await asyncio.sleep(0.05)
+
+    yield {
+        "event": "status",
+        "data": {"step": "anonymize", "label": "Đang xử lý ẩn danh hóa và chuẩn bị dữ liệu đối chiếu..."},
+    }
+
+    yield {
+        "event": "status",
+        "data": {"step": "ai_evaluate", "label": "Đang phân tích đối chiếu chuyên sâu bằng mô hình AI Career Advisor..."},
+    }
+
+    res = await compare_jobs_for_candidate(
+        client=client,
+        actor_id=actor_id,
+        job_ids=job_ids,
+        resume_id=resume_id,
+        complete=complete,
+        store=store,
+        api_key=api_key,
+        base_url=base_url,
+    )
+
+    yield {
+        "event": "status",
+        "data": {"step": "synthesis", "label": "Đang tổng hợp ma trận phân tích so sánh và khuyến nghị..."},
+    }
+
+    yield {
+        "event": "complete",
+        "data": res.model_dump(mode="json"),
+    }

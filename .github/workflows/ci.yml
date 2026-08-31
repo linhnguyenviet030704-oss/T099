@@ -1,3 +1,4 @@
+# Pipeline CI hoàn chỉnh với các giai đoạn độc lập (Multi-stage DAG Workflow)
 name: CI Pipeline
 
 on:
@@ -7,28 +8,151 @@ on:
     branches: [main]
 
 jobs:
-  backend-ci:
-    name: Backend Lint & Test
+  # ==========================================
+  # Giai đoạn 1: Tải mã nguồn & Kiểm tra môi trường
+  # ==========================================
+  load-and-setup:
+    name: "1. Load & Setup"
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Tải mã nguồn (Checkout Repository)"
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: "🔍 Kiểm tra tính toàn vẹn của thư mục dự án"
+        run: |
+          echo "=== KIỂM TRA MÔI TRƯỜNG & TẬP TIN DỰ ÁN ==="
+          test -f requirements.txt || (echo "Lỗi: Không tìm thấy requirements.txt" && exit 1)
+          test -f frontend/package.json || (echo "Lỗi: Không tìm thấy frontend/package.json" && exit 1)
+          test -f frontend/pnpm-lock.yaml || (echo "Lỗi: Không tìm thấy frontend/pnpm-lock.yaml" && exit 1)
+          echo "Nhánh hiện tại: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+          echo "Người kích hoạt: ${{ github.actor }}"
+          echo "Tất cả các tệp cấu hình cốt lõi đã sẵn sàng."
+
+  # ==========================================
+  # Giai đoạn 2: Tải & Lưu Cache Dependencies
+  # ==========================================
+  download-dependencies:
+    name: "2. Download Dependencies"
+    needs: [load-and-setup]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      # Khởi tạo & tải thư viện Python cho Backend
+      - name: "⚙️ Thiết lập môi trường Python 3.11"
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
+          cache: "pip"
 
-      - name: Install Python dependencies
+      - name: "📦 Cài đặt & lưu cache dependencies cho Python (Backend)"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Lint with ruff
+      # Khởi tạo & tải thư viện Node.js / pnpm cho Frontend
+      - name: "⚡ Cài đặt pnpm phiên bản 10"
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: "⚙️ Thiết lập môi trường Node.js 22"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: "📦 Cài đặt & lưu cache dependencies cho Frontend"
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+  # ==========================================
+  # Giai đoạn 3a: Kiểm tra Lint mã nguồn Backend
+  # ==========================================
+  backend-lint:
+    name: "3a. Backend Lint (Ruff)"
+    needs: [download-dependencies]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚙️ Thiết lập Python 3.11 với cache"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "📦 Cài đặt dependencies từ cache"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "🔍 Kiểm tra Lint mã nguồn Backend với Ruff"
         run: ruff check backend/ tests/
 
-      - name: Run Pytest suite
+  # ==========================================
+  # Giai đoạn 3b: Kiểm tra Lint & Typecheck Frontend
+  # ==========================================
+  frontend-lint:
+    name: "3b. Frontend Lint (TypeScript)"
+    needs: [download-dependencies]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚡ Thiết lập pnpm 10"
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: "📦 Khôi phục Frontend dependencies"
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: "🔍 Kiểm tra TypeScript Typecheck"
+        working-directory: ./frontend
+        run: pnpm lint
+
+  # ==========================================
+  # Giai đoạn 4a: Chạy kiểm thử tự động Backend (Pytest)
+  # ==========================================
+  backend-test:
+    name: "4a. Backend Test Suite (Pytest)"
+    needs: [backend-lint]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚙️ Thiết lập Python 3.11 với cache"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "📦 Cài đặt dependencies từ cache"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: "🧪 Chạy toàn bộ Pytest test suite"
         run: pytest tests/ -v --tb=short
         env:
           APP_ENV: test
@@ -36,35 +160,99 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: test-service-role-key-must-be-long-enough-32-chars
           QWEN_API_KEY: test-key
 
-  frontend-ci:
-    name: Frontend Typecheck & Build
+  # ==========================================
+  # Giai đoạn 4b: Chạy kiểm thử tự động Frontend
+  # ==========================================
+  frontend-test:
+    name: "4b. Frontend Test Suite"
+    needs: [frontend-lint]
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
 
-      - name: Install pnpm
+      - name: "⚡ Thiết lập pnpm 10"
         uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - name: Set up Node.js 20
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Install Frontend dependencies
+      - name: "📦 Khôi phục Frontend dependencies"
         working-directory: ./frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck TypeScript
+      - name: "🧪 Chạy Frontend Unit Tests"
         working-directory: ./frontend
-        run: pnpm lint
+        run: pnpm test
 
-      - name: Build Frontend bundle
+  # ==========================================
+  # Giai đoạn 5: Đóng gói & Build Frontend Bundle
+  # ==========================================
+  frontend-build:
+    name: "5. Frontend Build"
+    needs: [frontend-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Tải mã nguồn"
+        uses: actions/checkout@v4
+
+      - name: "⚡ Thiết lập pnpm 10"
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: "⚙️ Thiết lập Node.js 22 với cache"
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: "📦 Khôi phục Frontend dependencies"
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: "🏗️ Biên dịch Frontend bundle (Vite Build)"
         working-directory: ./frontend
         run: pnpm build
         env:
           VITE_API_BASE_URL: https://recruitment-portal-backend.onrender.com
+
+      - name: "🚀 Lưu trữ Artifacts (dist)"
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  # ==========================================
+  # Giai đoạn 6: Tổng kết CI Pipeline
+  # ==========================================
+  ci-summary:
+    name: "6. CI Pipeline Summary"
+    needs: [backend-test, frontend-build]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: "📊 Tổng kết trạng thái các giai đoạn CI"
+        run: |
+          echo "=== TỔNG KẾT KẾT QUẢ CI PIPELINE ==="
+          echo "Trạng thái Backend Test: ${{ needs.backend-test.result }}"
+          echo "Trạng thái Frontend Build: ${{ needs.frontend-build.result }}"
+          
+          if [ "${{ needs.backend-test.result }}" = "success" ] && [ "${{ needs.frontend-build.result }}" = "success" ]; then
+            echo "🎉 TẤT CẢ CÁC GIAI ĐOẠN CI ĐÃ VƯỢT QUA THÀNH CÔNG!"
+            exit 0
+          else
+            echo "❌ CI THẤT BẠI: Một hoặc nhiều giai đoạn không đạt yêu cầu."
+            exit 1
+          fi

@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 
 from backend.app.agents.state import AgentState
@@ -20,7 +21,7 @@ def make_explain_node(
         def _complete(prompt: str, **kwargs):
             if complete is not None:
                 return complete(prompt, **kwargs)
-            active_brain = brain or get_brain("matching_agent")
+            active_brain = brain or get_brain("matching")
             return active_brain.chat(prompt, api_key=api_key, base_url=base_url, json_object=True)
 
         candidates = list(state.get("candidates") or [])
@@ -28,7 +29,8 @@ def make_explain_node(
             candidates = candidates[:max_candidates]
         jd_text = state.get("job_description") or state.get("jd_query") or ""
         jd_skills = list(state.get("jd_skills") or [])
-        reasons = explain_matches(
+        reasons = await asyncio.to_thread(
+            explain_matches,
             jd_text=jd_text,
             candidates=candidates,
             complete=_complete,

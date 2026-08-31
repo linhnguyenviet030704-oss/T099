@@ -1,21 +1,22 @@
 /**
  * Formats a numeric amount to a structured currency string.
- * Defaults to VND with Vietnamese locale format.
+ * Defaults to VND with Vietnamese locale format or EN locale format.
  */
-export function formatCurrency(amount: number | null | undefined, currency: string = 'VND'): string {
-  if (amount === null || amount === undefined) return 'Thỏa thuận';
+export function formatCurrency(amount: number | null | undefined, currency: string = 'VND', lang: 'vi' | 'en' = 'vi'): string {
+  if (amount === null || amount === undefined) return lang === 'en' ? 'Negotiable' : 'Thỏa thuận';
   
   try {
     const code = (currency || 'VND').toUpperCase();
+    const locale = lang === 'en' ? 'en-US' : 'vi-VN';
     if (code === 'VND') {
-      return new Intl.NumberFormat('vi-VN', {
+      return new Intl.NumberFormat(locale, {
         style: 'currency',
         currency: 'VND',
         maximumFractionDigits: 0,
       }).format(amount);
     }
     
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: code,
     }).format(amount);
@@ -27,12 +28,12 @@ export function formatCurrency(amount: number | null | undefined, currency: stri
 /**
  * Formats an ISO string or Date to dd/MM/yyyy HH:mm or dd/MM/yyyy depending on the presence of time
  */
-export function formatDate(dateString: string | null | undefined, includeTime = false): string {
-  if (!dateString) return 'Chưa xác định';
+export function formatDate(dateString: string | null | undefined, includeTime = false, lang: 'vi' | 'en' = 'vi'): string {
+  if (!dateString) return lang === 'en' ? 'N/A' : 'Chưa xác định';
   
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Sai định dạng';
+    if (isNaN(date.getTime())) return lang === 'en' ? 'Invalid date' : 'Sai định dạng';
     
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');

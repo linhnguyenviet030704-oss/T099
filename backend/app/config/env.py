@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = DEFAULT_JWT_SECRET
     supabase_anon_key: str = ""
 
+    # Cron secret (dùng cho internal endpoints gọi từ cron)
+    cron_secret: str = ""
+
+    # GitHub API
+    github_token: str = ""
+    github_api_key: str = ""
+
     # Shared Brain / Default Provider
     default_brain_provider: str = DEFAULT_BRAIN_PROVIDER
 
@@ -91,6 +98,10 @@ class Settings(BaseSettings):
             self.qwen_api_key = self.dashscope_api_key
         if not self.gemini_api_key and self.google_api_key:
             self.gemini_api_key = self.google_api_key
+        if not self.github_token and self.github_api_key:
+            self.github_token = self.github_api_key
+        elif not self.github_api_key and self.github_token:
+            self.github_api_key = self.github_token
         return self
 
     @model_validator(mode="after")

@@ -1,19 +1,29 @@
 import re
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from backend.app.api.schemas.common import CvHeaderInfo, IngestResponse, ParsedCvLine
+from backend.app.api.schemas.common import (
+    CvHeaderInfo,
+    DeleteResumeResponse,
+    IngestResponse,
+    ParsedCvLine,
+    SetResumePublicRequest,
+    SetResumePublicResponse,
+)
 from backend.app.clients.supabase import get_supabase_client
 from backend.app.config.env import settings
 from backend.app.core.exceptions import ForbiddenError, NotFoundError
 from backend.app.core.security import AuthenticatedUser
+from backend.app.dependencies.auth import get_current_user
 from backend.app.guardrails.rate_limit import enforce_ingest_rate_limit
 from backend.app.services.matching.ingest import ingest_resume
 from backend.app.services.matching.store import SupabaseResumeStore
 from supabase import Client
 
 router = APIRouter()
+
 
 
 def extract_cv_lines_from_markdown(
@@ -104,7 +114,7 @@ def extract_cv_lines_from_markdown(
             else:
                 lines.append({"name": sec_type, "value": content})
 
-    if metadata and metadata.get("skills") and not any(l["name"] == "skill" for l in lines):
+    if metadata and metadata.get("skills") and not any(line["name"] == "skill" for line in lines):
         skills = metadata.get("skills")
         if isinstance(skills, list) and skills:
             lines.append({"name": "skill", "value": ", ".join(str(s) for s in skills)})
@@ -142,10 +152,92 @@ async def ingest_own_resume(
     return IngestResponse(
         status=status,
         markdown=markdown,
-        lines=[ParsedCvLine(name=l["name"], value=l["value"]) for l in parsed_lines],
+        lines=[ParsedCvLine(name=line["name"], value=line["value"]) for line in parsed_lines],
         header=CvHeaderInfo(
             full_name=header_info.get("full_name"),
             email=header_info.get("email"),
             phone=header_info.get("phone"),
         ),
+    )
+
+
+@router.patch("/resumes/{resume_id}/public", response_model=SetResumePublicResponse)
+async def set_resume_public(
+    resume_id: UUID,
+    payload: SetResumePublicRequest,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    client: Client = Depends(get_supabase_client),
+) -> SetResumePublicResponse:
+    res = (
+        client.table("resumes")
+        .select("id, user_id, is_public, deleted_at")
+        .eq("id", str(resume_id))
+        .maybe_single()
+        .execute()
+    )
+    resume = res.data
+    if not resume or resume.get("deleted_at") is not None:
+        raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
+
+    if str(resume.get("user_id")) != str(current_user.id):
+        raise ForbiddenError("Bạn chỉ có quyền thay đổi CV do chính mình sở hữu")
+
+    if payload.is_public:
+        # Enforce exactly one public resume per candidate
+        # 1. Turn off public on any other resumes owned by this user
+        client.table("resumes").update({"is_public": False}).eq("user_id", str(current_user.id)).neq("id", str(resume_id)).execute()
+        # 2. Turn on public for this resume
+        client.table("resumes").update({"is_public": True}).eq("id", str(resume_id)).eq("user_id", str(current_user.id)).execute()
+        msg = "Đã đặt CV làm công khai (Đang tìm việc)."
+    else:
+        client.table("resumes").update({"is_public": False}).eq("id", str(resume_id)).eq("user_id", str(current_user.id)).execute()
+        msg = "Đã tắt trạng thái công khai của CV."
+
+    return SetResumePublicResponse(
+        id=str(resume_id),
+        is_public=payload.is_public,
+        message=msg,
+    )
+
+
+@router.delete("/resumes/{resume_id}", response_model=DeleteResumeResponse)
+async def delete_resume(
+    resume_id: UUID,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    client: Client = Depends(get_supabase_client),
+) -> DeleteResumeResponse:
+    res = (
+        client.table("resumes")
+        .select("id, user_id, is_default, is_public, deleted_at, storage_path, bucket_id")
+        .eq("id", str(resume_id))
+        .maybe_single()
+        .execute()
+    )
+    resume = res.data
+    if not resume or resume.get("deleted_at") is not None:
+        raise NotFoundError("Resume not found", code="RESUME_NOT_FOUND")
+
+    if str(resume.get("user_id")) != str(current_user.id):
+        raise ForbiddenError("Bạn chỉ có quyền xóa CV do chính mình sở hữu")
+
+    now_iso = datetime.now(UTC).isoformat()
+    # 1. Soft-delete the resume and clear public / default flags
+    client.table("resumes").update({
+        "deleted_at": now_iso,
+        "is_public": False,
+        "is_default": False,
+    }).eq("id", str(resume_id)).eq("user_id", str(current_user.id)).execute()
+
+    # 2. If this was the user's default_resume_id in profiles, clear it
+    client.table("profiles").update({
+        "default_resume_id": None,
+    }).eq("id", str(current_user.id)).eq("default_resume_id", str(resume_id)).execute()
+
+    # 3. Clean up vector search embedding record if present
+    client.table("embedded_resumes").delete().eq("resume_id", str(resume_id)).execute()
+
+    return DeleteResumeResponse(
+        id=str(resume_id),
+        deleted=True,
+        message="Đã xóa CV thành công.",
     )

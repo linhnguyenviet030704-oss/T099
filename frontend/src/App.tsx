@@ -10,6 +10,8 @@ import RoleRoute from "./components/RoleRoute";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import JobListPage from "./pages/JobListPage";
 import JobDetailPage from "./pages/JobDetailPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -17,10 +19,14 @@ import CVVaultPage from "./pages/CVVaultPage";
 import CVBuilderPage from "./pages/CVBuilderPage";
 import ApplicationsPage from "./pages/ApplicationsPage";
 import AISuggestionsPage from "./pages/AISuggestionsPage";
+import CVAssessmentPage from "./pages/CVAssessmentPage";
 import RecruiterRegisterPage from "./pages/RecruiterRegisterPage";
 import RecruitmentDashboardPage from "./pages/RecruitmentDashboardPage";
 import AICandidatePage from "./pages/AICandidatePage";
 import AdminRecruiterPage from "./pages/AdminRecruiterPage";
+import RepoEvaluationPage from "./pages/RepoEvaluationPage";
+import AIInterviewPage from "./pages/AIInterviewPage";
+import ContactPage from "./pages/ContactPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 import { ToastProvider } from "./context/ToastContext";
@@ -31,8 +37,11 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/sign-in" element={<Navigate to="/login" replace />} />
         <Route path="/auth/sign-up" element={<Navigate to="/register" replace />} />
         <Route path="/jobs" element={<JobListPage />} />
@@ -79,6 +88,14 @@ function AnimatedRoutes() {
             </RoleRoute>
           }
         />
+        <Route
+          path="/cv-assessment"
+          element={
+            <RoleRoute allowedRoles={["candidate"]}>
+              <CVAssessmentPage />
+            </RoleRoute>
+          }
+        />
         <Route path="/match" element={<Navigate to="/ai-suggestions" replace />} />
         <Route path="/match_job" element={<Navigate to="/ai-suggestions" replace />} />
         <Route
@@ -107,7 +124,15 @@ function AnimatedRoutes() {
             </RoleRoute>
           }
         />
-        <Route path="/match_candidates" element={<Navigate to="/ai-candidates" replace />} />
+        <Route path="/repo-evaluation" element={<RepoEvaluationPage />} />
+        <Route
+          path="/ai-interview"
+          element={
+            <RoleRoute allowedRoles={["recruiter"]}>
+              <AIInterviewPage />
+            </RoleRoute>
+          }
+        />
         <Route
           path="/admin"
           element={

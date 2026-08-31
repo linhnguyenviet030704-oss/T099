@@ -257,7 +257,7 @@ async def test_chat_returns_mock_jobs(api_client: AsyncClient):
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["response"] == "Gợi ý 1 việc làm phù hợp (mock matching)."
+    assert body["response"] == "Gợi ý 1 việc làm phù hợp."
     assert len(body["jobs"]) == 1
     assert body["jobs"][0]["id"] == str(job_id)
     assert body["jobs"][0]["company_name"] == "Acme"

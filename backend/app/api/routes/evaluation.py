@@ -75,15 +75,20 @@ async def _resolve_authorized_inputs(
 
         parsed = await store.get_parsed(request.resume_id)
         cv_text = str((parsed or {}).get("clean_markdown") or (parsed or {}).get("markdown") or "")
-        if not cv_text:
-            blob = await store.download(resume.get("bucket_id") or "resumes", resume["storage_path"])
-            validated = validate_file(
-                blob,
-                declared_mime=resume.get("mime_type") or "",
-                max_bytes=MAX_CV_BYTES,
-            )
-            parsed_local = parse_resume_bytes(validated.data, mime_type=validated.detected_mime)
-            cv_text = str(parsed_local.get("markdown") or "")
+        if not cv_text or len(cv_text.strip()) < 30:
+            try:
+                storage_path = resume.get("storage_path")
+                if storage_path:
+                    blob = await store.download(resume.get("bucket_id") or "resumes", storage_path)
+                    validated = validate_file(
+                        blob,
+                        declared_mime=resume.get("mime_type") or "",
+                        max_bytes=MAX_CV_BYTES,
+                    )
+                    parsed_local = parse_resume_bytes(validated.data, mime_type=validated.detected_mime)
+                    cv_text = str(parsed_local.get("markdown") or "")
+            except Exception as e:
+                logger.warning("Không thể tải hoặc trích xuất tệp CV từ Storage: %s", e)
 
     if jd_text is None and request.job_id is not None:
         def _fetch_job() -> dict | None:
@@ -285,19 +290,24 @@ async def _resolve_authorized_cv(
 
         parsed = await store.get_parsed(request.resume_id)
         cv_text = str((parsed or {}).get("clean_markdown") or (parsed or {}).get("markdown") or "")
-        if not cv_text:
-            blob = await store.download(resume.get("bucket_id") or "resumes", resume["storage_path"])
-            validated = validate_file(
-                blob,
-                declared_mime=resume.get("mime_type") or "",
-                max_bytes=MAX_CV_BYTES,
-            )
-            parsed_local = parse_resume_bytes(validated.data, mime_type=validated.detected_mime)
-            cv_text = str(parsed_local.get("markdown") or "")
+        if not cv_text or len(cv_text.strip()) < 30:
+            try:
+                storage_path = resume.get("storage_path")
+                if storage_path:
+                    blob = await store.download(resume.get("bucket_id") or "resumes", storage_path)
+                    validated = validate_file(
+                        blob,
+                        declared_mime=resume.get("mime_type") or "",
+                        max_bytes=MAX_CV_BYTES,
+                    )
+                    parsed_local = parse_resume_bytes(validated.data, mime_type=validated.detected_mime)
+                    cv_text = str(parsed_local.get("markdown") or "")
+            except Exception as e:
+                logger.warning("Không thể tải hoặc trích xuất tệp CV từ Storage: %s", e)
 
     if not cv_text or len(cv_text.strip()) < 30:
         raise BadRequestError(
-            "Vui lòng cung cấp nội dung CV (cv_text) hoặc chọn resume_id hợp lệ",
+            "Nội dung CV chưa có dữ liệu văn bản hợp lệ (file scan/ảnh hoặc tệp rỗng). Vui lòng thử 'Tải tệp mới' hoặc dùng tab 'Dán văn bản' để AI đánh giá.",
             code="DATA_EMPTY",
         )
 

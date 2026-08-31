@@ -453,10 +453,14 @@ export default function RepoEvaluationPage() {
           .select("id, title, original_filename, is_default, created_at")
           .eq("user_id", user.id)
           .is("deleted_at", null)
+          .order("is_default", { ascending: false })
           .order("created_at", { ascending: false });
 
         if (!error && data && data.length > 0) {
-          setUserResumes(data as UserResumeOption[]);
+          const list = data as UserResumeOption[];
+          setUserResumes(list);
+          const defaultResume = list.find((r) => r.is_default) || list[0];
+          setSelectedResumeId((prev) => (prev && list.some((r) => r.id === prev) ? prev : defaultResume.id));
         }
       } catch (err) {
         console.warn("Could not load user resumes:", err);
@@ -642,13 +646,14 @@ export default function RepoEvaluationPage() {
     }
     // 2. Personal Vault CV flow
     else if (cvInputType === "vault") {
-      if (!selectedResumeId) {
+      const effectiveResumeId = selectedResumeId || userResumes.find((r) => r.is_default)?.id || userResumes[0]?.id;
+      if (!effectiveResumeId) {
         setStatusPhase("idle");
         toastError("Chưa chọn CV", "Vui lòng chọn CV từ kho CV đã lưu");
         return;
       }
-      payload.resume_id = selectedResumeId;
-      const foundResume = userResumes.find((r) => r.id === selectedResumeId);
+      payload.resume_id = effectiveResumeId;
+      const foundResume = userResumes.find((r) => r.id === effectiveResumeId);
       searchTitle = `Nghiên cứu CV: ${foundResume?.title || "CV đã lưu"}`;
     }
     // 3. Text / Upload flow
@@ -999,7 +1004,13 @@ export default function RepoEvaluationPage() {
               {userResumes.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setCvInputType("vault")}
+                  onClick={() => {
+                    setCvInputType("vault");
+                    if (!selectedResumeId && userResumes.length > 0) {
+                      const def = userResumes.find((r) => r.is_default) || userResumes[0];
+                      setSelectedResumeId(def.id);
+                    }
+                  }}
                   className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] ${
                     cvInputType === "vault"
                       ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 shadow-2xs"

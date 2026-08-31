@@ -105,15 +105,15 @@ jobs:
           echo "✅ BUILD VÀ PUSH ECR THÀNH CÔNG!"
 
   # ===========================================================================
-  # Giai đoạn 3: SSH vào AWS EC2 và Triển khai Container Backend
+  # Giai đoạn 3: SSH vào AWS EC2 và Rebuild Container Backend
   # ===========================================================================
   deploy-ec2:
-    name: "3. Deploy & Run Container (AWS EC2)"
+    name: "3. Rebuild & Run Container (AWS EC2)"
     needs: [deploy-database, build-and-push-ecr]
-    if: always()
+    if: needs.build-and-push-ecr.result == 'success' || needs.build-and-push-ecr.result == 'skipped'
     runs-on: ubuntu-latest
     steps:
-      - name: "🚀 Kết nối SSH và chạy Container mới trên EC2"
+      - name: "🚀 Kết nối SSH và Rebuild Container trên EC2"
         if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -160,13 +160,13 @@ jobs:
                 echo "Đang dừng container backend hiện tại..."
                 docker stop backend || true
                 docker rm -f backend || true
-                echo "Đã dọn dẹp container backend cũ."
+                echo "Đã dọn dẹp container backend cũ thành công."
               else
                 echo "Chưa có container backend nào đang chạy."
               fi
 
               echo "=================================================="
-              echo "🚀 5. KHỞI CHẠY CONTAINER BACKEND MỚI"
+              echo "🚀 5. KHỞI CHẠY CONTAINER BACKEND MỚI (REBUILT)"
               echo "=================================================="
               mkdir -p "$HOME/data"
 
@@ -201,7 +201,7 @@ jobs:
               docker image prune -f || true
 
               echo "=================================================="
-              echo "📊 7. TRẠNG THÁI CONTAINER HIỆN TẠI"
+              echo "📊 7. TRẠNG THÁI CONTAINER HIỆN TẠI SAU KHI REBUILD"
               echo "=================================================="
               docker ps --filter name=backend --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"
 
@@ -229,7 +229,7 @@ jobs:
             fi
 
             echo "=================================================="
-            echo "✅ HOÀN TẤT BƯỚC KHỞI CHẠY CONTAINER TRÊN EC2!"
+            echo "✅ HOÀN TẤT REBUILD VÀ KHỞI CHẠY CONTAINER TRÊN EC2!"
             echo "=================================================="
 
   # ===========================================================================
@@ -324,3 +324,98 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: ./
+
+  # ===========================================================================
+  # Giai đoạn 6: Tổng kết CD Deployment & Dashboard Trạng thái EC2 Rebuild
+  # ===========================================================================
+  deploy-summary:
+    name: "6. CD Summary & EC2 Status"
+    needs:
+      - deploy-database
+      - build-and-push-ecr
+      - deploy-ec2
+      - health-check-ec2
+      - deploy-frontend
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: "📊 Tạo bảng Dashboard tổng kết hiển thị trên GitHub Actions UI"
+        run: |
+          echo "=== XUẤT BẢNG TỔNG KẾT DEPLOYMENT & TRẠNG THÁI EC2 ==="
+          
+          # Hàm chuyển đổi kết quả job sang biểu tượng trực quan
+          get_badge() {
+            case "$1" in
+              "success") echo "✅ Thành công" ;;
+              "failure") echo "❌ Thất bại" ;;
+              "cancelled") echo "🛑 Đã hủy" ;;
+              "skipped") echo "⚪ Bỏ qua" ;;
+              *) echo "❓ $1" ;;
+            esac
+          }
+
+          DB_RES=$(get_badge "${{ needs.deploy-database.result }}")
+          ECR_RES=$(get_badge "${{ needs.build-and-push-ecr.result }}")
+          EC2_DEPLOY_RES=$(get_badge "${{ needs.deploy-ec2.result }}")
+          EC2_HEALTH_RES=$(get_badge "${{ needs.health-check-ec2.result }}")
+          VERCEL_RES=$(get_badge "${{ needs.deploy-frontend.result }}")
+
+          # Xác định trạng thái Rebuild EC2
+          if [ "${{ needs.deploy-ec2.result }}" = "success" ]; then
+            EC2_REBUILD_STATUS="🚀 **ĐÃ REBUILD & KHỞI CHẠY THÀNH CÔNG**"
+          elif [ "${{ needs.deploy-ec2.result }}" = "skipped" ]; then
+            EC2_REBUILD_STATUS="⚪ **BỎ QUA (Thiếu cấu hình hoặc bước trước lỗi)**"
+          elif [ "${{ needs.deploy-ec2.result }}" = "failure" ]; then
+            EC2_REBUILD_STATUS="❌ **REBUILD THẤT BẠI (Vui lòng kiểm tra log SSH)**"
+          else
+            EC2_REBUILD_STATUS="❓ **${{ needs.deploy-ec2.result }}**"
+          fi
+
+          # Xuất báo cáo Markdown vào $GITHUB_STEP_SUMMARY để hiển thị trên giao diện
+          cat << EOF >> $GITHUB_STEP_SUMMARY
+          # 🚀 CD Deployment & EC2 Rebuild Dashboard
+
+          > **Thông tin phiên triển khai:**
+          > - **Nhánh kích hoạt**: \`${{ github.ref_name }}\` (\`${{ github.ref }}\`)
+          > - **Commit SHA**: \`${{ github.sha }}\`
+          > - **Người kích hoạt**: @${{ github.actor }}
+          > - **Sự kiện**: \`${{ github.event_name }}\`
+
+          ---
+
+          ## 🖥️ Trạng Thái Rebuild & Triển Khai AWS EC2
+
+          | Tiêu chí | Trạng thái / Chi tiết |
+          | :--- | :--- |
+          | **Trạng thái Rebuild EC2** | $EC2_REBUILD_STATUS |
+          | **Container Name** | \`backend\` (Cổng \`8000:8000\`) |
+          | **Docker Image Tag** | \`${{ github.sha }}\` / \`latest\` |
+          | **Kết nối SSH & Rebuild** | $EC2_DEPLOY_RES |
+          | **Kiểm tra Health Check EC2** | $EC2_HEALTH_RES (\`http://127.0.0.1:8000/health\`) |
+          | **Public API Endpoint** | [https://api.clumsytryhard.id.vn/health](https://api.clumsytryhard.id.vn/health) |
+
+          ---
+
+          ## 📊 Bảng Tổng Hợp Trạng Thái Triển Khai
+
+          | # | Giai đoạn | Công việc | Kết quả |
+          | :---: | :--- | :--- | :---: |
+          | **1** | Database | Database Migrations (Supabase Cloud) | $DB_RES |
+          | **2** | Container Image | Build & Push Image (Amazon ECR) | $ECR_RES |
+          | **3** | **Deploy EC2** | **Rebuild & Run Container (AWS EC2)** | **$EC2_DEPLOY_RES** |
+          | **4** | **Health Check**| **Health Check & Diagnostics (AWS EC2)** | **$EC2_HEALTH_RES** |
+          | **5** | Deploy Web | Deploy Frontend Production (Vercel) | $VERCEL_RES |
+
+          ---
+
+          EOF
+
+          echo "Đã ghi bảng tổng kết thành công vào \$GITHUB_STEP_SUMMARY."
+
+          if [ "${{ needs.deploy-ec2.result }}" = "failure" ] || [ "${{ needs.health-check-ec2.result }}" = "failure" ]; then
+            echo "❌ Quá trình deploy EC2 hoặc Health Check thất bại."
+            exit 1
+          fi
+          echo "🎉 Toàn bộ quá trình CD Deploy đã hoàn tất thành công!"
+

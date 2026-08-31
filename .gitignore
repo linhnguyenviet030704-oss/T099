@@ -107,3 +107,6 @@ supabase/.temp/
 .superpowers/
 
 report/
+
+docs/superpowers/*
+docs/testing_scripts.md

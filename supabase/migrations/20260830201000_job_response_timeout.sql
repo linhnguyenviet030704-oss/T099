@@ -5,20 +5,20 @@
 
 -- Thêm cột timeout vào job_posts
 alter table public.job_posts
-add column time_max_until_response interval not null default interval '3 days';
+add column if not exists time_max_until_response interval not null default interval '3 days';
 
 comment on column public.job_posts.time_max_until_response is
   'Thời gian tối đa recruiter phải phản hồi CV. Sau thời gian này, application tự động rejected và recruiter bị trừ điểm.';
 
 -- Thêm cột deadline vào applications
 alter table public.job_submits
-add column response_deadline_at timestamptz;
+add column if not exists response_deadline_at timestamptz;
 
 comment on column public.job_submits.response_deadline_at is
   'Deadline recruiter phải phản hồi CV. = applied_at + job.time_max_until_response. NULL khi đã phản hồi hoặc không còn pending.';
 
 -- Index cho query auto-reject
-create index applications_pending_deadline_idx
+create index if not exists applications_pending_deadline_idx
   on public.job_submits (response_deadline_at)
   where current_status = 'pending' and response_deadline_at is not null;
 
@@ -62,6 +62,7 @@ begin
 end;
 $$;
 
+drop trigger if exists applications_handle_deadline on public.job_submits;
 create trigger applications_handle_deadline
   before insert or update on public.job_submits
   for each row execute function public.handle_application_deadline();

@@ -3,9 +3,14 @@
 -- Purpose: Async email sending với retry + idempotency
 -- =============================================================================
 
-create type public.email_status as enum ('pending', 'sent', 'failed', 'cancelled');
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'email_status') then
+    create type public.email_status as enum ('pending', 'sent', 'failed', 'cancelled');
+  end if;
+end $$;
 
-create table public.email_outbox (
+create table if not exists public.email_outbox (
   id uuid primary key default gen_random_uuid(),
   to_user_id uuid not null references public.profiles(id) on delete cascade,
   template text not null,
@@ -21,11 +26,11 @@ create table public.email_outbox (
   updated_at timestamptz not null default now()
 );
 
-create index email_outbox_pending_idx
+create index if not exists email_outbox_pending_idx
   on public.email_outbox (next_retry_at)
   where status in ('pending', 'failed') and attempts < max_attempts;
 
-create index email_outbox_idempotency_idx
+create index if not exists email_outbox_idempotency_idx
   on public.email_outbox (idempotency_key)
   where idempotency_key is not null;
 

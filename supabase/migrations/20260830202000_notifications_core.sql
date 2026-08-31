@@ -4,20 +4,25 @@
 -- =============================================================================
 
 -- Enum notification type
-create type public.notification_type as enum (
-  'application_submitted',
-  'application_status_changed',
-  'interview_scheduled',
-  'interview_response',
-  'application_auto_rejected',
-  'reputation_decreased',
-  'reputation_increased',
-  'interview_reminder'
-);
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'notification_type') then
+    create type public.notification_type as enum (
+      'application_submitted',
+      'application_status_changed',
+      'interview_scheduled',
+      'interview_response',
+      'application_auto_rejected',
+      'reputation_decreased',
+      'reputation_increased',
+      'interview_reminder'
+    );
+  end if;
+end $$;
 
 
 -- Bảng notifications
-create table public.notifications (
+create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   notification_type public.notification_type not null,
@@ -32,14 +37,14 @@ create table public.notifications (
 );
 
 -- Indexes
-create index notifications_user_created_idx
+create index if not exists notifications_user_created_idx
   on public.notifications (user_id, created_at desc);
 
-create index notifications_user_unread_idx
+create index if not exists notifications_user_unread_idx
   on public.notifications (user_id, created_at desc)
   where not is_read;
 
-create index notifications_idempotency_idx
+create index if not exists notifications_idempotency_idx
   on public.notifications (idempotency_key)
   where idempotency_key is not null;
 
@@ -64,6 +69,7 @@ begin
 end;
 $$;
 
+drop trigger if exists notifications_set_read_at on public.notifications;
 create trigger notifications_set_read_at
   before update on public.notifications
   for each row execute function public.set_notification_read_at();
@@ -71,11 +77,13 @@ create trigger notifications_set_read_at
 -- RLS policies
 alter table public.notifications enable row level security;
 
+drop policy if exists "notifications_select_own" on public.notifications;
 create policy "notifications_select_own"
   on public.notifications for select
   to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "notifications_update_own" on public.notifications;
 create policy "notifications_update_own"
   on public.notifications for update
   to authenticated
@@ -147,4 +155,12 @@ comment on function public.create_notification is
   'Tạo notification. CHỈ service_role được gọi (không cho authenticated để tránh spam).';
 
 -- Enable Realtime publication
-alter publication supabase_realtime add table public.notifications;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
+  ) then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end $$;

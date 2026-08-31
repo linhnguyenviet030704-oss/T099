@@ -58,6 +58,7 @@ begin
 end;
 $$;
 
+drop trigger if exists applications_penalize_candidate_withdrawal on public.job_submits;
 create trigger applications_penalize_candidate_withdrawal
   after update on public.job_submits
   for each row execute function public.penalize_candidate_withdrawal();

@@ -5,13 +5,21 @@
 
 -- Thêm cột reputation cho profiles (tách theo role)
 alter table public.profiles
-add column recruiter_reputation_score integer not null default 100,
-add column candidate_reputation_score integer not null default 100;
+add column if not exists recruiter_reputation_score integer not null default 100,
+add column if not exists candidate_reputation_score integer not null default 100;
 
 -- CHECK constraints: score phải trong khoảng 0-100
 alter table public.profiles
+drop constraint if exists profiles_recruiter_reputation_check;
+
+alter table public.profiles
 add constraint profiles_recruiter_reputation_check
-  check (recruiter_reputation_score between 0 and 100),
+  check (recruiter_reputation_score between 0 and 100);
+
+alter table public.profiles
+drop constraint if exists profiles_candidate_reputation_check;
+
+alter table public.profiles
 add constraint profiles_candidate_reputation_check
   check (candidate_reputation_score between 0 and 100);
 
@@ -22,14 +30,14 @@ comment on column public.profiles.candidate_reputation_score is
   'Điểm uy tín của user với vai trò candidate (0-100). Bị trừ khi vi phạm cam kết phỏng vấn.';
 
 -- Index cho sorting theo reputation
-create index profiles_recruiter_reputation_idx
+create index if not exists profiles_recruiter_reputation_idx
   on public.profiles (recruiter_reputation_score desc);
 
-create index profiles_candidate_reputation_idx
+create index if not exists profiles_candidate_reputation_idx
   on public.profiles (candidate_reputation_score desc);
 
 -- Bảng reputation_events: Audit log cho mọi thay đổi điểm
-create table public.reputation_events (
+create table if not exists public.reputation_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   role text not null check (role in ('recruiter', 'candidate')),
@@ -42,10 +50,10 @@ create table public.reputation_events (
   created_at timestamptz not null default now()
 );
 
-create index reputation_events_user_role_idx
+create index if not exists reputation_events_user_role_idx
   on public.reputation_events (user_id, role, created_at desc);
 
-create index reputation_events_idempotency_idx
+create index if not exists reputation_events_idempotency_idx
   on public.reputation_events (idempotency_key) where idempotency_key is not null;
 
 comment on table public.reputation_events is
@@ -54,6 +62,7 @@ comment on table public.reputation_events is
 -- RLS cho reputation_events (read-only cho user)
 alter table public.reputation_events enable row level security;
 
+drop policy if exists "reputation_events_select_own" on public.reputation_events;
 create policy "reputation_events_select_own"
   on public.reputation_events for select
   to authenticated
@@ -208,6 +217,7 @@ begin
 end;
 $$;
 
+drop trigger if exists profiles_protect_reputation on public.profiles;
 create trigger profiles_protect_reputation
   before update on public.profiles
   for each row execute function public.protect_reputation_scores();

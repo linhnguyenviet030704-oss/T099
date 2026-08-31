@@ -47,6 +47,7 @@ end;
 $$;
 
 -- 4. Bổ sung RLS policies cho Recruiter trên interview_invitations
+drop policy if exists "interview_invitations_recruiter_select" on public.interview_invitations;
 create policy "interview_invitations_recruiter_select"
   on public.interview_invitations for select
   to authenticated
@@ -63,6 +64,7 @@ create policy "interview_invitations_recruiter_select"
     )
   );
 
+drop policy if exists "interview_invitations_recruiter_insert" on public.interview_invitations;
 create policy "interview_invitations_recruiter_insert"
   on public.interview_invitations for insert
   to authenticated
@@ -79,6 +81,7 @@ create policy "interview_invitations_recruiter_insert"
     )
   );
 
+drop policy if exists "interview_invitations_recruiter_update" on public.interview_invitations;
 create policy "interview_invitations_recruiter_update"
   on public.interview_invitations for update
   to authenticated

@@ -56,6 +56,7 @@ begin
 end;
 $$;
 
+drop trigger if exists applications_notify_recruiter_on_submit on public.job_submits;
 create trigger applications_notify_recruiter_on_submit
   after insert on public.job_submits
   for each row execute function public.notify_recruiter_on_application_submit();
@@ -111,6 +112,7 @@ begin
 end;
 $$;
 
+drop trigger if exists applications_notify_candidate_on_status_change on public.job_submits;
 create trigger applications_notify_candidate_on_status_change
   after update on public.job_submits
   for each row execute function public.notify_candidate_on_status_change();

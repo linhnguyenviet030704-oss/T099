@@ -499,8 +499,8 @@ def test_extract_slot_start_iso():
 @pytest.mark.asyncio
 async def test_candidate_confirm_slot_with_range_string():
     """Ứng viên xác nhận slot có dạng chuỗi range start/end -> repository nhận start ISO hợp lệ."""
-    from backend.app.services.application_service import ApplicationService
     from backend.app.api.schemas.application import CandidateInterviewResponseRequest
+    from backend.app.services.application_service import ApplicationService
 
     app_id = uuid4()
     candidate_id = uuid4()

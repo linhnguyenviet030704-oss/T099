@@ -260,3 +260,38 @@ async def test_candidate_respond_interview_api(api_client: AsyncClient):
     data = response.json()
     assert data["status"] == "confirmed"
 
+
+@pytest.mark.asyncio
+async def test_candidate_respond_interview_api_with_slot_range(api_client: AsyncClient):
+    """Ứng viên phản hồi lời mời với slot dạng range 'start/end' -> 200 OK."""
+    user_id = uuid4()
+    app_id = uuid4()
+    inv_id = uuid4()
+
+    from backend.app.api.schemas.application import InterviewInvitationResponse
+
+    mock_app_service = AsyncMock()
+    mock_app_service.candidate_respond_interview.return_value = InterviewInvitationResponse(
+        id=inv_id,
+        application_id=app_id,
+        scheduled_at=datetime(2026, 9, 11, 17, 0, 0, tzinfo=UTC),
+        proposed_time_slots=["2026-09-11T17:00:00/2026-09-15T11:00:00"],
+        status="confirmed",
+    )
+
+    app.dependency_overrides[get_application_service] = lambda: mock_app_service
+
+    token = _make_token(sub=str(user_id))
+    response = await api_client.post(
+        f"/api/v1/applications/{app_id}/interview-invitation/respond",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "action": "confirm",
+            "selected_slot": "2026-09-11T17:00:00/2026-09-15T11:00:00",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "confirmed"
+
+

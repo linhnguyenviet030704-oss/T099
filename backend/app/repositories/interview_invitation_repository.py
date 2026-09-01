@@ -10,6 +10,22 @@ from uuid import UUID
 from supabase import Client
 
 
+def _normalize_scheduled_at(val: str | None) -> str | None:
+    """Chuẩn hóa giá trị scheduled_at để đảm bảo luôn là ISO string hợp lệ cho kiểu timestamptz."""
+    if not val:
+        return None
+    clean = val.strip()
+    if "/" in clean:
+        clean = clean.split("/")[0].strip()
+    elif " - " in clean:
+        clean = clean.split(" - ")[0].strip()
+    try:
+        dt = datetime.fromisoformat(clean.replace("Z", "+00:00"))
+        return dt.isoformat()
+    except Exception:
+        return clean
+
+
 class InterviewInvitationRepository:
     def __init__(self, client: Client) -> None:
         self._client = client
@@ -66,7 +82,7 @@ class InterviewInvitationRepository:
                 "candidate_response_note": None,
             }
             if scheduled_at is not None:
-                payload["scheduled_at"] = scheduled_at
+                payload["scheduled_at"] = _normalize_scheduled_at(scheduled_at)
             if location is not None:
                 payload["location"] = location
             if meeting_link is not None:
@@ -125,11 +141,12 @@ class InterviewInvitationRepository:
             if not existing_row:
                 return None
 
+            norm_slot = _normalize_scheduled_at(selected_slot)
             result = (
                 self._client.table("interview_invitations")
                 .update({
                     "status": "confirmed",
-                    "scheduled_at": selected_slot,
+                    "scheduled_at": norm_slot,
                     "responded_at": datetime.now().astimezone().isoformat(),
                 })
                 .eq("id", existing_row["id"])
@@ -196,9 +213,11 @@ class InterviewInvitationRepository:
             if not existing_row:
                 return None
 
+            norm_slot = _normalize_scheduled_at(selected_slot)
             update_payload: dict[str, Any] = {
                 "status": "confirmed",
-                "scheduled_at": selected_slot,
+                "scheduled_at": norm_slot,
+                "responded_at": datetime.now().astimezone().isoformat(),
             }
             if meeting_link is not None:
                 update_payload["meeting_link"] = meeting_link

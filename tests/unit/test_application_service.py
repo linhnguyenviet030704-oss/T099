@@ -375,7 +375,7 @@ async def test_candidate_confirm_interview_slot():
     assert res.scheduled_at is not None
     interview_repo.candidate_confirm_slot.assert_called_once_with(
         application_id=app_id,
-        selected_slot="2026-09-02T09:00:00Z",
+        selected_slot="2026-09-02T09:00:00+00:00",
     )
 
 
@@ -480,5 +480,66 @@ def test_validate_and_normalize_time_slots_invalid_duration():
         validate_and_normalize_time_slots([
             {"start_time": "2026-09-01T10:00:00", "end_time": "2026-09-01T10:05:00"} # 5 phút < 15 phút
         ])
+
+
+def test_extract_slot_start_iso():
+    """Kiểm tra trích xuất start_time từ các định dạng chuỗi slot khác nhau."""
+    from backend.app.services.application_service import extract_slot_start_iso
+
+    # Dạng start/end với ISO datetime
+    assert extract_slot_start_iso("2026-09-11T17:00:00/2026-09-15T11:00:00") == "2026-09-11T17:00:00"
+    # Dạng start - end
+    assert extract_slot_start_iso("2026-09-11T09:00:00 - 2026-09-11T10:00:00") == "2026-09-11T09:00:00"
+    # Dạng ISO có timezone Z
+    assert extract_slot_start_iso("2026-09-11T17:00:00Z") == "2026-09-11T17:00:00+00:00"
+    # Dạng ISO timestamp đơn lẻ
+    assert extract_slot_start_iso("2026-09-11T17:00:00") == "2026-09-11T17:00:00"
+
+
+@pytest.mark.asyncio
+async def test_candidate_confirm_slot_with_range_string():
+    """Ứng viên xác nhận slot có dạng chuỗi range start/end -> repository nhận start ISO hợp lệ."""
+    from backend.app.services.application_service import ApplicationService
+    from backend.app.api.schemas.application import CandidateInterviewResponseRequest
+
+    app_id = uuid4()
+    candidate_id = uuid4()
+    job_id = uuid4()
+
+    app_data = {
+        "id": str(app_id),
+        "job_post_id": str(job_id),
+        "applicant_user_id": str(candidate_id),
+        "resume_id": str(uuid4()),
+        "current_status": "interview",
+    }
+    app_repo = AsyncMock()
+    app_repo.get_by_id.return_value = app_data
+
+    interview_repo = AsyncMock()
+    interview_repo.candidate_confirm_slot.return_value = {
+        "id": str(uuid4()),
+        "application_id": str(app_id),
+        "scheduled_at": "2026-09-11T17:00:00",
+        "proposed_time_slots": ["2026-09-11T17:00:00/2026-09-15T11:00:00"],
+        "status": "confirmed",
+        "responded_at": "2026-09-01T12:00:00Z",
+        "created_at": "2026-09-01T11:00:00Z",
+    }
+
+    service = ApplicationService(app_repo, AsyncMock(), MagicMock(), interview_repo)
+
+    req = CandidateInterviewResponseRequest(
+        action="confirm",
+        selected_slot="2026-09-11T17:00:00/2026-09-15T11:00:00",
+    )
+    res = await service.candidate_respond_interview(app_id, candidate_id, req)
+
+    assert res.status == "confirmed"
+    assert res.scheduled_at is not None
+    interview_repo.candidate_confirm_slot.assert_called_once_with(
+        application_id=app_id,
+        selected_slot="2026-09-11T17:00:00",
+    )
 
 

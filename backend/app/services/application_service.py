@@ -53,6 +53,23 @@ def _parse_slot_time(val: str) -> datetime:
         raise BadRequestError(f"Định dạng thời gian không hợp lệ: {val}")
 
 
+def extract_slot_start_iso(slot_str: str) -> str:
+    """Trích xuất mốc thời gian bắt đầu từ chuỗi slot (dạng ISO, 'start/end', hoặc 'start - end') để lưu vào cột scheduled_at (timestamptz)."""
+    if not slot_str:
+        raise BadRequestError("Vui lòng chọn mốc thời gian phỏng vấn")
+
+    clean = slot_str.strip()
+    if "/" in clean:
+        start_part = clean.split("/")[0].strip()
+    elif " - " in clean:
+        start_part = clean.split(" - ")[0].strip()
+    else:
+        start_part = clean
+
+    dt = _parse_slot_time(start_part)
+    return dt.isoformat()
+
+
 def validate_and_normalize_time_slots(slots: list[Any]) -> list[str]:
     """Kiểm tra và chuẩn hóa danh sách các khoảng thời gian phỏng vấn:
     1. start_time và end_time hợp lệ (end_time > start_time, tối thiểu 15 phút).
@@ -344,9 +361,10 @@ class ApplicationService:
         if request.action == "confirm":
             if not request.selected_slot:
                 raise BadRequestError("Vui lòng chọn mốc thời gian phỏng vấn")
+            start_iso = extract_slot_start_iso(request.selected_slot)
             res_data = await self._interview_repo.candidate_confirm_slot(
                 application_id=application_id,
-                selected_slot=request.selected_slot,
+                selected_slot=start_iso,
             )
         elif request.action == "reschedule":
             if not request.proposed_time_slots:
@@ -383,9 +401,10 @@ class ApplicationService:
             client=self._client,
         )
 
+        start_iso = extract_slot_start_iso(request.selected_slot)
         res_data = await self._interview_repo.recruiter_confirm_rescheduled_slot(
             application_id=application_id,
-            selected_slot=request.selected_slot,
+            selected_slot=start_iso,
             meeting_link=request.meeting_link,
             location=request.location,
             note=request.note,

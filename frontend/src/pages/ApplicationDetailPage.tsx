@@ -246,22 +246,9 @@ export default function ApplicationDetailPage() {
   };
 
 
-  // Định dạng ngày giờ hiển thị thân thiện
+  // Định dạng ngày giờ hiển thị thân thiện (hỗ trợ cả dạng slot range lẫn ISO timestamp đơn lẻ)
   const formatSlotDateTime = (isoString: string) => {
-    try {
-      const date = new Date(isoString);
-      if (isNaN(date.getTime())) return isoString;
-      return date.toLocaleString(lang === "en" ? "en-US" : "vi-VN", {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return isoString;
-    }
+    return formatSlotDisplay(isoString, lang);
   };
 
   if (loading) {
